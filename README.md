@@ -1751,9 +1751,20 @@ Milestones (execution order — React first, it unblocks Phase 21's dogfooding):
   jumping; StrictMode double-mount left exactly ONE live editor; external `value`
   changes sync in; reactive theme applies; the ref surface works from app code; zero
   page errors.
-- [ ] 18.3 — Vue 3 wrapper (`@open-editor-hq/vue`): `v-model`, template-ref instance
-- [ ] 18.4 — Vue: Composition-API idioms (`useOpenEditor` composable), same
-  caret-stability e2e
+- [x] 18.3 — *(done 2026-07-14)* **Vue 3 wrapper** (`@open-editor-hq/vue`,
+  `packages/vue`): render-function source (no SFC compiler, zero transforms),
+  `v-model` with the same no-echo-loop diffing as React (spied `setHTML` never
+  re-entered by the editor's own update), emits `change/ready/focus/blur/error`,
+  reactive `readOnly/theme/direction`, plugins prop, template-ref surface
+  (`editor/getHTML/getMarkdown/focus`). **Vue lesson captured in code comments:**
+  accessor getters on `expose()` objects are not reliably proxied — the instance is
+  exposed as a shallowRef (auto-unwrapped), and tests grab it via the public `ready`
+  emit.
+- [x] 18.4 — *(done 2026-07-14)* **`useOpenEditor` composable** (bring-your-own
+  element ref, lifecycle-bound) + the live proof: a real Vite+Vue 3.5 app from packed
+  tarballs driven in Chromium — char-by-char `v-model` typing with a byte-stable
+  caret, external sync, reactive theme, ref markdown, zero page errors. 5 unit tests
+  (@vue/test-utils).
 - [ ] 18.5 — Angular wrapper (`@open-editor-hq/angular`): `ControlValueAccessor` for
   forms, `@ViewChild` instance access
 - [ ] 18.6 — All wrappers: zero dependencies beyond their own framework peer (audited
