@@ -3,7 +3,7 @@
 **Open Editor** — a modern, zero-dependency rich text editor in pure JavaScript.
 No framework required, no license key, no telemetry. MIT-licensed.
 
-> **Stable.** Fully gated in CI: 1,982 unit + 698 e2e tests across
+> **Stable.** Fully gated in CI: 2,055 unit + 782 e2e tests across
 > Chromium/Firefox/WebKit, XSS-, size-, accessibility- (axe, WCAG 2.1 AA),
 > and API-contract-gated. Ships with a WCAG conformance statement, a plugin
 > authoring guide, and four UI locale packs (es/fr/de/ar incl. RTL).
@@ -21,7 +21,10 @@ No framework required, no license key, no telemetry. MIT-licensed.
 - **Modern UX built-in, free** — slash commands, markdown-as-you-type, @mentions,
   to-do lists, block drag-reorder, source view with syntax highlighting, find &
   replace (whole-word), tables with per-cell properties, responsive `<picture>`
-  image output, dark/minimal/auto themes, RTL, autosave with crash recovery.
+  image output, dark/minimal/auto themes, RTL, autosave with crash recovery —
+  plus (1.1.0): change case, typing autocorrect, page break, show blocks, Alt+0
+  shortcut reference, `:emoji` autocomplete, bookmarks, style presets,
+  text-part language, and `getMarkdown()` export.
 
 ## Install
 
@@ -68,7 +71,7 @@ editor.plugins.install(createTablePlugin());
 editor.plugins.install(createTodoListPlugin());
 ```
 
-18 plugins ship in the box: image (upload/resize/properties/responsive
+19 plugins ship in the box: bookmarks (named anchors), image (upload/resize/properties/responsive
 `<picture>`), link, table, media embed, find & replace, source view, code
 block, special characters, emoji, format painter, preview, spellcheck toggle,
 resizable editor, slash commands, markdown autoformat, @mentions, block

@@ -37,6 +37,7 @@ const editor = new OpenEditor('#app', {
 // 3. Read / write content.
 editor.setHTML('<p>Hello <strong>world</strong></p>');
 const html = editor.getHTML();          // sanitized HTML out
+const md   = editor.getMarkdown();      // GitHub-flavored Markdown out (1.1.0)
 editor.on('onChange', ({ html }) => save(html));
 ```
 
@@ -337,7 +338,7 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 
 Nearest-term priority order: **npm Publishing (17) → Free-Tier Competitive Sweep (17.5) →
 Framework Wrappers (18) → Premium Layer (19) → Engineering Moats (20, ongoing)**.
-Phase 17 is the hard gate — nothing in 17.5+ starts until `npm install open-editor` works.
+Phase 17 is the hard gate — nothing in 17.5+ starts until `npm install @open-editor-hq/core` works. *(Both are done — 1.0.0 is live; the 17.5 sweep ships as 1.1.0.)*
 (Accessibility & Mobile (14), Theme System (15), Public API freeze (16), Production
 Hardening (16.5), and Modern Editing UX (16.6) are all complete). A full re-audit against
 CKEditor/Jodit (2026-07) found Phases 0–16.6 genuinely solid with only cosmetic doc drift
