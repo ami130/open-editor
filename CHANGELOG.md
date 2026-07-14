@@ -4,6 +4,30 @@ All notable changes to Open Editor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 [Semantic Versioning](https://semver.org/) once 1.0.0 is published.
 
+## [1.1.0] — 2026-07-14
+
+### Added
+- **17.5 Free-Tier Competitive Sweep:** change case, typing
+  autocorrect (`textTransformations`), page break, show blocks, Alt+0
+  keyboard-shortcut dialog, `:emoji` autocomplete, bookmarks/named anchors,
+  styles dropdown (`styles`), island type-around, text-part language
+  (`textPartLanguages`), adversarially-locked sanitizer extension,
+  `getMarkdown()` GFM export.
+
+### Fixed
+- **To-do list attributes were stripped by the sanitizer** — saved checklists
+  degraded to plain bullets on reload (`data-todo-list`/`data-todo`/
+  `data-checked`/checkbox roles now allowlisted; data-loss bug in 1.0.0).
+- **Firefox: select-all + typing shredded the document** into one paragraph
+  per keystroke (Firefox anchors select-all at the editor root); printable
+  keys now collapse multi-block/root-anchored selections through the proper
+  merge before insertion.
+- **Firefox/WebKit: childless block elements were invalid caret targets**
+  (typing spawned new paragraphs); the sanitizer now gives every empty block
+  its placeholder `<br>`.
+- Modal dialogs opened by commands no longer lose focus to the editor;
+  scrollable modal bodies are keyboard-reachable.
+
 ## [1.0.0] — 2026-07-14
 
 First stable release (supersedes `1.0.0-rc.1`, published 2026-07-14 under the

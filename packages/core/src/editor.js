@@ -15,6 +15,7 @@ import { editorLifecycleMixin } from './editor-lifecycle.js';
 import { editorMaxLengthMixin } from './editor-maxlength.js';
 import { editorApiMixin } from './editor-api.js';
 import { editorJsonMixin } from './editor-json.js';
+import { markdownMixin } from './markdown/markdown-export.js';
 import { editorViewMixin } from './editor-view.js';
 import { editorMobileMixin } from './editor-mobile.js';
 import { BASE_CSS } from './utils/base-css.js';
@@ -26,6 +27,7 @@ import { TooltipManager } from './ui/tooltip-manager.js';
 import { ContextMenuManager } from './ui/context-menu-manager.js';
 import { ToolbarManager } from './ui/toolbar/toolbar-manager.js';
 import { StatusBar } from './ui/toolbar/status-bar.js';
+import { installTypeAround } from './editing/type-around.js';
 import { InlineToolbar } from './ui/toolbar/inline-toolbar.js';
 import { BlockquoteToolbar } from './ui/toolbar/blockquote-toolbar.js';
 import { CommandAnnouncer } from './ui/command-announcer.js';
@@ -195,6 +197,8 @@ export class OpenEditor extends EventEmitter {
     if (this._config.blockquoteToolbar !== false) this.blockquoteToolbar = new BlockquoteToolbar(this, document);
     // 14.2 — command-state live region (announces Bold on/off etc. to SRs).
     this.commandAnnouncer = new CommandAnnouncer(this);
+    // 17.5.9 — hover escape-hatch around island blocks (table-at-start trap).
+    this._destroyTypeAround = installTypeAround(this);
   }
 
   _injectGlobalStyles() {
@@ -279,6 +283,7 @@ export class OpenEditor extends EventEmitter {
 Object.assign(OpenEditor.prototype, editorEventsMixin);
 Object.assign(OpenEditor.prototype, editorPasteMixin);
 Object.assign(OpenEditor.prototype, editorDomMixin);
+Object.assign(OpenEditor.prototype, markdownMixin); // 17.5.12 — getMarkdown()
 Object.assign(OpenEditor.prototype, editorLifecycleMixin);
 Object.assign(OpenEditor.prototype, editorMaxLengthMixin);
 Object.assign(OpenEditor.prototype, editorApiMixin);

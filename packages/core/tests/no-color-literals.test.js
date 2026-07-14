@@ -39,6 +39,7 @@ const STYLE_FILES = [
   'plugins/source/source-styles.js',
   'plugins/table/table-styles.js',
   'plugins/todo-list/todo-list-styles.js',
+  'plugins/bookmark/bookmark-styles.js',
   'plugins/block-drag/block-drag-styles.js',
   'plugins/mentions/mention-styles.js',
   'ui/caret-popup-styles.js',

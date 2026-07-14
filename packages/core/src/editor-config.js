@@ -72,6 +72,19 @@ export const DEFAULTS = {
   // { url } (or { src }); optionally { sources: [{srcset, media?, type?, sizes?}] }
   // to emit a responsive <picture> (16.7.8) — every srcset is scheme-checked.
   imageUploadUrl: null,
+  // 17.5.2 — typing autocorrect: (c)/(r)/(tm) symbols, 1/2-style fractions,
+  // -- / --- dashes, and smart quotes. true = all on (default), false = all
+  // off, or per-group: { symbols, fractions, dashes, smartQuotes }.
+  textTransformations: true,
+  // 17.5.8 — named style presets for the toolbar Styles dropdown:
+  // [{ label, element?, classes: [] }]. element = block tag applies the block
+  // + classes; absent/'span' wraps the selection in a classed <span>. null =
+  // no dropdown rendered.
+  styles: null,
+  // 17.5.10 — language list for the text-part-language dropdown:
+  // [{ code: 'ar', label: 'العربية' }]. RTL codes get dir="rtl" automatically.
+  // null = no dropdown rendered.
+  textPartLanguages: null,
 };
 
 const BANNED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

@@ -13,7 +13,7 @@ import {
 } from './text-commands.js';
 import {
   selectAllCommand, cutCommand, copyAsPlainTextCommand,
-  insertHTMLCommand, insertTextCommand, insertHorizontalRuleCommand,
+  insertHTMLCommand, insertTextCommand, insertHorizontalRuleCommand, insertPageBreakCommand,
   insertNonBreakingSpaceCommand,
 } from './insert-commands.js';
 import {
@@ -43,6 +43,10 @@ import {
   blockIndentCommand, blockOutdentCommand,
 } from './block-indent-commands.js';
 import { registerCaseCommands } from './case-commands.js';
+import { registerStylePresetCommands } from './style-preset-commands.js';
+import { registerLangCommands } from './lang-commands.js';
+import { openA11yHelpDialog } from '../ui/a11y-help-dialog.js';
+import { resolveLocale } from '../ui/toolbar/locale.js';
 import { CommandManager } from './command-manager.js';
 
 export function setupCommands(editor) {
@@ -58,12 +62,34 @@ export function setupCommands(editor) {
   editor.commands.register('inlineCode',            inlineCodeCommand);
   editor.commands.register('removeFormat',          removeFormatCommand);
   registerCaseCommands(editor); // 17.5.1 — changeCase('upper'|'lower'|'title')
+  registerStylePresetCommands(editor); // 17.5.8 — applyStyle(index) from config.styles
+  registerLangCommands(editor); // 17.5.10 — textPartLanguage('ar' | 'es-MX' | …)
+  // 17.5.4 — show blocks: outline block elements with tag labels (view-only
+  // toggle; flips a class on the editable, never touches content/getHTML).
+  // 17.5.5 — Alt+0 keyboard-shortcut reference dialog (readonly-exempt).
+  editor.commands.register('accessibilityHelp', {
+    execute(ed) {
+      // Open on the NEXT tick: the command pipeline's post-execute selection
+      // restore re-focuses the editor and would steal focus from the modal
+      // (found live: the dialog opened but the focus trap lost the fight, so
+      // Escape never reached the dialog). Deferring lets the modal take and
+      // keep focus after the pipeline is completely done.
+      setTimeout(() => {
+        if (!ed.isDestroyed()) openA11yHelpDialog(ed, resolveLocale(ed._config.locale));
+      }, 0);
+    },
+  });
+  editor.commands.register('showBlocks', {
+    execute(ed) { ed.getEditorElement().classList.toggle('oe-editor--show-blocks'); },
+    isActive(ed) { return ed.getEditorElement().classList.contains('oe-editor--show-blocks'); },
+  });
   editor.commands.register('selectAll',             selectAllCommand);
   editor.commands.register('cut',                   cutCommand);
   editor.commands.register('copyAsPlainText',       copyAsPlainTextCommand);
   editor.commands.register('insertHTML',            insertHTMLCommand);
   editor.commands.register('insertText',            insertTextCommand);
   editor.commands.register('insertHorizontalRule',  insertHorizontalRuleCommand);
+  editor.commands.register('insertPageBreak',       insertPageBreakCommand);
   editor.commands.register('insertNonBreakingSpace',insertNonBreakingSpaceCommand);
   editor.commands.register('fontSize',              fontSizeCommand);
   editor.commands.register('fontFamily',            fontFamilyCommand);
@@ -119,6 +145,7 @@ export function setupCommands(editor) {
   });
 
   // ── Keyboard shortcuts ──
+  editor.shortcuts.register('alt+0',        'accessibilityHelp', 'Keyboard shortcuts');
   editor.shortcuts.register('ctrl+b',       'bold',           'Bold');
   editor.shortcuts.register('meta+b',       'bold',           'Bold');
   editor.shortcuts.register('ctrl+i',       'italic',         'Italic');

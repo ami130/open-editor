@@ -172,6 +172,27 @@ export const editorEventsMixin = {
       if (handleDelete(this))           { e.preventDefault(); return; }
     }
 
+    // 17.5.6-found Firefox bug: OVERTYPING a selection that Firefox anchors at
+    // the EDITOR ROOT (its select-all does this) let the browser delete every
+    // block and then type into the bare root — one new <p> per keystroke burst
+    // (select-all → type = shredded document). Two cases, no preventDefault —
+    // the typed character inserts natively into the surviving valid block:
+    //  • multi-block selection → same merge as Backspace/Delete;
+    //  • root-anchored selection (getParentBlock = null, so the merge bails) →
+    //    delete the contents ourselves and restore the <p><br></p> floor.
+    if (!this._isComposing && !readOnly
+        && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!handleMultiBlockDelete(this)) {
+        const info = this.selection && this.selection.get();
+        const root = this.getEditorElement();
+        if (info && !info.collapsed
+            && (info.startNode === root || info.endNode === root)) {
+          info.range.deleteContents();
+          ensureEditorFloor(this);
+        }
+      }
+    }
+
     if (e.key === 'Tab' && !readOnly) {
       if (!this._isComposing && handleListTab(this, e.shiftKey)) {
         e.preventDefault();

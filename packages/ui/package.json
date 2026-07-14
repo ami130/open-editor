@@ -1,6 +1,6 @@
 {
   "name": "@open-editor-hq/ui",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Open Editor shared UI primitives — placeholder; UI primitives currently ship inside the core package (@open-editor-hq/core)",
   "type": "module",

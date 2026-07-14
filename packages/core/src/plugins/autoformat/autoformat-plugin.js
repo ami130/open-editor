@@ -9,8 +9,10 @@
  *
  * Implements { name, install, destroy }.
  */
-import { getParentBlock } from '../../selection/range-utils.js';
+import { getParentBlock, isInsideTag } from '../../selection/range-utils.js';
 import { matchBlockPattern, matchInlinePattern } from './autoformat-patterns.js';
+import { matchTransformation, transformationGroups } from './text-transformations.js';
+import { gatherTextBeforeCaret, mergeTextRun } from '../../utils/text-run.js';
 
 const BLOCK_TAGS_ALLOWING_AUTOFORMAT = new Set(['p', 'div']);
 
@@ -32,13 +34,56 @@ export function createAutoformatPlugin() {
 
     _check() {
       const editor = this._editor;
-      if (!editor || editor._config.autoformat === false) return;
+      if (!editor) return;
       if (editor._isComposing) return; // never mid-IME-composition
       const info = editor.selection && editor.selection.get();
       if (!info || !info.collapsed || !info.startNode || info.startNode.nodeType !== 3) return;
 
-      if (this._tryBlockPattern(editor, info)) return;
-      this._tryInlinePattern(editor, info);
+      // Markdown shortcuts (config.autoformat) and text transformations
+      // (config.textTransformations, 17.5.2) are independently gated.
+      if (editor._config.autoformat !== false) {
+        if (this._tryBlockPattern(editor, info)) return;
+        if (this._tryInlinePattern(editor, info)) return;
+      }
+      if (editor._config.textTransformations !== false) {
+        this._tryTransformation(editor, info);
+      }
+    },
+
+    // 17.5.2 — autocorrect: (c)→©, fractions, dashes, smart quotes.
+    _tryTransformation(editor, info) {
+      const node = info.startNode;
+      const root = editor.getEditorElement();
+      // Never inside code contexts — literal quotes/dashes matter there.
+      if (isInsideTag(node, 'code', root) || isInsideTag(node, 'pre', root)) return false;
+
+      const groups = transformationGroups(editor._config.textTransformations);
+
+      // Firefox/WebKit FRAGMENT live typing into multiple adjacent text nodes
+      // (found by the cross-browser e2e: the caret node held only ")" of a
+      // typed "(c)"). Match against the caret node PLUS its contiguous
+      // preceding text siblings; markup boundaries (non-text siblings) still
+      // stop the scan, so transformations never span inline elements.
+      const { text, prefixNodes } = gatherTextBeforeCaret(node, info.startOffset);
+
+      const match = matchTransformation(text, groups);
+      if (!match) return false;
+
+      // Snapshot BEFORE mutating so one undo restores the literal typed text
+      // ("(c)" comes back) — matching CKEditor's transformation-undo behavior.
+      if (editor.history) editor.history.takeSnapshot();
+
+      // Merge the fragments into the caret node so the splice below (and the
+      // caret restore) works on ONE node regardless of engine fragmentation.
+      mergeTextRun(node, prefixNodes, info.startOffset);
+
+      const caretInText = text.length; // caret position within the merged "before" text
+      const tail = node.nodeValue.slice(caretInText);
+      node.nodeValue = text.slice(0, match.start) + match.replacement + text.slice(match.end) + tail;
+      const caret = match.start + match.replacement.length + (text.length - match.end);
+      editor.selection.set(node, caret, node, caret);
+      if (editor._onChangeFn) editor._onChangeFn();
+      return true;
     },
 
     _tryBlockPattern(editor, info) {

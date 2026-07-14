@@ -15,6 +15,7 @@ import { buildCharGrid } from '../chars/char-grid.js';
 import { injectCharStyles } from '../chars/char-styles.js';
 import { resolveEmojis, EMOJI_CATEGORIES } from './emoji-data.js';
 import { escapeLinkBoundary } from '../chars/char-insert-utils.js';
+import { installEmojiAutocomplete } from './emoji-autocomplete.js';
 
 const EMOJI_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <circle cx="12" cy="12" r="10"/>
@@ -32,9 +33,22 @@ export function createEmojiPlugin() {
       this._editor = editor;
       const doc = (typeof document !== 'undefined') ? document : null;
       if (doc) injectCharStyles(doc);
+      // 17.5.6 — inline :shortcode suggestions (same dataset as the grid).
+      if (doc) {
+        this._destroyAutocomplete = installEmojiAutocomplete(
+          this, editor, resolveEmojis(editor._config.emojis), doc
+        );
+      }
     },
 
-    destroy() { this._editor = null; },
+    destroy() {
+      if (this._destroyAutocomplete) { this._destroyAutocomplete(); this._destroyAutocomplete = null; }
+      this._editor = null;
+    },
+
+    onKeyDown(e) {
+      return this._acKeyDown ? this._acKeyDown(e) : false;
+    },
 
     getToolbarButtons() {
       return [{

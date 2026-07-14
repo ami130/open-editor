@@ -329,8 +329,8 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **Production hardening** (perf throttle + CI gates, dirty guard, crash recovery, leak test) | 16.5 | ✅ done |
 | **Modern Editing UX** (slash-commands, markdown autoformat, @mentions, block drag-reorder) | 16.6 | ✅ done |
 | **Competitive Parity Pass** (list style auto-progression, typed-URL autolink, to-do lists, F&R whole-word, table properties split, table header-click selection, source syntax highlighting, responsive images, selection word count) | 16.7 | ✅ done |
-| **npm Publishing** (ships as `@open-editor-hq/core` — rc.1 LIVE on `next`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, WCAG conformance statement, plugin guide, 4 locale packs) | 17 | **13/14 — only the 1.0.0 publish tap remains** |
-| **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | planned |
+| **npm Publishing** (ships as `@open-editor-hq/core` — rc.1 LIVE on `next`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, WCAG conformance statement, plugin guide, 4 locale packs) | 17 | ✅ **done — 1.0.0 LIVE on npm (2026-07-14)** |
+| **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | ✅ **12/12 core done (2026-07-14) — ships as 1.1.0; 2 stretch items deferred** |
 | **Framework wrappers** (React / Vue / Angular) | 18 | planned |
 | **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
 | **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned |
@@ -1459,12 +1459,18 @@ Milestones (execution order; full gate — lint + unit + e2e — after every ste
   registry install (CJS + ESM, shasum matches), and the **unpkg CDN script-tag in real
   Chromium** — `https://unpkg.com/@open-editor-hq/core@next` resolves the UMD build,
   editor mounts, zero page errors. 17.9/17.10/17.11 now run AGAINST this published rc.
-- [ ] 17.13 — **Promote to `1.0.0` stable** — same name, tag flip: publish the final
-  `1.0.0` and point `latest` at it. CHANGELOG finalized; version bumped everywhere;
-  api-contract + full gate green one last time; git tag the release. **This is also the
-  open-source decision checkpoint**: revisit the minified-only posture with rc traction
-  data (opening later is free; see distribution-posture note above). Phase 17.5
-  (Free-Tier Sweep) then begins on a published, stable foundation.
+- [x] 17.13 — *(done 2026-07-14 — LIVE)* **`1.0.0` published as `latest`** by the account
+  owner (security-key web-auth). Registry verified: `dist-tags { latest: 1.0.0, next:
+  1.0.0-rc.1 }`, plain `npm install @open-editor-hq/core` delivers 1.0.0 (CJS + ESM +
+  the Arabic locale subpath all exercised from the live registry), unpkg CDN serves the
+  1.0.0 UMD (mounted in real Chromium, zero page errors). 1.0.0 additionally ships
+  everything rc.1 predates: the corrected d.ts signatures, the 7 axe fixes, 4 locale
+  packs, the i18n precedence fix, and 17.5.1 change case (fully gated before the
+  publish, per the milestone-boundary rule). Release committed + git-tagged `v1.0.0`
+  (push to the remote is the owner's call). **Open-source checkpoint stands open:** the
+  GitHub repo is currently PUBLIC (source visible), which supersedes the minified-only
+  posture in practice — owner decision pending: keep public (recommended: open core)
+  or make private. **PHASE 17: 14/14 COMPLETE.**
 
 **Execution order:** 17.0 → 17.1 → 17.2 → 17.3 → 17.4 → 17.6 → 17.7 → 17.8 →
 **17.12 (rc live on `next`)** → 17.9 → 17.10 → 17.11 → **17.13 (1.0.0 → `latest`)**.
@@ -1515,64 +1521,163 @@ Milestones:
   Verified: 11 unit tests + 9 e2e across 3 browsers (markup-preserving UPPERCASE,
   split-word Title Case, one-step undo); toolbar snapshots regenerated. Gate: lint 0,
   unit 1993 (154 files).
-- [ ] 17.5.2 — **Text transformations (autocorrect)**: as-you-type replacements —
-  `(c)`→©, `(tm)`→™, `(r)`→®, `1/2`→½, `1/4`/`3/4` fractions, `--`→en-dash, `---`→em-dash,
-  smart quotes (config-gated, off-able per pair). *CKEditor free has it; confirmed absent
-  from `autoformat-patterns.js`.* Pure extension of the existing autoformat engine — a
-  substitution table checked on the same input path, no new infrastructure.
-- [ ] 17.5.3 — **Page break**: insert a print page-break separator (`page-break-after`
-  element + one CSS rule + print-css handling). *CKEditor free; Jodit charges (PRO).*
-- [ ] 17.5.4 — **Show blocks**: toggle that outlines block elements with their tag-name
-  labels (structure debugging). *CKEditor free; Jodit charges (PRO).* Nearly pure CSS —
-  one class on the editor root + a `*-styles.js` file.
-- [ ] 17.5.5 — **Accessibility help dialog**: `Alt+0` opens a keyboard-shortcut reference
-  overlay (all registered shortcuts, grouped). *CKEditor free.* Pairs directly with the
-  17.10 WCAG self-assessment — the dialog IS evidence for the conformance claim. Reuses
-  the existing modal UI + the shortcuts registry as its data source.
-- [ ] 17.5.6 — **`:` emoji autocomplete**: typing `:fire` inline suggests emoji (same
-  dataset as the existing picker). *CKEditor free (v44.3).* Reuses `caret-popup.js`
-  (16.6) exactly like mentions — trigger char `:`, min 2 chars, Esc dismisses.
-- [ ] 17.5.7 — **Bookmarks / named anchors**: insert an in-text anchor (`<a id>` or
-  `<span id>`), manage/rename via a small dialog, and target it from the link dialog's
-  URL field (`#anchor` entries listed). *CKEditor free since v44; confirmed absent.*
-  Sanitizer note: `id` is already allowlisted on relevant tags — verify round-trip.
-- [ ] 17.5.8 — **Styles dropdown**: config-driven named style presets
-  (`styles: [{ label, element?, classes }]`) applied to blocks or inline selections —
-  the general mechanism behind what blockquote-styles/table-classes already do ad hoc.
-  *CKEditor free ("Styles"); Jodit free (`class-span`).* Classes must pass the sanitizer
-  round-trip (class is allowlisted).
-- [ ] 17.5.9 — **Type-around (add-new-line)**: when a table/figure/embed island is the
-  first or last block — or two islands are adjacent — show an insert-paragraph affordance
-  so the cursor can always escape. *Jodit free (`add-new-line`); CKEditor free (widget
-  type-around).* The classic trap this closes: table at document start = unreachable
-  line above it. Extends the existing island/figure handling (a `<p>` is already
-  auto-placed after figures — this generalizes before/after/between for all islands).
-- [ ] 17.5.10 — **Text-part language**: mark a selection with `lang` (+ auto `dir` for
-  RTL languages) for screen-reader pronunciation — `<span lang="ar" dir="rtl">`.
-  *CKEditor free; a11y-relevant.* Doc-level direction + `bdi`/`bdo` already exist
-  (Phase 14) — this is the missing fragment-level piece. Sanitizer: allowlist `lang`.
-- [ ] 17.5.11 — **Configurable sanitizer allowlist extension (GHS-lite)**: a config key
-  (e.g. `sanitizeExtend: { tags: { 'my-tag': ['class'] }, attrs: { a: ['data-track'] } }`)
-  letting integrators EXTEND the whitelist — never weaken the deny-list (`DENY_TAGS_FULL`
-  and URL-scheme checks stay non-negotiable; extending `script`/`iframe`/`on*`/URL-sinks
-  is rejected with a console warning). *CKEditor free (General HTML Support).* This is
-  the #1 CMS-adoption blocker today: any tag not in the fixed whitelist silently
-  unwraps. Requires its own XSS test sweep (attempts to extend into dangerous territory
-  must fail) — security-sensitive, the one milestone here needing real care.
-- [ ] 17.5.12 — **Markdown export (basic)**: `editor.getMarkdown()` — headings, bold/
-  italic/strike/code, links, images, lists (incl. nested + to-do), blockquote, code
-  blocks, hr, tables (GFM). Zero-dep serializer walking the canonical DOM shape (the
-  canonical-shape guarantee is what makes this tractable). *Most-requested editor
-  feature class in 2025-26 demand research ("agent-readable documents"); Quill issues
-  open for years.* Advanced round-trip fidelity (lossless MD⇄HTML, paste-markdown
-  import) stays premium (19.6) — this free version covers the 90% "give me my doc as
-  markdown" case and feeds the AI/export story.
-- [ ] 17.5.13 — *(stretch)* **Paste history**: dialog listing previous paste fragments
-  for re-insertion (session-scoped, capped, cleared on destroy). *Jodit free
-  (`paste-storage`).* Builds on the existing paste pipeline.
-- [ ] 17.5.14 — *(stretch)* **Speech dictation**: Web Speech API voice-to-text inserting
-  at the cursor (feature-detected, hidden where unsupported — Firefox). *Jodit free
-  (`speech-recognize`).* Zero-dep by nature; degrade gracefully.
+- [x] 17.5.2 — *(done 2026-07-14)* **Text transformations (autocorrect)**: `(c)`→©,
+  `(tm)`→™, `(r)`→® (instant), `1/2`/`1/4`/`3/4`→½¼¾ and `--`/`---`→–/— (on the following
+  boundary, so `1/25` and `----` stay typable), context-aware smart quotes/apostrophes —
+  new `textTransformations` config (true/false/per-group, in DEFAULTS+FROZEN+d.ts+docs),
+  independent of `autoformat`, skipped inside `<code>`/`<pre>`, one undo restores the
+  literal text. Pure matcher in `text-transformations.js`; applied on the existing
+  autoformat input path. **Two real cross-browser bugs caught by the live-typing e2e
+  (invisible to Chromium AND jsdom):** (1) Firefox/WebKit fragment live typing across
+  multiple text nodes — matcher now gathers contiguous preceding text siblings (markup
+  still bounds it); (2) the deeper one — after `setHTML('<p></p>')`, **Firefox spawned a
+  NEW `<p>` per keystroke burst** because a childless block is an invalid caret target
+  (same class as 16.7.3's empty-`<li>`); fixed at the root in the sanitizer's
+  `normalizeStructure`: every empty block (`p`/headings/`li`/`td`/…) now gets its
+  placeholder `<br>`, hardening ALL `setHTML` consumers editor-wide. Verified: 11 unit
+  (matcher + editor path) + 3 normalize tests + 6 typing e2e × 3 browsers. Gate: lint 0,
+  unit 2007, **e2e 725** + 13 known skips (full suite re-run — sanitizer change).
+- [x] 17.5.3 — *(done 2026-07-14)* **Page break**: `insertPageBreak` command + toolbar
+  button (icon + all 5 locale bundles) inserting `<hr class="oe-page-break">` — a VOID
+  element deliberately (always a valid caret neighborhood, survives the sanitizer as-is,
+  immune to the 17.5.2 empty-block normalize). Screen: dashed primary-colored rule;
+  print: `break-after: page` — including inside `editor.print()`'s popup document,
+  which previously shipped ZERO css (the rule now travels with it, verified by a
+  captured-write unit test). Shares one insertion body with `insertHorizontalRule`
+  (M-01 detached-fragment fix inherited, caret lands in a following `<p>`). *CKEditor
+  free; Jodit charges (PRO).* Verified: 4 unit + 3 e2e × 3 browsers (toolbar insert +
+  typing continues below, computed dashed style, `setHTML(getHTML())` round-trip);
+  toolbar snapshots regenerated. Gate: lint 0, unit 2011, size 117.0/61.8KB gz.
+- [x] 17.5.4 — *(done 2026-07-14)* **Show blocks**: `showBlocks` toggle command +
+  toolbar button (active-state synced, all 5 locale bundles) flipping
+  `.oe-editor--show-blocks` — dashed outlines + tag labels (P/H1–H6/QUOTE/PRE/UL/OL/
+  TABLE/FIGURE, CSS `::before`; tag names are universal so no i18n needed in CSS).
+  View-only by construction: `getHTML()` is byte-identical with the toggle on, and the
+  command is READONLY-EXEMPT (chrome, not content — reviewers can inspect structure in
+  a readonly editor). *CKEditor free; Jodit charges (PRO).* Verified: 4 unit + live e2e
+  ×3 browsers (computed dashed outline + `::before` label + content-untouched +
+  clean toggle-off); toolbar snapshots regenerated. Gate: lint 0, unit 2015.
+- [x] 17.5.5 — *(done 2026-07-14)* **Accessibility help dialog**: `Alt+0` opens a
+  shortcut reference built from the LIVE shortcuts registry (third-party registrations
+  appear automatically; ctrl/meta twins deduped per platform, ⌘⇧⌥ glyphs on Mac),
+  labels localized via the bundle (command-name keys → 'Negrita' under es), DOM-built
+  body (no HTML-string sink), readonly-exempt, in the axe sweep. *CKEditor free.*
+  **Three real bugs found by verification:** (1) the dialog had NO focusable element —
+  keyboard-openable but not keyboard-closable (focus trap had nothing to grab, Escape
+  never reached it) → localized Close button added (`close` key ×5); (2) deeper — the
+  command pipeline's post-execute selection restore RE-FOCUSED THE EDITOR and stole
+  focus from any modal a command opens → the dialog now opens on the next tick, after
+  the pipeline completes; (3) the deferral let the sweep scan the truly-open dialog and
+  axe caught `.oe-modal__body` being scrollable but keyboard-unreachable → the modal
+  body now carries `tabindex="0"` EDITOR-WIDE (every long dialog is keyboard-scrollable
+  now; the focus-trap tests were updated for the intentionally-new first-focusable).
+  Verified: 4 unit + Alt+0 e2e ×3 browsers + sweep surface. Gate: lint 0, unit 2019,
+  a11y e2e 75/75.
+- [x] 17.5.6 — *(done 2026-07-14)* **`:` emoji autocomplete**: typing `:fire` suggests
+  from the same dataset as the grid (custom `emojis` config respected), on the shared
+  caret popup — token-guarded (`5:30`/URLs never trigger; ≥2 shortcode chars), arrows/
+  Enter/Escape, 8-result cap, Escape keeps the literal text. *CKEditor free (v44.3);
+  Jodit PRO.* **The verification chased a Firefox failure down to a LIVE 1.0.0 BUG in
+  basic typing:** Firefox anchors select-all at the editor ROOT, so overtyping a
+  selection deleted every block and typed into the bare root — **one new `<p>` per
+  keystroke, shredding the document** (`getParentBlock` = null meant the existing
+  multi-block merge silently bailed). Fixed on the keydown path for printable keys:
+  multi-block selections collapse through the existing merge; root-anchored selections
+  get an explicit `deleteContents()` + floor restore; the character then inserts
+  natively into a valid block. Also extracted `utils/text-run.js` (gather/merge of the
+  fragmented text run before the caret) — now shared by autocorrect and emoji
+  autocomplete, the standard for any future caret-token feature. Verified: 4 unit +
+  2 e2e ×3 browsers; probe-confirmed single-`<p>` DOM in Firefox. Gate: lint 0, unit
+  2023, **e2e 749** + 13 known skips (full re-proof — core key path changed).
+- [x] 17.5.7 — *(done 2026-07-14)* **Bookmarks / named anchors** — new `bookmark`
+  plugin (19th in the box): toolbar button → name dialog → inserts
+  `<a id class="oe-bookmark" contenteditable="false"></a>`, rendered as a flag marker
+  (CSS `::before`, hidden in print — chrome, not content); click a marker to
+  rename/remove; names validated (`[A-Za-z][\w-]*`, duplicates refused). **Link-dialog
+  integration**: existing anchors offered as datalist suggestions and — the fix that
+  made it possible — the URL field switched `type="url"` → `type="text"`, because
+  native url-input validation silently REJECTS `#fragment` values (confirmed: full
+  link-plugin regression suite green after the change). Sanitizer: `id` +
+  `contenteditable` allowlisted on `<a>` (no new clobbering surface — `id` was already
+  allowed on p/div/headings). *CKEditor free since v44.* Verified: 4 unit (round-trip
+  with id, listBookmarks, `#href` passes sanitization) + 3 e2e ×3 browsers (dialog
+  insert + computed flag glyph, datalist + fragment link end-to-end, click-manage
+  remove); snapshots regenerated. Gate: lint 0, unit 2028 (160 files), e2e 87 in the
+  affected suites.
+- [x] 17.5.8 — *(done 2026-07-14)* **Styles dropdown**: new `styles` config
+  (`[{ label, element?, classes }]`, in DEFAULTS+FROZEN+d.ts+docs) → a toolbar Styles
+  dropdown that only RENDERS when presets are configured (zero toolbar noise
+  otherwise — the playground's default toolbar proves the conditional in e2e). Block
+  presets (p/h1–h6/blockquote/pre) convert the block via the existing per-tag commands
+  and apply the classes with one-named-style-at-a-time semantics (sibling-preset
+  classes replaced); reapplying toggles off. Inline presets wrap the selection in a
+  classed `<span>` (toggle-off unwraps from within; v1 limitation documented: inline
+  application is single-block). Sanitizer round-trip verified (class allowlisted).
+  *CKEditor free ("Styles"); Jodit free (`class-span`).* Verified: 4 unit + 3 e2e ×3
+  browsers (conditional rendering, live block + inline application through real
+  dropdown clicks). Gate: lint 0, unit 2032 (161 files), size within budget.
+- [x] 17.5.9 — *(done 2026-07-14)* **Type-around (add-new-line)**: always-on core
+  behavior (`editing/type-around.js`, installed at init, torn down in `destroy()` —
+  100-cycle leak test still green): hovering the top edge of a first-block island, the
+  bottom edge of a last-block island, or the seam between two adjacent islands
+  (table/figure/`data-oe-island`) reveals a primary-colored insert line with a `+`
+  cap; clicking inserts `<p><br></p>` there with the caret in it (one undo step).
+  The classic table-at-document-start trap is now escapable — e2e proves typing lands
+  ABOVE the table. *Jodit free (`add-new-line`); CKEditor free (widget type-around).*
+  **Real bug caught by the e2e's hanging click:** the affordance hid itself while the
+  pointer traveled to it (root `mouseleave` + zone-miss fired mid-approach) — fixed by
+  listening on the WRAPPER with the line stopping its own event propagation. Verified:
+  3 unit + 2 e2e ×3 browsers + leak/island regressions. Gate: lint 0, unit 2035
+  (162 files).
+- [x] 17.5.10 — *(done 2026-07-14)* **Text-part language** (WCAG 3.1.2, Language of
+  Parts): `textPartLanguage(code)` command wraps the selection in
+  `<span lang="ar" dir="rtl">` — `dir` automatic for RTL scripts
+  (ar/he/fa/ur/ps/sd/ug/yi/dv), toggle-off unwraps from inside, malformed codes
+  rejected (BCP-47-shaped validation — `"><img>` can't smuggle). New
+  `textPartLanguages` config (`[{code, label}]`, DEFAULTS+FROZEN+d.ts+docs) drives a
+  conditionally-rendered Language dropdown (same zero-noise pattern as 17.5.8);
+  sanitizer allowlists `lang` on `<span>` and the markup round-trips. *CKEditor free.*
+  Verified: 3 unit + live e2e ×3 browsers (real selection → Arabic pick →
+  `lang`+`dir` markup). Gate: lint 0, unit 2038 (163 files).
+- [x] 17.5.11 — *(done 2026-07-14)* **Sanitizer allowlist extension, adversarially
+  locked.** Investigation first: the mechanism ALREADY existed (`allowTags`/
+  `allowAttributes`/`denyTags` config → forwarded into `sanitize()` — unlike
+  `imageUploadUrl`, this plumbing was real) and was structurally hardened by
+  construction: the deny-list is checked BEFORE the allowlist (so `allowTags:
+  ['script']` is inert), `on*` handlers are stripped BEFORE the attr-allowlist runs
+  (so they can't be re-enabled), and URL-sink attributes are scheme-checked BY NAME on
+  any tag (an allowlisted `href` on a custom element still rejects `javascript:`).
+  What 17.5.11 added: **(1) guardrail warnings** — configs asking for denied tags,
+  `on*`, or `srcdoc` now warn loudly instead of failing silently (integrators learn
+  the boundary); **(2) a 9-test ADVERSARIAL sweep**
+  ([sanitizer-extension-sweep.test.js](packages/core/tests/sanitizer-extension-sweep.test.js))
+  that tries to weaponize every extension path — script/iframe/object/form
+  resurrection, handler allowlisting, srcdoc, javascript: through allowlisted sinks,
+  CSS injection through extended style — all must FAIL forever, plus the legitimate
+  CMS path (custom element + data-attrs, editor-config end-to-end) must WORK;
+  **(3) explicit security-guarantee docs** in CONFIG.md. *CKEditor free (GHS).*
+  Gate: lint 0, unit 2047 (164 files).
+- [x] 17.5.12 — *(done 2026-07-14)* **Markdown export**: `editor.getMarkdown()` (new
+  frozen instance method, contract + d.ts + type-consumer updated) — zero-dep GFM
+  serializer over the sanitized canonical DOM: headings, emphasis/strike/inline-code,
+  links, images + captioned figures, nested lists, **to-do lists (`- [x]`)**, ordered
+  numbering, blockquotes, fenced code with language, hr, pipe tables, markdown-char
+  escaping, bookmark anchors preserved as inline HTML anchors. Export-only by design —
+  lossless MD⇄HTML stays premium (19.6). **CRITICAL 1.0.0 BUG FOUND by this
+  milestone's tests: the sanitizer stripped ALL to-do attributes** (`data-todo-list`/
+  `data-todo`/`data-checked`/checkbox roles were never allowlisted) — **saved
+  checklists silently degraded to plain bullets on reload**; fixed + e2e-locked with
+  an explicit save-reload cycle test, CHANGELOG entry added. Verified: 8 unit + 2 e2e
+  ×3 browsers + todo/XSS regression suites (78 tests). Gate: lint 0, unit 2055
+  (165 files).
+- [ ] 17.5.13 — *(stretch — DEFERRED to post-1.1.0, 2026-07-14)* **Paste history**:
+  dialog listing previous paste fragments for re-insertion. *Jodit free.* Deferred
+  deliberately: the 12 core milestones + the five shipped-1.0.0 bug fixes they
+  uncovered make 1.1.0 release-worthy NOW; the two stretch items follow as 1.2.0
+  material rather than delaying the fixes.
+- [ ] 17.5.14 — *(stretch — DEFERRED to post-1.1.0, 2026-07-14)* **Speech dictation**:
+  Web Speech API voice-to-text (feature-detected). *Jodit free.* Same deferral
+  rationale as 17.5.13.
 
 **Clean output:** Every feature CKEditor's GPL package ships is either present or
 consciously N/A — and change case, format painter, line height, slash commands, source

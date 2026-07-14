@@ -54,7 +54,11 @@ export const editorViewMixin = {
     const win = window.open('', '_blank', 'width=800,height=600');
     if (!win) return; // popup blocked — fail gracefully
     try {
-      win.document.write(`<!DOCTYPE html><html><head><title>Print</title></head><body>${html}</body></html>`);
+      // 17.5.3 — the print document has none of the editor's CSS, so the
+      // page-break rule must travel with it (visible dashes would print
+      // otherwise, and no break would happen).
+      const printCss = '<style>hr.oe-page-break{border:0;height:0;break-after:page;page-break-after:always;}</style>';
+      win.document.write(`<!DOCTYPE html><html><head><title>Print</title>${printCss}</head><body>${html}</body></html>`);
       win.document.close();
       win.focus();
       win.print();

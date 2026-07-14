@@ -124,6 +124,28 @@ export interface OpenEditorConfig {
   /** Markdown-style typing shortcuts (**bold**, # heading, - list, …). */
   autoformat?: boolean;
   mentions?: MentionsConfig | null;
+  /**
+   * Typing autocorrect (17.5.2): (c)/(r)/(tm) symbols, 1/2-style fractions,
+   * -- / --- dashes, smart quotes. true = all on, false = all off, or
+   * per-group toggles.
+   */
+  textTransformations?: boolean | {
+    symbols?: boolean;
+    fractions?: boolean;
+    dashes?: boolean;
+    smartQuotes?: boolean;
+  };
+  /**
+   * Named style presets for the toolbar Styles dropdown (17.5.8). A block
+   * `element` (p/h1–h6/blockquote/pre) converts the block and applies the
+   * classes; element absent or 'span' wraps the selection in a classed span.
+   */
+  styles?: Array<{ label: string; element?: string; classes: string[] }> | null;
+  /**
+   * Language list for the text-part-language dropdown (17.5.10, WCAG 3.1.2).
+   * RTL codes (ar/he/fa/…) get dir="rtl" automatically.
+   */
+  textPartLanguages?: Array<{ code: string; label?: string }> | null;
 }
 
 // ─── Events (frozen names + payload shapes) ──────────────────────────────────
@@ -302,6 +324,8 @@ export class OpenEditor {
   isEmpty(): boolean;
   getWordCount(): number;
   getCharCount(): number;
+  /** Serialize the (sanitized) content to GitHub-flavored Markdown (17.5.12). */
+  getMarkdown(): string;
 
   // state
   focus(): void;
@@ -437,6 +461,7 @@ export function createAutoformatPlugin(): EditorPlugin;
 export function createMentionsPlugin(): EditorPlugin;
 export function createBlockDragPlugin(): EditorPlugin;
 export function createTodoListPlugin(): EditorPlugin;
+export function createBookmarkPlugin(): EditorPlugin;
 
 // Legacy shared plugin singletons (prefer the create* factories above).
 export const imagePlugin: EditorPlugin;
@@ -457,6 +482,7 @@ export const autoformatPlugin: EditorPlugin;
 export const mentionsPlugin: EditorPlugin;
 export const blockDragPlugin: EditorPlugin;
 export const todoListPlugin: EditorPlugin;
+export const bookmarkPlugin: EditorPlugin;
 
 // ─── UI locale packs (17.11) ─────────────────────────────────────────────────
 // Complete translations of the toolbar/dialog/status UI. Pass to the

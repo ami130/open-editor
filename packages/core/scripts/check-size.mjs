@@ -26,8 +26,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 const BUDGETS = {
-  full: 118_000,  // bytes, gz — measured 111_977 on 2026-07-13
-  core: 66_000,   // bytes, gz — measured 62_537 on 2026-07-13
+  // 2026-07-14 — raised for the 17.5 Free-Tier Sweep (a CONSCIOUS act, per the
+  // rule below): 12 features (autocorrect, change case, page break, show
+  // blocks, Alt+0 dialog, :emoji autocomplete, bookmarks, styles/text-part-
+  // language dropdowns, type-around, sanitizer guardrails, getMarkdown) cost
+  // ~6KB gz full / ~4KB gz core — measured 123_153 / 65_879. Prior baseline
+  // (1.0.0): 111_977 / 62_537 with budgets 118/66K.
+  full: 130_000,  // bytes, gz
+  core: 69_000,   // bytes, gz
 };
 
 const gz = (buf) => gzipSync(buf, { level: 9 }).length;

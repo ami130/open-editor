@@ -18,7 +18,11 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   ['ins',        ['class', 'style']],
   ['sup',        ['class', 'style']],
   ['sub',        ['class', 'style']],
-  ['a',          ['href', 'title', 'target', 'rel', 'class', 'aria-label', 'style']],
+  // 17.5.7 — `id` + `contenteditable` on <a> for named bookmarks
+  // (<a id class="oe-bookmark" contenteditable="false">). `id` was already
+  // allowlisted on p/div/headings, so no new clobbering surface; a
+  // contenteditable VALUE can't lock anything an author doesn't own.
+  ['a',          ['href', 'title', 'target', 'rel', 'class', 'aria-label', 'style', 'id', 'contenteditable']],
   ['img',        ['src', 'alt', 'width', 'height', 'class', 'style', 'id', 'srcset', 'sizes', 'loading', 'title', 'fetchpriority', 'decoding']],
   // 16.7.8 — responsive image output. <picture>/<source> carry no scriptable
   // surface of their own; their src-bearing attributes (srcset) are scheme-
@@ -26,9 +30,13 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   // sanitizer.js), so widening the allowlist here doesn't add a new sink.
   ['picture',    ['class', 'style']],
   ['source',     ['srcset', 'sizes', 'media', 'type', 'width', 'height']],
-  ['ul',         ['class', 'style', 'id', 'dir']],
+  // 17.5.12-found: to-do attrs were MISSING here — saved checklists degraded
+  // to plain bullets on reload (setHTML stripped them). Data-loss bug in 1.0.0.
+  ['ul',         ['class', 'style', 'id', 'dir', 'data-todo-list']],
   ['ol',         ['class', 'style', 'id', 'start', 'type', 'dir']],
-  ['li',         ['class', 'style', 'id', 'dir']],
+  // (role/aria-checked deliberately NOT on li — checkbox semantics live on
+  // the inner .oe-todo-check span so the li keeps its listitem role.)
+  ['li',         ['class', 'style', 'id', 'dir', 'data-todo', 'data-checked']],
   ['dl',         ['class', 'style']],
   ['dt',         ['class', 'style']],
   ['dd',         ['class', 'style']],
@@ -51,7 +59,10 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   ['tr',         ['class', 'style']],
   ['th',         ['class', 'style', 'colspan', 'rowspan', 'scope', 'dir']],
   ['td',         ['class', 'style', 'colspan', 'rowspan', 'dir']],
-  ['span',       ['class', 'style', 'dir']],
+  // 17.5.10 — `lang` for text-part language marking (WCAG 3.1.2).
+  // role/aria-checked/aria-label/contenteditable for the to-do checkbox
+  // carrier span (17.5 sweep ARIA fix).
+  ['span',       ['class', 'style', 'dir', 'lang', 'role', 'aria-checked', 'aria-label', 'contenteditable']],
   ['div',        ['class', 'style', 'id', 'dir']],
   ['figure',     ['class', 'style', 'contenteditable', 'data-oe-island']],
   ['figcaption', ['class', 'style', 'contenteditable', 'data-oe-caption']],

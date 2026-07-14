@@ -50,9 +50,14 @@ li[data-todo][data-checked="true"] {
   color: var(--oe-panel-fg-muted);
   text-decoration: line-through;
 }
-li[data-todo]:focus-visible::before {
-  outline: 2px solid var(--oe-focus-ring);
-  outline-offset: 2px;
+/* The semantic/click carrier sits exactly over the drawn glyph. */
+li[data-todo] > .oe-todo-check {
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 `;
 

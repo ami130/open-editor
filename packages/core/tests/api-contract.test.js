@@ -32,6 +32,7 @@ afterEach(() => {
 const INSTANCE_METHODS = [
   // content
   'getHTML', 'setHTML', 'getText', 'getJSON', 'setJSON', 'isEmpty', 'getWordCount', 'getCharCount',
+  'getMarkdown', // 17.5.12 — additive, like reset() in 16.5.4
   // state
   'focus', 'blur', 'enable', 'disable', 'setReadOnly', 'isReadOnly',
   'setTheme', 'getTheme', 'setCSSVar', 'getCSSVar', 'setDirection', 'getDirection',
@@ -76,6 +77,7 @@ const FROZEN_CONFIG_KEYS = [
   'pasteStripStyles', 'specialCharacters', 'emojis', 'formatPainterSticky',
   'codeBlockLanguages', 'sourceModeBeautify', 'sourceModeHighlight', 'maxLength', 'autosave', 'onChange',
   'locale', 'inlineToolbar', 'blockquoteToolbar', 'warnOnUnload', 'autoformat', 'mentions',
+  'textTransformations', 'styles', 'textPartLanguages',
 ];
 
 describe('16.D — frozen instance methods', () => {

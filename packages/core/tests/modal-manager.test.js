@@ -186,11 +186,14 @@ describe('ModalManager', () => {
   it('Tab on last focusable element wraps to first', () => {
     mgr.open({ buttons: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] });
     const btns = Array.from(wrapper.querySelectorAll('.oe-modal__btn'));
+    // 17.5.5 — the scrollable body carries tabindex="0" and precedes the
+    // footer, so the FIRST focusable is now .oe-modal__body, not a button.
+    const body = wrapper.querySelector('.oe-modal__body');
     // Dispatch Tab from the last button itself — it bubbles to the dialog where the trap listens.
     // document.activeElement must match the last button for the trap to fire the wrap.
     btns[btns.length - 1].focus();
     btns[btns.length - 1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-    expect(document.activeElement).toBe(btns[0]);
+    expect(document.activeElement).toBe(body);
     mgr.closeAll();
   });
 
@@ -198,8 +201,10 @@ describe('ModalManager', () => {
   it('Shift+Tab on first focusable element wraps to last', () => {
     mgr.open({ buttons: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] });
     const btns = Array.from(wrapper.querySelectorAll('.oe-modal__btn'));
-    btns[0].focus();
-    btns[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    // 17.5.5 — first focusable is the tabbable body; wrap goes to last button.
+    const body = wrapper.querySelector('.oe-modal__body');
+    body.focus();
+    body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
     expect(document.activeElement).toBe(btns[btns.length - 1]);
     mgr.closeAll();
   });

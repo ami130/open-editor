@@ -27,6 +27,9 @@ const config: OpenEditorConfig = {
   onChange: ({ html, text }) => { void html; void text; },
   mentions: { source: async (q) => [{ id: 1, label: q }] },
   locale: { bold: 'Gras' },
+  textTransformations: { smartQuotes: false },
+  styles: [{ label: 'Callout', element: 'p', classes: ['callout'] }],
+  textPartLanguages: [{ code: 'ar', label: 'العربية' }],
 };
 
 const editor = new OpenEditor('#app', config);
@@ -37,6 +40,8 @@ editor.setHTML('<p>hi</p>');
 const json: EditorJSON = editor.getJSON();
 editor.setJSON(json);
 const words: number = editor.getWordCount();
+const md: string = editor.getMarkdown();
+void md;
 const empty: boolean = editor.isEmpty();
 
 // state

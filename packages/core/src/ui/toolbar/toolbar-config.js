@@ -27,6 +27,10 @@ export const DEFAULT_TOOLBAR = [
     { type: 'button', name: 'removeFormat',  command: 'removeFormat',  icon: 'removeFormat',  labelKey: 'removeFormat' },
     // 17.5.1 — change case (free; CKEditor premium / Jodit PRO charge for it)
     { type: 'dropdown', name: 'changeCase', kind: 'changeCase', labelKey: 'changeCase' },
+    // 17.5.8 — rendered only when config.styles is non-empty (toolbar-manager skips it otherwise)
+    { type: 'dropdown', name: 'styles', kind: 'styles', labelKey: 'styles' },
+    // 17.5.10 — rendered only when config.textPartLanguages is non-empty
+    { type: 'dropdown', name: 'textPartLanguage', kind: 'textPartLanguage', labelKey: 'textPartLanguage' },
   ],
   // block
   [
@@ -52,6 +56,7 @@ export const DEFAULT_TOOLBAR = [
   // insert
   [
     { type: 'button', name: 'insertHorizontalRule', command: 'insertHorizontalRule', icon: 'hr', labelKey: 'insertHorizontalRule' },
+    { type: 'button', name: 'insertPageBreak', command: 'insertPageBreak', icon: 'pageBreak', labelKey: 'insertPageBreak' },
   ],
   // history
   [
@@ -62,6 +67,7 @@ export const DEFAULT_TOOLBAR = [
   [
     { type: 'button', name: 'fullscreen', icon: 'fullscreen', labelKey: 'fullscreen', action: 'fullscreen' },
     { type: 'button', name: 'print',      icon: 'print',      labelKey: 'print',      action: 'print' },
+    { type: 'button', name: 'showBlocks', icon: 'showBlocks', labelKey: 'showBlocks', command: 'showBlocks' },
   ],
 ];
 

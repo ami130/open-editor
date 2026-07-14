@@ -73,6 +73,17 @@ export const MODAL_CSS = `
 .oe-modal__btn--danger:hover { background: var(--oe-danger-hover); }
 `;
 
+export const A11Y_HELP_CSS = `
+.oe-a11y-help__table { border-collapse: collapse; width: 100%; }
+.oe-a11y-help__table td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--oe-chrome-divider-2); }
+.oe-a11y-help__table td:last-child { text-align: end; }
+.oe-a11y-help kbd {
+  font: 600 11px/1.4 ui-monospace, monospace; padding: 2px 7px;
+  border: 1px solid var(--oe-chrome-border-2); border-bottom-width: 2px;
+  border-radius: 4px; background: var(--oe-input-bg); color: var(--oe-panel-fg);
+}
+`;
+
 export const TOOLTIP_CSS = `
 .oe-tooltip {
   position: absolute;

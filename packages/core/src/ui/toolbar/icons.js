@@ -34,6 +34,8 @@ export const ICONS = {
   // ── Blocks ──
   blockquote:    '<path d="M9 7H5v5h4V7z"/><path d="M9 12c0 2-1.3 3.5-3.5 4"/><path d="M19 7h-4v5h4V7z"/><path d="M19 12c0 2-1.3 3.5-3.5 4"/>',
   hr:            '<line x1="4" y1="12" x2="20" y2="12" stroke-width="2.2"/>',
+  showBlocks:    '<rect x="4" y="4" width="16" height="7" rx="1" stroke-dasharray="3 2"/><rect x="4" y="14" width="16" height="6" rx="1" stroke-dasharray="3 2"/>',
+  pageBreak:     '<path d="M6 4h12M6 8h12" stroke-width="2"/><path d="M4 12h2m3 0h2m3 0h2m3 0h2" stroke-width="2"/><path d="M6 16h12M6 20h12" stroke-width="2"/>',
 
   // ── Color (drawn "A" + swatch bar) ──
   textColor:     '<path d="M6 17L11 6l5 11M8 13h6"/><rect x="5" y="19" width="14" height="2.5" rx="1" fill="currentColor" stroke="none"/>',

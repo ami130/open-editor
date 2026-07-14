@@ -260,6 +260,7 @@ export const editorApiMixin = {
     if (this.inlineToolbar)     { this.inlineToolbar.destroy();     this.inlineToolbar     = null; }
     if (this.blockquoteToolbar) { this.blockquoteToolbar.destroy(); this.blockquoteToolbar = null; }
     if (this.commandAnnouncer) { this.commandAnnouncer.destroy(); this.commandAnnouncer = null; }
+    if (this._destroyTypeAround) { this._destroyTypeAround(); this._destroyTypeAround = null; }
     if (this.statusBar) { this.statusBar.destroy(); this.statusBar = null; }
     if (this.toolbar) { this.toolbar.destroy(); this.toolbar = null; }
     if (this.history)  { this.history.destroy();  this.history  = null; }

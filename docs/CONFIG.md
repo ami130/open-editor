@@ -45,9 +45,9 @@ Unknown top-level keys are **ignored with a warning** (a misspelling like
 | `defaultContent` | string (HTML) | `''` | Initial HTML. |
 | `placeholder` | string | `'Start typing…'` | Empty-state placeholder. |
 | `sanitize` | boolean | `true` | Sanitize input **and** output HTML. Leave `true` unless you fully trust all content. |
-| `allowTags` | string[] \| null | `null` | Whitelist of extra tags to keep (adds to the built-in safe set). |
-| `allowAttributes` | object \| null | `null` | Extra attributes to keep, per tag. |
-| `denyTags` | string[] \| null | `null` | Tags to strip even if otherwise allowed. |
+| `allowTags` | string[] \| null | `null` | Extra tags to keep (adds to the built-in safe set) — e.g. custom elements for a CMS. **Cannot re-enable denied tags** (`script`/`iframe`/`object`/`form`/… — the deny-list always wins, with a console warning). |
+| `allowAttributes` | object \| null | `null` | Extra attributes per tag, e.g. `{ 'my-note': ['data-kind'] }`. **Cannot enable `on*` handlers or `srcdoc`** (always stripped, with a warning), and URL-sink attributes (`href`/`src`/`action`/…) stay scheme-checked on ANY tag. These guarantees are CI-locked by an adversarial test sweep (17.5.11). |
+| `denyTags` | string[] \| null | `null` | Tags to strip even if otherwise allowed (narrows the built-in set). |
 | `maxLength` | number \| null | `null` | Max character count; blocks further input and emits `maxLengthExceeded`. |
 
 ## Paste (Phase 12)
@@ -82,6 +82,7 @@ Unknown top-level keys are **ignored with a warning** (a misspelling like
 | `blockquoteToolbar` | boolean | `true` | Show the blockquote style toolbar. |
 | `locale` | string \| object | `'en'` | Locale code or a `{ key: string }` translation map (partial maps merge over EN). **Four complete packs ship in the box (17.11):** `import { localeEs, localeFr, localeDe, localeAr } from '@open-editor-hq/core'` or per-language subpaths `import { ar } from '@open-editor-hq/core/locales/ar'` — pass as `{ locale: localeAr, direction: 'rtl' }`. Unused packs tree-shake away. |
 | `warnOnUnload` | boolean | `false` | Prompt (native browser dialog) before closing a tab with unsaved changes (`isDirty`). Opt-in. |
+| `textTransformations` | boolean \| object | `true` | Typing autocorrect (17.5.2): `(c)`→©, `(r)`→®, `(tm)`→™, `1/2`→½-style fractions (on the following space), `--`→– and `---`→— (on the following space), smart quotes. `false` disables all; or per-group `{ symbols, fractions, dashes, smartQuotes }`. Skipped inside `<code>`/`<pre>`. One undo restores the literal typed text. |
 | `autoformat` | boolean | `true` | Markdown-style typing shortcuts (`**bold**`, `# heading`, `- list`, `> quote`, etc. — Phase 16.6.2). Set `false` to disable entirely. |
 | `mentions` | `{ source }` \| `null` | `null` | `@mentions` data provider: `{ source: (query) => Promise<[{id,label}]> } `. Only used if the mentions plugin is installed; `null` means the popup stays empty (Phase 16.6.3). |
 

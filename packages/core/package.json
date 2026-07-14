@@ -1,6 +1,6 @@
 {
   "name": "@open-editor-hq/core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": false,
   "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
   "type": "module",

@@ -79,10 +79,26 @@ export function buildLinkForm(doc, editor, existingLink) {
   const form = el(doc, 'div', { className: 'oe-link-dialog' });
 
   // ── URL (required, autofocused) ────────────────────────────────────────────
+  // 17.5.7 — type=text, NOT type=url: native url validation rejects '#anchor'
+  // fragments, which bookmarks make first-class link targets.
   const { wrap: wUrl, input: inUrl } = labeledInput(doc, 'oe-link-url', 'URL', {
-    type: 'url', placeholder: 'https://example.com', required: 'required',
+    type: 'text', placeholder: 'https://example.com or #anchor', required: 'required',
   });
   if (existingLink) inUrl.value = existingLink.getAttribute('href') || '';
+  // Offer existing bookmark anchors as suggestions.
+  const anchors = editor ? Array.from(
+    editor.getEditorElement().querySelectorAll('a.oe-bookmark[id]')
+  ) : [];
+  if (anchors.length) {
+    const dl = el(doc, 'datalist', { id: 'oe-link-anchors' });
+    for (const a of anchors) {
+      const opt = el(doc, 'option');
+      opt.value = '#' + a.id;
+      dl.appendChild(opt);
+    }
+    inUrl.setAttribute('list', 'oe-link-anchors');
+    form.appendChild(dl);
+  }
   form.appendChild(wUrl);
 
   // ── Display text ────────────────────────────────────────────────────────────

@@ -166,6 +166,14 @@ test.describe('17.10 — axe sweep: every shipped surface', () => {
     await page.evaluate(() => window.__openEditorInstance.toggleFullscreen());
   });
 
+  test('accessibility help dialog open (Alt+0)', async ({ page }) => {
+    await page.click('.oe-editor');
+    await page.keyboard.press('Alt+0');
+    await page.waitForTimeout(250);
+    await expectNoCriticalViolations(page, 'a11y-help-dialog');
+    await page.keyboard.press('Escape');
+  });
+
   test('status bar with selection count active', async ({ page }) => {
     await page.click('.oe-editor');
     await page.keyboard.type('alpha beta gamma');

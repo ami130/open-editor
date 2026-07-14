@@ -182,6 +182,29 @@ export function sanitize(html, options = {}) {
     options = Object.assign({}, options, { allowAttributes: null });
   }
 
+  // 17.5.11 — extension guardrails: the deny-list and the on*/URL-sink rules
+  // are structurally non-negotiable (deny is checked before allow; on* is
+  // stripped before the allowlist; URL sinks are scheme-checked BY NAME on any
+  // tag). A config asking for them anyway is a misunderstanding — warn loudly
+  // instead of silently ignoring, so integrators learn the boundary exists.
+  if (Array.isArray(options.allowTags)) {
+    for (const tag of options.allowTags) {
+      if (DENY_TAGS_FULL.has(String(tag).toLowerCase()) && typeof console !== 'undefined') {
+        console.warn(`sanitize: allowTags cannot re-enable denied tag "${tag}" — the deny-list always wins.`);
+      }
+    }
+  }
+  if (options.allowAttributes && typeof options.allowAttributes === 'object' && !Array.isArray(options.allowAttributes)) {
+    for (const attrs of Object.values(options.allowAttributes)) {
+      for (const a of (Array.isArray(attrs) ? attrs : [])) {
+        const an = String(a).toLowerCase();
+        if ((an.startsWith('on') || an === 'srcdoc') && typeof console !== 'undefined') {
+          console.warn(`sanitize: allowAttributes cannot enable "${a}" — event handlers and srcdoc are always stripped.`);
+        }
+      }
+    }
+  }
+
   const doc = options.document || (typeof document !== 'undefined' ? document : null);
   if (!doc) return '';
 

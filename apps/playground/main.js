@@ -1,4 +1,4 @@
-import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin } from '@open-editor-hq/core';
+import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin } from '@open-editor-hq/core';
 import { localeEs, localeFr, localeDe, localeAr } from '@open-editor-hq/core';
 
 // Fixture user list for the @mentions e2e (16.6.5) — a real async source.
@@ -56,6 +56,7 @@ editor.plugins.install(createAutoformatPlugin());
 editor.plugins.install(createMentionsPlugin());
 editor.plugins.install(createBlockDragPlugin());
 editor.plugins.install(createTodoListPlugin());
+editor.plugins.install(createBookmarkPlugin());
 
 editor.on('ready', () => {
   console.log('[Playground] Editor ready');

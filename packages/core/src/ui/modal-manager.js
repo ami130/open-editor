@@ -1,12 +1,12 @@
 import { trapFocus } from './focus-trap.js';
 import { injectStyleOnce } from '../utils/inject-style.js';
-import { MODAL_CSS } from './ui-styles.js';
+import { MODAL_CSS, A11Y_HELP_CSS } from './ui-styles.js';
 
 const STYLE_ID = 'oe-modal-styles';
 let _modalIdCounter = 0;
 
 function injectStyles(doc) {
-  injectStyleOnce(doc, STYLE_ID, MODAL_CSS);
+  injectStyleOnce(doc, STYLE_ID, MODAL_CSS + A11Y_HELP_CSS);
 }
 
 /**
@@ -83,6 +83,10 @@ export class ModalManager {
       // Body
       const body = doc.createElement('div');
       body.className = 'oe-modal__body';
+      // 17.5.5 — the body can scroll (long content, e.g. the Alt+0 shortcut
+      // table); a scrollable region must be keyboard-reachable to be
+      // keyboard-scrollable (axe: scrollable-region-focusable, serious).
+      body.setAttribute('tabindex', '0');
       if (config.body instanceof Node) {
         body.appendChild(config.body);
       } else if (typeof config.body === 'string') {

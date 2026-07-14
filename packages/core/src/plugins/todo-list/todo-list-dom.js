@@ -28,13 +28,37 @@ export function createTodoList(doc) {
   return ul;
 }
 
+/**
+ * Ensure the li's first child is the semantic checkbox carrier. 17.5-sweep
+ * ARIA fix: role="checkbox" ON THE LI destroyed its listitem role, breaking
+ * <ul> structure for AT (axe `list`, WCAG 1.3.1, found by the a11y sweep the
+ * moment the sanitizer stopped stripping the role). The role now lives on an
+ * inner zero-footprint <span> over the CSS-drawn glyph — the li stays a real
+ * list item. Also the click target (cleaner than pixel-zone math).
+ */
+export function ensureCheckBox(li) {
+  let box = li.querySelector(':scope > .oe-todo-check');
+  if (!box) {
+    box = li.ownerDocument.createElement('span');
+    box.className = 'oe-todo-check';
+    box.setAttribute('role', 'checkbox');
+    box.setAttribute('contenteditable', 'false');
+    box.setAttribute('aria-label', 'To-do');
+    li.insertBefore(box, li.firstChild);
+  }
+  box.setAttribute('aria-checked', isChecked(li) ? 'true' : 'false');
+  return box;
+}
+
 /** Mark `li` as a to-do item with the given checked state. */
 export function markAsTodoItem(li, checked) {
   li.setAttribute('data-todo', '');
   li.setAttribute('data-checked', checked ? 'true' : 'false');
-  li.setAttribute('role', 'checkbox');
-  li.setAttribute('aria-checked', checked ? 'true' : 'false');
-  li.tabIndex = 0;
+  // Legacy cleanup (pre-sweep builds put checkbox semantics on the li itself).
+  li.removeAttribute('role');
+  li.removeAttribute('aria-checked');
+  li.removeAttribute('tabindex');
+  ensureCheckBox(li);
 }
 
 export function isTodoItem(li) {
@@ -47,7 +71,7 @@ export function isChecked(li) {
 
 export function setChecked(li, checked) {
   li.setAttribute('data-checked', checked ? 'true' : 'false');
-  li.setAttribute('aria-checked', checked ? 'true' : 'false');
+  ensureCheckBox(li);
 }
 
 export function toggleChecked(li) {
@@ -70,7 +94,15 @@ export function normalizeTodoList(ul) {
     if (!li.hasAttribute('data-todo')) {
       markAsTodoItem(li, false);
     } else {
-      li.setAttribute('aria-checked', isChecked(li) ? 'true' : 'false');
+      // Re-run the marker path: syncs the box and strips legacy li-level ARIA.
+      markAsTodoItem(li, isChecked(li));
+    }
+    // A contenteditable=false box as the ONLY child leaves Firefox's caret
+    // with no valid text anchor (post-Enter-split the new li was untypable —
+    // the empty-caret-target bug class again). Guarantee a <br> line anchor
+    // when the item has no real content.
+    if (li.textContent === '' && !li.querySelector(':scope > :not(.oe-todo-check)')) {
+      li.appendChild(li.ownerDocument.createElement('br'));
     }
   }
 }

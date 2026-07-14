@@ -204,6 +204,73 @@ export const BASE_CSS = `
     border-top: 2px solid var(--oe-chrome-border);
     margin: 10px 0;
   }
+  /* 17.5.9 — type-around: the insert-paragraph escape line near island edges. */
+  .oe-type-around {
+    position: absolute;
+    height: 2px;
+    padding: 0;
+    border: 0;
+    background: var(--oe-primary);
+    border-radius: 1px;
+    cursor: pointer;
+    opacity: 0.85;
+    z-index: 5;
+  }
+  .oe-type-around::before {
+    content: '+';
+    position: absolute;
+    inset-inline-start: -4px;
+    top: -8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--oe-primary);
+    color: var(--oe-primary-fg);
+    font: 700 12px/16px system-ui, sans-serif;
+    text-align: center;
+  }
+  .oe-type-around:hover { opacity: 1; }
+
+  /* 17.5.4 — show blocks: debug outlines + tag labels (view-only toggle). */
+  .oe-editor.oe-editor--show-blocks :is(p, h1, h2, h3, h4, h5, h6, blockquote, pre, ul, ol, li, table, figure) {
+    outline: 1px dashed var(--oe-panel-fg-muted);
+    outline-offset: 2px;
+    position: relative;
+  }
+  .oe-editor.oe-editor--show-blocks :is(p, h1, h2, h3, h4, h5, h6, blockquote, pre, ul, ol, table, figure)::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    inset-inline-start: -2px;
+    font: 600 8px/1.2 ui-monospace, monospace;
+    letter-spacing: 0.04em;
+    color: var(--oe-panel-fg-muted);
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  .oe-editor.oe-editor--show-blocks p::before { content: 'P'; }
+  .oe-editor.oe-editor--show-blocks h1::before { content: 'H1'; }
+  .oe-editor.oe-editor--show-blocks h2::before { content: 'H2'; }
+  .oe-editor.oe-editor--show-blocks h3::before { content: 'H3'; }
+  .oe-editor.oe-editor--show-blocks h4::before { content: 'H4'; }
+  .oe-editor.oe-editor--show-blocks h5::before { content: 'H5'; }
+  .oe-editor.oe-editor--show-blocks h6::before { content: 'H6'; }
+  .oe-editor.oe-editor--show-blocks blockquote::before { content: 'QUOTE'; }
+  .oe-editor.oe-editor--show-blocks pre::before { content: 'PRE'; }
+  .oe-editor.oe-editor--show-blocks ul::before { content: 'UL'; }
+  .oe-editor.oe-editor--show-blocks ol::before { content: 'OL'; }
+  .oe-editor.oe-editor--show-blocks table::before { content: 'TABLE'; }
+  .oe-editor.oe-editor--show-blocks figure::before { content: 'FIGURE'; }
+
+  /* 17.5.3 — page break marker: dashed on screen, a real break in print. */
+  .oe-editor hr.oe-page-break {
+    border-top: 2px dashed var(--oe-primary);
+    margin: 14px 0;
+    opacity: 0.6;
+  }
+  @media print {
+    .oe-editor hr.oe-page-break { border: 0; break-after: page; page-break-after: always; }
+  }
 
   /* Links */
   .oe-editor a { color: var(--oe-link); text-decoration: underline; }

@@ -226,3 +226,18 @@ describe('M3 — normalizeTextNodes skips pre/code content', () => {
     expect(out).toContain('\u2014');
   });
 });
+
+describe('17.5.2 — empty blocks get a placeholder <br> (FF/WebKit caret target)', () => {
+  it('setHTML("<p></p>") round-trips as a valid caret target', () => {
+    expect(s('<p></p>')).toBe('<p><br></p>');
+  });
+  it('empty headings, cells, and list items are fixed too', () => {
+    expect(s('<h2></h2>')).toBe('<h2><br></h2>');
+    expect(s('<ul><li></li></ul>')).toBe('<ul><li><br></li></ul>');
+    expect(s('<table><tbody><tr><td></td></tr></tbody></table>')).toContain('<td><br></td>');
+  });
+  it('non-empty blocks are untouched', () => {
+    expect(s('<p>x</p>')).toBe('<p>x</p>');
+    expect(s('<p><br></p>')).toBe('<p><br></p>');
+  });
+});

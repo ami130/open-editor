@@ -34,6 +34,7 @@ export { autoformatPlugin, createAutoformatPlugin } from './plugins/autoformat/a
 export { mentionsPlugin, createMentionsPlugin } from './plugins/mentions/mentions-plugin.js';
 export { blockDragPlugin, createBlockDragPlugin } from './plugins/block-drag/block-drag-plugin.js';
 export { todoListPlugin, createTodoListPlugin } from './plugins/todo-list/todo-list-plugin.js';
+export { bookmarkPlugin, createBookmarkPlugin } from './plugins/bookmark/bookmark-plugin.js';
 // 17.11 — UI locale packs. Named exports so bundlers tree-shake unused
 // languages via the ESM module tree (a core-only import drops all of them);
 // also reachable as subpaths: '@open-editor-hq/core/locales/es'.

@@ -103,6 +103,9 @@ export class ToolbarManager {
     // longer clobber each other's pre-click selection bookmark.
     const hooks = { savedBookmark: null, afterAction: this._afterAction };
     if (item.type === 'separator')  return null;
+    // 17.5.8 — the styles dropdown only exists when presets are configured.
+    if (item.kind === 'styles' && !(Array.isArray(editor._config.styles) && editor._config.styles.length)) return null;
+    if (item.kind === 'textPartLanguage' && !(Array.isArray(editor._config.textPartLanguages) && editor._config.textPartLanguages.length)) return null;
     if (item.type === 'dropdown')   return createDropdown(editor, item, locale, doc, hooks);
     if (item.type === 'color')      return createColorControl(editor, item, locale, doc, hooks);
     if (item.type === 'listStyle')  return createListStyleControl(editor, item, locale, doc, hooks);

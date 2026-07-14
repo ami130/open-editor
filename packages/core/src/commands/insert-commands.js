@@ -121,14 +121,16 @@ export const insertTextCommand = {
   },
 };
 
-// ─── insertHorizontalRule (4.9) ───────────────────────────────────────────────
+// ─── insertHorizontalRule (4.9) / insertPageBreak (17.5.3) ───────────────────
+// Both insert a void <hr> block; the page break carries the oe-page-break
+// class (screen: dashed marker; print: break-after page). One shared body.
 
-export const insertHorizontalRuleCommand = {
-  execute(editor) {
+function insertHrLike(editor, className) {
     const doc = getDoc(editor);
     const root = editorEl(editor);
     if (!root) return;
     const hr = doc.createElement('hr');
+    if (className) hr.className = className;
     const p  = doc.createElement('p');
     p.appendChild(doc.createElement('br'));
     const sel = selMgr(editor);
@@ -154,7 +156,18 @@ export const insertHorizontalRuleCommand = {
       if (nativeSel) { nativeSel.removeAllRanges(); nativeSel.addRange(range); }
     }
     return CommandManager.SKIP_RESTORE;
-  },
+}
+
+export const insertHorizontalRuleCommand = {
+  execute(editor) { return insertHrLike(editor, ''); },
+};
+
+// 17.5.3 — page break: <hr class="oe-page-break"> (void element → always a
+// valid caret neighborhood, survives the sanitizer as hr+class, and the empty-
+// block normalize never touches it). Screen shows a dashed marker (base-css);
+// print() emits break-after: page for it.
+export const insertPageBreakCommand = {
+  execute(editor) { return insertHrLike(editor, 'oe-page-break'); },
 };
 
 // ─── insertNonBreakingSpace (4.9) ─────────────────────────────────────────────

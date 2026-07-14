@@ -63,7 +63,7 @@ export class CommandManager {
     // committed states, no new mutation) and the read-only NON-mutating commands
     // selectAll + copyAsPlainText (a reader must still be able to select and copy
     // in a readonly editor). `cut` stays blocked — it mutates.
-    const READONLY_EXEMPT = new Set(['undo', 'redo', 'selectAll', 'copyAsPlainText']);
+    const READONLY_EXEMPT = new Set(['undo', 'redo', 'selectAll', 'copyAsPlainText', 'showBlocks', 'accessibilityHelp']);
     if (!READONLY_EXEMPT.has(name) && this._editor.isReadOnly && this._editor.isReadOnly()) return false;
 
     const beforeEvent = { command: name, args, defaultPrevented: false,

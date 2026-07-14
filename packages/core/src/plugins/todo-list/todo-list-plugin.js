@@ -23,7 +23,7 @@ import { getParentBlock } from '../../selection/range-utils.js';
 import { CommandManager } from '../../commands/command-manager.js';
 import { injectTodoListStyles } from './todo-list-styles.js';
 import {
-  createTodoList, isTodoItem, isChecked, toggleChecked, normalizeTodoList, markAsTodoItem,
+  createTodoList, isTodoItem, toggleChecked, normalizeTodoList, markAsTodoItem,
 } from './todo-list-dom.js';
 
 const TODO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -89,10 +89,13 @@ export function createTodoListPlugin() {
 
       // Keep every to-do item's checked-state markers consistent after any
       // edit (data-todo missing from an item moved in via indent/outdent).
-      this._onInput = () => {
+      const normalizeAll = () => {
         const root = editor.getEditorElement();
         if (!root) return;
         for (const ul of root.querySelectorAll('ul[data-todo-list]')) normalizeTodoList(ul);
+      };
+      this._onInput = () => {
+        normalizeAll();
         // A native browser Enter-split of a checked, non-empty to-do <li>
         // clones ALL its attributes onto the new sibling, including
         // data-checked="true" — a freshly split item must always start
@@ -104,15 +107,40 @@ export function createTodoListPlugin() {
           const armed = this._armedSplitLi;
           this._armedSplitLi = null;
           const newSibling = armed.nextElementSibling;
-          if (newSibling && isTodoItem(newSibling)) markAsTodoItem(newSibling, false);
+          if (newSibling && isTodoItem(newSibling)) {
+            markAsTodoItem(newSibling, false);
+            // Firefox strands the post-split caret against the cloned
+            // contenteditable=false box (typed text vanished — caught live).
+            // Re-place it deterministically at the item's content position.
+            const doc = newSibling.ownerDocument;
+            let anchor = newSibling.querySelector(':scope > br');
+            if (!anchor && newSibling.textContent === '') {
+              anchor = doc.createElement('br');
+              newSibling.appendChild(anchor);
+            }
+            const range = doc.createRange();
+            if (anchor) range.setStartBefore(anchor);
+            else range.setStart(newSibling, newSibling.childNodes.length);
+            range.collapse(true);
+            const sel = doc.getSelection && doc.getSelection();
+            if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+          }
         }
       };
+      // 17.5-sweep: normalize on programmatic loads too — without this, a
+      // reloaded document has data-* but NO checkbox semantics until the
+      // first keystroke (same bug class as the 16.7.9 status-bar setHTML fix).
+      this._onSetHTML = () => normalizeAll();
       editor.on('input', this._onInput);
+      editor.on('setHTML', this._onSetHTML);
 
       // Click the checkbox area (the ::before pseudo-element) toggles it.
       // A click anywhere else in the li (the text) is normal caret placement.
       this._onClick = (e) => {
-        const li = e.target && e.target.closest ? e.target.closest('li[data-todo]') : null;
+        // Direct hit on the semantic carrier toggles immediately.
+        const box = e.target && e.target.closest ? e.target.closest('.oe-todo-check') : null;
+        const li = box ? box.closest('li[data-todo]')
+          : (e.target && e.target.closest ? e.target.closest('li[data-todo]') : null);
         if (!li) return;
         const rect = li.getBoundingClientRect();
         // The checkbox glyph occupies the leftmost ~20px (padding-left: 26px
@@ -131,6 +159,7 @@ export function createTodoListPlugin() {
     destroy() {
       if (this._editor) {
         this._editor.off('input', this._onInput);
+        this._editor.off('setHTML', this._onSetHTML);
         const root = this._editor.getEditorElement();
         if (root) root.removeEventListener('mousedown', this._onClick);
         this._editor.commands.unregister('todoList');
@@ -181,7 +210,11 @@ export function createTodoListPlugin() {
       // item's Enter is handled by list-keyboard.js's handleListEnter
       // (exits the list) before this ever runs, so `isChecked` here only
       // ever fires on a genuine mid-item Enter-split.
-      if (isChecked(li)) this._armedSplitLi = li;
+      // 17.5-sweep: arm on EVERY todo split (was checked-only) — the armed
+      // input-path also repairs Firefox's post-split caret, which gets
+      // stranded against the cloned contenteditable=false box for unchecked
+      // items too (typed text vanished; caught live by the Tab-nest e2e).
+      this._armedSplitLi = li;
       return false; // never consume — let the existing list Enter chain run
     },
   };

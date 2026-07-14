@@ -16,21 +16,33 @@ describe('createTodoList', () => {
     expect(li.tagName).toBe('LI');
     expect(isTodoItem(li)).toBe(true);
     expect(isChecked(li)).toBe(false);
+    // 17.5-sweep: the li carries the semantic checkbox span; still no text/<br>.
+    const box = li.querySelector('.oe-todo-check');
+    expect(box.getAttribute('role')).toBe('checkbox');
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    expect(li.textContent).toBe('');
     // Deliberately no placeholder <br> — insertTodoList's caller decides
-    // whether to transfer real content in or add one itself.
-    expect(li.childNodes.length).toBe(0);
+    // whether to transfer real content in or add one itself. (The semantic
+    // box span is chrome, not content — the "empty" contract is about text.)
+    expect(li.querySelectorAll(':scope > :not(.oe-todo-check)').length).toBe(0);
+    expect(li.querySelector('br')).toBeNull();
   });
 });
 
 describe('markAsTodoItem / isTodoItem / isChecked', () => {
-  it('sets data-todo, data-checked, role, aria-checked, tabIndex', () => {
+  it('marks the li with data-*; checkbox semantics live on the inner box (17.5 ARIA fix)', () => {
     const li = document.createElement('li');
     markAsTodoItem(li, true);
     expect(li.hasAttribute('data-todo')).toBe(true);
     expect(li.getAttribute('data-checked')).toBe('true');
-    expect(li.getAttribute('role')).toBe('checkbox');
-    expect(li.getAttribute('aria-checked')).toBe('true');
-    expect(li.tabIndex).toBe(0);
+    // The li must stay a plain listitem — role=checkbox on it broke <ul>
+    // structure for AT (axe `list`, WCAG 1.3.1).
+    expect(li.getAttribute('role')).toBeNull();
+    expect(li.getAttribute('aria-checked')).toBeNull();
+    const box = li.querySelector('.oe-todo-check');
+    expect(box.getAttribute('role')).toBe('checkbox');
+    expect(box.getAttribute('aria-checked')).toBe('true');
+    expect(box.getAttribute('contenteditable')).toBe('false');
   });
 
   it('isTodoItem is false for a plain <li> or a non-li element', () => {
@@ -49,10 +61,10 @@ describe('setChecked / toggleChecked', () => {
     markAsTodoItem(li, false);
     setChecked(li, true);
     expect(isChecked(li)).toBe(true);
-    expect(li.getAttribute('aria-checked')).toBe('true');
+    expect(li.querySelector('.oe-todo-check').getAttribute('aria-checked')).toBe('true');
     setChecked(li, false);
     expect(isChecked(li)).toBe(false);
-    expect(li.getAttribute('aria-checked')).toBe('false');
+    expect(li.querySelector('.oe-todo-check').getAttribute('aria-checked')).toBe('false');
   });
 
   it('toggleChecked flips the current state', () => {
@@ -84,7 +96,7 @@ describe('normalizeTodoList', () => {
     li.setAttribute('data-checked', 'true'); // simulate a direct DOM edit
     ul.appendChild(li);
     normalizeTodoList(ul);
-    expect(li.getAttribute('aria-checked')).toBe('true');
+    expect(li.querySelector('.oe-todo-check').getAttribute('aria-checked')).toBe('true');
   });
 
   it('does not touch non-li children', () => {

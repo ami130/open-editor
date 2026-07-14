@@ -152,4 +152,18 @@ export function normalizeStructure(fragment) {
       parent.removeChild(inline);
     }
   }
+
+  // 17.5.2 hardening — a completely EMPTY block element (no children at all)
+  // is an invalid caret target in Firefox/WebKit: the caret lands outside it
+  // and typing spawns a NEW block per input burst (found live: after
+  // setHTML('<p></p>'), typing "x (c)" in Firefox produced five <p>s). Give
+  // every childless block its placeholder <br> — the same canonical shape the
+  // editor floor (<p><br></p>) already uses.
+  const CARET_BLOCKS = 'p, h1, h2, h3, h4, h5, h6, li, td, th, div, blockquote';
+  const doc = fragment.ownerDocument || (typeof document !== 'undefined' ? document : null);
+  if (doc) {
+    for (const el of Array.from(fragment.querySelectorAll(CARET_BLOCKS))) {
+      if (el.childNodes.length === 0) el.appendChild(doc.createElement('br'));
+    }
+  }
 }
