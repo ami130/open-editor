@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @open-editor-hq/core test --reporter=verbose)",
+      "Bash(node --input-type=module)",
+      "Bash(npm test *)",
+      "Bash(node -e ' *)",
+      "Bash(node /tmp/audit.mjs)",
+      "Bash(cp /tmp/audit.mjs /Users/omihasan/Desktop/open-editor/packages/core/audit.mjs)",
+      "Bash(node audit.mjs)",
+      "Bash(node -e \"console.log\\(require\\('jsdom/package.json'\\).version\\)\")",
+      "Bash(node -e \"const {JSDOM}=require\\('jsdom'\\);const d=new JSDOM\\(''\\).window.document;const t=d.createElement\\('template'\\);console.log\\('content type:', t.content && t.content.constructor.name\\);\")",
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Bash(node -e \"console.log\\(typeof require\\)\")",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(node santest.mjs)",
+      "Bash(node _santest.mjs)",
+      "Bash(node -e 'const d=JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(0\\)\\);console.log\\(JSON.stringify\\(d\\)\\)')",
+      "Bash(node -e \"try{require.resolve\\('jsdom'\\);console.log\\('jsdom available'\\)}catch\\(e\\){console.log\\('no jsdom'\\)}\")",
+      "Bash(npx vitest *)",
+      "Bash(cp /tmp/c037-repro.test.js /Users/omihasan/Desktop/open-editor/packages/core/tests/c037-repro.test.js *)",
+      "Bash(rm -f /Users/omihasan/Desktop/open-editor/packages/core/tests/c037-repro.test.js /tmp/c037-repro.test.js; echo cleaned)",
+      "Bash(rm -f /Users/omihasan/Desktop/open-editor/packages/core/tests/c038-repro.test.js /Users/omihasan/Desktop/open-editor/packages/core/tests/c038-repro2.test.js && echo \"cleaned\")",
+      "Bash(cp /tmp/c069.test.js /Users/omihasan/Desktop/open-editor/packages/core/tests/c069.test.js *)",
+      "Bash(cp /tmp/c071-repro.test.js /Users/omihasan/Desktop/open-editor/packages/core/tests/c071-repro.test.js *)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const src = fs.readFileSync\\('/Users/omihasan/Desktop/open-editor/packages/core/src/editor-api.js','utf8'\\); const old = src.slice\\(src.indexOf\\('brs.forEach'\\), src.indexOf\\('.trim\\(\\);'\\)+8\\); console.log\\(JSON.stringify\\(old\\)\\);\")"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp",
+      "/Users/omihasan/Desktop/open-editor/packages/core/tests"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(perl -0pi -e 's{\\\\n    /\\\\* 14.9 .*?touch-action: pan-y;\\\\n}{\\\\n}s' packages/core/src/utils/base-css.js)",
+      "Bash(perl -0pi -e 's{  /\\\\* 14.3 .*?\\\\.oe-editor:focus-visible \\\\{.*?\\\\n  \\\\}\\\\n}{  .oe-editor:focus { outline: none; }\\\\n}s' packages/core/src/utils/base-css.js)",
+      "Bash(perl -0pi -e 's{\\\\n  /\\\\* 14.12 .*?unicode-bidi: plaintext;\\\\n  \\\\}\\\\n}{\\\\n}s' packages/core/src/utils/base-css.js)",
+      "Bash(perl -0pi -e 's{\\\\n  /\\\\* 14.16 .*?\\\\@media \\\\\\(forced-colors: active\\\\\\).*?\\\\n  \\\\}\\\\n\\\\}?`}{\\\\n`}s' packages/core/src/utils/base-css.js)",
+      "Bash(pnpm --filter playground exec playwright test snapshots.test.js -g \"initial state\" --project=chromium)"
+    ]
+  }
+}

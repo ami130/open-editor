@@ -1,0 +1,17 @@
+{
+  "name": "@open-editor-hq/ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open Editor shared UI primitives — placeholder; UI primitives currently ship inside the core package (@open-editor-hq/core)",
+  "type": "module",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@open-editor-hq/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "1.6.1"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "@open-editor-hq/core",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
+  "type": "module",
+  "license": "MIT",
+  "author": "Open Editor contributors",
+  "keywords": [
+    "rich-text-editor",
+    "wysiwyg",
+    "editor",
+    "contenteditable",
+    "zero-dependency",
+    "vanilla-js"
+  ],
+  "main": "./dist/open-editor.min.cjs",
+  "module": "./dist/esm/index.js",
+  "unpkg": "./dist/open-editor.umd.min.js",
+  "types": "./index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/open-editor.min.cjs"
+    },
+    "./styles": "./dist/open-editor.css",
+    "./package.json": "./package.json",
+    "./locales/*": "./dist/esm/locales/*.js"
+  },
+  "files": [
+    "dist",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "build": "rollup -c rollup.config.js && node scripts/extract-css.mjs",
+    "build:watch": "rollup -c rollup.config.js --watch",
+    "build:css": "node scripts/extract-css.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepack": "rollup -c rollup.config.js && node scripts/extract-css.mjs",
+    "prepublishOnly": "rollup -c rollup.config.js && node scripts/extract-css.mjs"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^1.0.0",
+    "jsdom": "29.1.1",
+    "rollup": "4.62.0",
+    "typescript": "^7.0.2",
+    "vitest": "1.6.1"
+  }
+}
