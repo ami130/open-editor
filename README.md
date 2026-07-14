@@ -1765,12 +1765,26 @@ Milestones (execution order — React first, it unblocks Phase 21's dogfooding):
   tarballs driven in Chromium — char-by-char `v-model` typing with a byte-stable
   caret, external sync, reactive theme, ref markdown, zero page errors. 5 unit tests
   (@vue/test-utils).
-- [ ] 18.5 — Angular wrapper (`@open-editor-hq/angular`): `ControlValueAccessor` for
-  forms, `@ViewChild` instance access
-- [ ] 18.6 — All wrappers: zero dependencies beyond their own framework peer (audited
-  like the core)
-- [ ] 18.7 — Each ships its own npm package + docs page + a live demo route reserved
-  for the Phase 21 site
+- [x] 18.5 — *(done 2026-07-14)* **Angular wrapper** (`@open-editor-hq/angular`,
+  `packages/angular`): standalone component + `ControlValueAccessor` — works with
+  `[(ngModel)]` AND reactive forms; `setDisabledState` → editor read-only; outputs
+  `ready/changed/focused/blurred/errored`; reactive `theme/direction`; pending-value
+  buffering for CVA writes that arrive before view init. Built the platform-correct
+  way: **ng-packagr partial-Ivy FESM** (the one wrapper where a no-build shim isn't
+  acceptable to the ecosystem), then terser'd + sourcemaps stripped to keep the
+  minified-only posture (2.9KB FESM). Live proof in a REAL `ng new` Angular 19 app:
+  AOT build consumes the packed dist tarball cleanly; Chromium drive — char-by-char
+  `ngModel` typing with a byte-stable caret, external sync, reactive theme, CVA
+  disabled→readOnly. Zero page errors.
+- [x] 18.6 — *(done 2026-07-14)* **Dependency audit**: React and Vue wrappers carry
+  ZERO dependencies (framework + core as peers only). Angular carries exactly one —
+  `tslib`, the Angular platform's own mandated import-helper library, present in
+  every Angular app by definition (the documented exception).
+- [x] 18.7 — *(done 2026-07-14)* Each wrapper is its own npm package under the owned
+  org scope with its own npm-facing README (quickstart, reactive-prop contract, ref
+  surface); publishing happens at the month-end release (Angular publishes its `dist/`
+  per ng-packagr convention). Live demo routes on the Phase 21 site: reserved.
+  **PHASE 18: 7/7 COMPLETE.**
 
 **Clean output:** React/Vue/Angular demo apps all work with the value/v-model/CVA
 pattern; typing never drops the caret in controlled mode; StrictMode clean; a Next.js

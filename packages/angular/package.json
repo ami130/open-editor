@@ -1,0 +1,38 @@
+{
+  "name": "@open-editor-hq/angular",
+  "version": "1.1.0",
+  "private": false,
+  "description": "Official Angular wrapper for Open Editor \u2014 standalone component with ControlValueAccessor forms integration",
+  "license": "MIT",
+  "author": "Open Editor contributors",
+  "keywords": [
+    "rich-text-editor",
+    "wysiwyg",
+    "angular",
+    "open-editor"
+  ],
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs",
+    "test": "echo 'unit coverage via built-artifact live drive (see Phase 18.5 notes)' && exit 0"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=17",
+    "@angular/forms": ">=17",
+    "@open-editor-hq/core": ">=1.1.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/compiler-cli": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0",
+    "@open-editor-hq/core": "workspace:*",
+    "ng-packagr": "^19.0.0",
+    "terser": "^5.36.0",
+    "typescript": "~5.6.3",
+    "zone.js": "^0.15.0"
+  },
+  "dependencies": {
+    "tslib": "^2.8.0"
+  }
+}
