@@ -329,7 +329,7 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **Production hardening** (perf throttle + CI gates, dirty guard, crash recovery, leak test) | 16.5 | ✅ done |
 | **Modern Editing UX** (slash-commands, markdown autoformat, @mentions, block drag-reorder) | 16.6 | ✅ done |
 | **Competitive Parity Pass** (list style auto-progression, typed-URL autolink, to-do lists, F&R whole-word, table properties split, table header-click selection, source syntax highlighting, responsive images, selection word count) | 16.7 | ✅ done |
-| **npm Publishing** (ships as `@open-editor-hq/core` — rc on `next`, 1.0.0 on `latest`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, dry-run, WCAG conformance claim) | 17 | planned |
+| **npm Publishing** (ships as `@open-editor-hq/core` — rc.1 LIVE on `next`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, WCAG conformance statement, plugin guide, 4 locale packs) | 17 | **13/14 — only the 1.0.0 publish tap remains** |
 | **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | planned |
 | **Framework wrappers** (React / Vue / Angular) | 18 | planned |
 | **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
@@ -1502,9 +1502,19 @@ updates BOTH `editor-config.js` DEFAULTS and `api-contract.test.js` FROZEN_CONFI
 in lockstep; any new `*-styles.js` registers in `no-color-literals.test.js`.
 
 Milestones:
-- [ ] 17.5.1 — **Change case**: cycle selection through UPPERCASE / lowercase / Title Case
-  (toolbar dropdown + command). *CKEditor sells this as premium; Jodit sells it as PRO* —
-  free here is an instant marketing row. Reuses the existing selection/command layer only.
+- [x] 17.5.1 — *(done 2026-07-14)* **Change case**: `changeCase('upper'|'lower'|'title')`
+  command + a "Case" toolbar dropdown (3 options), in all 5 locale bundles. *CKEditor
+  sells this as premium; Jodit sells it as PRO — free here.* Implementation transforms
+  text-node DATA in place, so all inline markup survives exactly and the selection
+  bookmark restores; Title Case tracks word state ACROSS node boundaries
+  (`he<strong>llo</strong>` stays one word) and treats digits as word-continuation
+  (**real bug caught by tests: `3rd` → `3Rd`** — fixed with a `\p{L}\p{N}` word-class).
+  Skips `contenteditable=false` island internals. Also surfaced: three unit-test files
+  selected dropdowns BY POSITION and broke when the new dropdown shifted indices —
+  all hardened to aria-label selection (the same lesson 17.10 taught for e2e).
+  Verified: 11 unit tests + 9 e2e across 3 browsers (markup-preserving UPPERCASE,
+  split-word Title Case, one-step undo); toolbar snapshots regenerated. Gate: lint 0,
+  unit 1993 (154 files).
 - [ ] 17.5.2 — **Text transformations (autocorrect)**: as-you-type replacements —
   `(c)`→©, `(tm)`→™, `(r)`→®, `1/2`→½, `1/4`/`3/4` fractions, `--`→en-dash, `---`→em-dash,
   smart quotes (config-gated, off-able per pair). *CKEditor free has it; confirmed absent

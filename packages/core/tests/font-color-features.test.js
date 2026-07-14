@@ -98,9 +98,10 @@ describe('font size range (8px–96px)', () => {
 describe('custom fontSize / lineHeight input', () => {
   function openDropdown(editor, kind) {
     const toolbarEl = editor.toolbar.getElement();
-    // dropdown order: heading, fontFamily, fontSize, lineHeight
-    const idx = { heading: 0, fontFamily: 1, fontSize: 2, lineHeight: 3 }[kind];
-    const trigger = toolbarEl.querySelectorAll('.oe-tb__dd-trigger')[idx];
+    // Select by aria-label (locale key), NOT position — adding a dropdown to
+    // the toolbar must not break these tests (bit us when 17.5.1 added Case).
+    const label = { heading: 'Format', fontFamily: 'Font', fontSize: 'Size', lineHeight: 'Line height' }[kind];
+    const trigger = toolbarEl.querySelector(`.oe-tb__dd-trigger[aria-label="${label}"]`);
     trigger.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
     trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     return document.body.querySelector('.oe-tb__dd-panel:not([hidden])');

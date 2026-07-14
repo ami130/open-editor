@@ -25,6 +25,8 @@ export const DEFAULT_TOOLBAR = [
     { type: 'button', name: 'subscript',    command: 'subscript',    icon: 'subscript',    labelKey: 'subscript' },
     { type: 'button', name: 'inlineCode',    command: 'inlineCode',    icon: 'inlineCode',    labelKey: 'inlineCode' },
     { type: 'button', name: 'removeFormat',  command: 'removeFormat',  icon: 'removeFormat',  labelKey: 'removeFormat' },
+    // 17.5.1 — change case (free; CKEditor premium / Jodit PRO charge for it)
+    { type: 'dropdown', name: 'changeCase', kind: 'changeCase', labelKey: 'changeCase' },
   ],
   // block
   [

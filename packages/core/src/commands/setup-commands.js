@@ -42,6 +42,7 @@ import {
 import {
   blockIndentCommand, blockOutdentCommand,
 } from './block-indent-commands.js';
+import { registerCaseCommands } from './case-commands.js';
 import { CommandManager } from './command-manager.js';
 
 export function setupCommands(editor) {
@@ -56,6 +57,7 @@ export function setupCommands(editor) {
   editor.commands.register('subscript',             subscriptCommand);
   editor.commands.register('inlineCode',            inlineCodeCommand);
   editor.commands.register('removeFormat',          removeFormatCommand);
+  registerCaseCommands(editor); // 17.5.1 — changeCase('upper'|'lower'|'title')
   editor.commands.register('selectAll',             selectAllCommand);
   editor.commands.register('cut',                   cutCommand);
   editor.commands.register('copyAsPlainText',       copyAsPlainTextCommand);

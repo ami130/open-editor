@@ -119,7 +119,7 @@ describe('Toolbar — keyboard nav (7.4)', () => {
 describe('Toolbar — dropdowns (7.6)', () => {
   it('heading dropdown opens and lists options', () => {
     const { editor, target } = makeEditor();
-    const trigger = target.querySelector('.oe-tb__dd-trigger');
+    const trigger = target.querySelector('.oe-tb__dd-trigger[aria-label="Format"]');
     trigger.click();
     const panel = Array.from(document.querySelectorAll('.oe-tb__dd-panel'))
       .find((p) => !p.hidden);
@@ -131,7 +131,7 @@ describe('Toolbar — dropdowns (7.6)', () => {
   it('heading option executes its command', () => {
     const { editor, target } = makeEditor();
     const spy = vi.spyOn(editor.commands, 'execute');
-    target.querySelector('.oe-tb__dd-trigger').click();
+    target.querySelector('.oe-tb__dd-trigger[aria-label="Format"]').click();
     const opt = Array.from(document.querySelectorAll('.oe-tb__dd-option'))
       .find((el) => !el.closest('[hidden]'));
     if (opt) opt.click();

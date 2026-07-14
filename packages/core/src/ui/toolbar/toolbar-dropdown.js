@@ -49,6 +49,14 @@ function optionsFor(kind, locale) {
   if (kind === 'lineHeight') {
     return DEFAULT_LINE_HEIGHTS.map((v) => ({ label: v, command: 'lineHeight', arg: v }));
   }
+  if (kind === 'changeCase') {
+    // 17.5.1 — free here; CKEditor premium / Jodit PRO both charge for this.
+    return [
+      { label: t(locale, 'caseUpper'), command: 'changeCase', arg: 'upper' },
+      { label: t(locale, 'caseLower'), command: 'changeCase', arg: 'lower' },
+      { label: t(locale, 'caseTitle'), command: 'changeCase', arg: 'title' },
+    ];
+  }
   return [];
 }
 

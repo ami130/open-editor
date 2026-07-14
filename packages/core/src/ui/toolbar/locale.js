@@ -41,6 +41,11 @@ export const EN_LOCALE = {
   source: 'Source code',
   // 17.11 — plugin-button keys that previously hardcoded their tooltips
   // (exact same strings, so EN rendering is unchanged).
+  // 17.5.1 — change case dropdown
+  changeCase: 'Case',
+  caseUpper: 'UPPERCASE',
+  caseLower: 'lowercase',
+  caseTitle: 'Title Case',
   insertImage: 'Insert Image',
   insertLink: 'Insert Link',
   insertTable: 'Insert Table',

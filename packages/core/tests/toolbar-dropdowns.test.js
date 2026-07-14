@@ -189,7 +189,8 @@ describe('Dropdown outside-click regression (panel mounted on body)', () => {
     sel();
 
     const toolbarEl = editor.toolbar.getElement();
-    const trigger = toolbarEl.querySelectorAll('.oe-tb__dd-trigger')[0];
+    // By aria-label, not position — adding toolbar dropdowns must not break this.
+    const trigger = toolbarEl.querySelector('.oe-tb__dd-trigger[aria-label="Format"]');
     trigger.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
     trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 
