@@ -4,6 +4,7 @@ import {
   handleEnterSplit, handleBackspace, handleDelete, handleMultiBlockDelete,
   ensureEditorFloor,
 } from './editing/block-editing.js';
+import { guardMaxLength, guardOvertypeSelection } from './editing/keydown-guards.js';
 import { pruneFormatHusks } from './editing/prune-format-husks.js';
 
 export const editorEventsMixin = {
@@ -111,26 +112,8 @@ export const editorEventsMixin = {
       }
     }
 
-    // 2.13 — maxLength enforcement
-    if (!this._isComposing && this._config.maxLength != null) {
-      // Non-additive keys: navigation, modifiers, control keys, function keys.
-      // PageUp/PageDown/Insert also listed (H-2 fix: complete non-additive set).
-      const additive = !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight',
-                         'ArrowUp', 'ArrowDown', 'Home', 'End', 'Tab',
-                         'Escape', 'Enter', 'Shift', 'Control', 'Alt', 'AltGraph',
-                         'Meta', 'CapsLock', 'NumLock', 'ScrollLock', 'Pause',
-                         'PageUp', 'PageDown', 'Insert', 'PrintScreen',
-                         'F1', 'F2', 'F3', 'F4', 'F5', 'F6',
-                         'F7', 'F8', 'F9', 'F10', 'F11', 'F12'].includes(e.key);
-      const isShortcut = e.ctrlKey || e.metaKey || e.altKey;
-      const selInfo = this.selection && this.selection.get();
-      const selCollapsed = !selInfo || selInfo.collapsed !== false;
-      if (additive && !isShortcut && selCollapsed && this._rawTextLength() >= this._config.maxLength) {
-        e.preventDefault();
-        this.emit('maxLengthExceeded', { current: this._rawTextLength(), max: this._config.maxLength });
-        return;
-      }
-    }
+    // 2.13 — maxLength enforcement (extracted to editing/keydown-guards.js)
+    if (guardMaxLength(this, e)) return;
 
     // Block-editing handlers mutate the DOM programmatically — skip them all in
     // readonly (contenteditable=false already blocks the browser's own editing).
@@ -172,26 +155,9 @@ export const editorEventsMixin = {
       if (handleDelete(this))           { e.preventDefault(); return; }
     }
 
-    // 17.5.6-found Firefox bug: OVERTYPING a selection that Firefox anchors at
-    // the EDITOR ROOT (its select-all does this) let the browser delete every
-    // block and then type into the bare root — one new <p> per keystroke burst
-    // (select-all → type = shredded document). Two cases, no preventDefault —
-    // the typed character inserts natively into the surviving valid block:
-    //  • multi-block selection → same merge as Backspace/Delete;
-    //  • root-anchored selection (getParentBlock = null, so the merge bails) →
-    //    delete the contents ourselves and restore the <p><br></p> floor.
-    if (!this._isComposing && !readOnly
-        && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (!handleMultiBlockDelete(this)) {
-        const info = this.selection && this.selection.get();
-        const root = this.getEditorElement();
-        if (info && !info.collapsed
-            && (info.startNode === root || info.endNode === root)) {
-          info.range.deleteContents();
-          ensureEditorFloor(this);
-        }
-      }
-    }
+    // Overtype-selection collapse (17.5.6 Firefox shred fix — see
+    // editing/keydown-guards.js for the full story).
+    if (!readOnly) guardOvertypeSelection(this, e);
 
     if (e.key === 'Tab' && !readOnly) {
       if (!this._isComposing && handleListTab(this, e.shiftKey)) {
