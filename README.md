@@ -334,10 +334,20 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | ✅ **12/12 core done (2026-07-14) — ships as 1.1.0; 2 stretch items deferred** |
 | **Framework wrappers** (React / Vue / Angular) | 18 | planned |
 | **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
-| **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned |
+| **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned (parallel, non-blocking) |
+| **Web Platform 1: Public Site + Playground** (fresh `open-editor-web` project — Next.js/NestJS; landing, live demo with config reflector, docs, comparison) | 21 | planned |
+| **Entitlements Foundation** (feature registry, offline Ed25519 licenses, FeatureManager, dev issuer + adversarial sweep) | 22 | planned |
+| **Web Platform 2: Admin Panel + License Service** (same repo, behind auth: two-pipe package matrix — config profiles for core features + signed licenses for premium; roles, audit, full admin control) | 23 | planned |
+| **Web Platform 3: Commerce & Customer Portal** (same repo: self-serve buy/renew, billing, trials) | 24 | planned |
 
-Nearest-term priority order: **npm Publishing (17) → Free-Tier Competitive Sweep (17.5) →
-Framework Wrappers (18) → Premium Layer (19) → Engineering Moats (20, ongoing)**.
+Serial execution order (revised 2026-07-14 with the commercial-platform proposal):
+**18 (wrappers, React first) → 21 (website + playground) → 22 (entitlements foundation)
+→ 19 wave 1 (Export PDF/DOCX + Word Import + Version History, licensed via 22's dev
+issuer) → 23 (license platform + admin panel) → 19 wave 2 (Comments → Track Changes →
+Collaboration) → 24 (commerce)** — with 20 (moats) running parallel and non-blocking
+throughout. Rationale: adoption surfaces first (18, 21); the entitlement contract (22)
+before any premium code so 19 is gated from day one; the admin platform (23) once
+there's something to sell; commerce (24) once there's someone to sell to.
 Phase 17 is the hard gate — nothing in 17.5+ starts until `npm install @open-editor-hq/core` works. *(Both are done — 1.0.0 is live; the 17.5 sweep ships as 1.1.0.)*
 (Accessibility & Mobile (14), Theme System (15), Public API freeze (16), Production
 Hardening (16.5), and Modern Editing UX (16.6) are all complete). A full re-audit against
@@ -1689,18 +1699,71 @@ launch has no losing free-tier rows.
 ---
 
 ### PHASE 18 — Framework Wrappers
-**Goal:** Native components for React, Vue, Angular that feel idiomatic.
+**Goal:** Native components for React, Vue, Angular that feel idiomatic — the #1
+adoption unlock (most integrators won't touch a bare-DOM editor).
 
-Milestones:
-- [ ] 18.1 — React wrapper: `<OpenEditor value={html} onChange={fn} />`, forwardRef for editor instance
-- [ ] 18.2 — React: controlled + uncontrolled modes
-- [ ] 18.3 — Vue wrapper: `<open-editor v-model="html" />`, exposes instance via template ref
-- [ ] 18.4 — Vue: compatible with Vue 3 Composition API
-- [ ] 18.5 — Angular wrapper: `ControlValueAccessor` for form integration
-- [ ] 18.6 — All wrappers: zero additional dependencies beyond their own framework
-- [ ] 18.7 — Each wrapper ships its own npm package: `@open-editor-hq/react`, `@open-editor-hq/vue`, `@open-editor-hq/angular`
+**Deep analysis (2026-07-14) — the four traps every editor wrapper falls into, and
+this design's answers:**
+1. **The controlled-component trap** (the classic wrapper bug): naively piping
+  `value` → `setHTML` on every render destroys the caret and can loop with
+  `onChange`. Design: the editor is **uncontrolled by default**; the `value` prop is
+  initial content + EXTERNAL-change sync only — the wrapper diffs (`value !==
+  editor.getHTML()`) and skips syncs for changes that originated inside the editor.
+  Both modes (18.2) get dedicated caret-stability e2e tests — typing must never jump.
+2. **React 18 StrictMode double-mount**: effects run create→destroy→create in dev.
+  The editor's create/destroy is already proven idempotent by the 100-cycle leak
+  test (16.5.6) — the wrapper leans on that and gets its own StrictMode test.
+3. **SSR (Next.js)**: the core's module graph is import-pure (`sideEffects: false`,
+  proven by 17.6) so IMPORTING is SSR-safe; only construction needs a DOM. The React
+  wrapper ships `"use client"`-ready with documented dynamic-import patterns — a real
+  differentiator vs wrappers that crash at import (matters doubly: Phase 21's site IS
+  Next.js and will dogfood it).
+4. **Reactive-prop honesty**: only some editor state is runtime-mutable. Reactive
+  props: `value`, `readOnly` (→`setReadOnly`), `theme` (→`setTheme`), `direction`
+  (→`setDirection`). Everything else (locale, plugins, most config) is
+  construct-time — changing those triggers a documented, clean **recreate** (via
+  `key` in React) rather than silent misbehavior. The docs state exactly which prop
+  does which — no pretending everything is reactive.
 
-**Clean output:** React/Vue/Angular demo apps all work with v-model / controlled value pattern.
+Shared design: events → props (`onChange`, `onReady`, `onFocus`, `onBlur`,
+`onError` from the frozen event map); the editor instance exposed (forwardRef /
+template ref / `@ViewChild`); `plugins` prop takes factory instances installed on
+mount; TypeScript types REUSED from the core's `index.d.ts` (`OpenEditorConfig` is
+the prop type — zero type forks). Each wrapper: its own package under the owned org
+scope, peerDependencies on its framework + the core, same minified-only build
+posture, own size gate (wrappers must stay tiny — a few KB), own d.ts, RTL/jsdom
+unit tests + a real consumer app driven by Playwright.
+
+Milestones (execution order — React first, it unblocks Phase 21's dogfooding):
+- [x] 18.1 — *(done 2026-07-14)* **React wrapper** (`@open-editor-hq/react`, new
+  `packages/react`): JSX-free source (zero build transforms), 1.9KB minified shim,
+  react + core as peer deps, minified-only distribution posture, hand-authored d.ts
+  that REUSES the core's types (zero forks). `value/onChange/onReady/onFocus/onBlur/
+  onError`, forwardRef handle (`.editor`, `getHTML`, `getMarkdown`, `focus`),
+  `plugins` factory prop, reactive `readOnly/theme/direction`, everything else
+  documented construct-time. 7 unit tests (RTL/jsdom) — including the no-echo-loop
+  proof: `setHTML` is spied and NEVER re-entered by the editor's own onChange
+  round-trip.
+- [x] 18.2 — *(done 2026-07-14)* **Controlled + uncontrolled with caret-stability
+  proof, LIVE**: a real Vite+React 19 app in **StrictMode**, built from packed
+  tarballs, driven in Chromium — character-by-character typing in fully controlled
+  mode (`value` + `onChange→setState`) produced byte-exact text with the caret never
+  jumping; StrictMode double-mount left exactly ONE live editor; external `value`
+  changes sync in; reactive theme applies; the ref surface works from app code; zero
+  page errors.
+- [ ] 18.3 — Vue 3 wrapper (`@open-editor-hq/vue`): `v-model`, template-ref instance
+- [ ] 18.4 — Vue: Composition-API idioms (`useOpenEditor` composable), same
+  caret-stability e2e
+- [ ] 18.5 — Angular wrapper (`@open-editor-hq/angular`): `ControlValueAccessor` for
+  forms, `@ViewChild` instance access
+- [ ] 18.6 — All wrappers: zero dependencies beyond their own framework peer (audited
+  like the core)
+- [ ] 18.7 — Each ships its own npm package + docs page + a live demo route reserved
+  for the Phase 21 site
+
+**Clean output:** React/Vue/Angular demo apps all work with the value/v-model/CVA
+pattern; typing never drops the caret in controlled mode; StrictMode clean; a Next.js
+page imports the React wrapper without SSR crashes.
 
 ---
 
@@ -1808,6 +1871,144 @@ Milestones:
 Android typing matrix in CI or a documented manual protocol. Drafts survive a crashed
 tab offline and sync when back online. Spreadsheet paste produces clean tables. Images
 crop in place. Files browse from the server.
+
+---
+
+### PHASE 21 — Web Platform, Part 1: Public Site + Playground *(NEW repo: `open-editor-web`)*
+**Goal:** The public face — landing page, Jodit-style live playground, docs — built as
+the PUBLIC HALF of one fresh full-stack web project that will also carry the admin
+platform (Phase 23) and commerce (Phase 24). **Decision (2026-07-14, owner):** one
+fresh project, not scattered apps — recommended stack **Next.js** (SSG for the public
+pages, server runtime + RBAC for `/admin` later; a **NestJS** API tier is optional if
+API separation is preferred at build time). Repo private; the DEPLOYED site is public
+(deployment visibility ≠ repo visibility — also fits the closed-source stance).
+
+Milestones:
+- [ ] 21.1 — Project scaffold: repo, CI, deploy pipeline, Postgres+ORM foundations
+  (dormant until Phase 23), env/secrets discipline from day one.
+- [ ] 21.2 — **Landing page**: the measured pitch (zero-dep, no license key, smallest
+  full-featured editor, security-first), install snippet, live hero editor.
+- [ ] 21.3 — **Playground**: all 19 plugins; theme + locale (incl. RTL) switchers;
+  feature toggles; the **config reflector** — the page shows the copy-paste-ready
+  `new OpenEditor(…)` config for whatever the visitor toggled (no competitor demo
+  has this).
+- [ ] 21.4 — **Docs**: CONFIG/THEMING/PLUGINS/ACCESSIBILITY/SECURITY rendered from the
+  editor repo's markdown (synced at build — single source of truth, no forked docs).
+- [ ] 21.5 — **Comparison page** vs CKEditor/Jodit (every row links to live playground
+  proof) + framework-usage demos once Phase 18 wrappers exist.
+- [ ] 21.6 — Quality gates on the site itself: Lighthouse + axe in CI.
+
+**Clean output:** A public URL where a stranger tries everything in 30 seconds, copies
+a working config, and installs.
+
+---
+
+### PHASE 22 — Entitlements Foundation (client-side, in this repo)
+**Goal:** The license plumbing the premium tier stands on — built BEFORE the first
+premium plugin so 19.x plugins are entitlement-gated from day one, and BEFORE the
+platform (23) so it has a stable contract to issue against.
+
+Design decisions (the contract):
+- **Feature registry**: stable, versioned feature IDs (`export.pdf`, `collab.rt`,
+  `trackChanges`, …) — the shared vocabulary between premium plugins, licenses, and
+  the admin panel's plan builder. Plans compose feature IDs; **new plans never require
+  code changes anywhere**.
+- **License format**: signed JWT (Ed25519, `kid` header for key rotation), verified
+  OFFLINE with an embedded public key (19.1) — no phone-home to function. Payload:
+  `{ features[], limits{}, domains[], seats, plan, customer, exp, iat }`. The license
+  snapshots its feature set at issuance (renewals re-issue) so offline verification
+  never needs the plan database.
+- **`FeatureManager`** (19.2): premium plugins declare required feature IDs; install
+  is gated; expiry/absence degrades gracefully with a non-blocking notice (19.3).
+- **Dev issuer**: a local script that signs development licenses — Phase 19 plugins
+  get built and tested against real license mechanics long before the platform exists.
+
+Milestones:
+- [ ] 22.1 — Feature-ID registry + conventions doc (additive-only, never renamed)
+- [ ] 22.2 — License verification (Ed25519 JWT, offline, key-rotation-ready) + expiry/
+  domain/seat semantics + graceful degradation UX
+- [ ] 22.3 — `FeatureManager` + premium-plugin gating contract (`@open-editor-hq-premium/*`
+  package skeleton, never bundled with core — 19.11)
+- [ ] 22.4 — Dev license issuer script + the adversarial test sweep (forged signature,
+  tampered payload, expired, wrong domain, feature not granted — all must fail closed)
+- [ ] 22.5 — **Anti-sharing enforcement (one payment = one customer, decided
+  2026-07-14).** Layered, engineering-honest design — any client-side key can be
+  COPIED, so enforcement = hard binding + detection + response, the same model every
+  serious editor vendor uses:
+  **(a) Domain lock (the hard wall):** every license is bound to the customer's
+  domain(s); the editor verifies `location.hostname` against the key offline — a key
+  issued for `customer.com` is inert anywhere else. This alone kills casual sharing
+  for web products.
+  **(b) Seats/limits in the payload** for per-editor/per-user pricing tiers.
+  **(c) Activation pings (detection):** premium builds send an optional, privacy-light
+  activation beacon (license id + hostname hash); the platform flags one license
+  appearing across many unrelated hosts → admin sees it on the abuse dashboard (23.4)
+  and revokes (23.2). Offline/air-gapped customers are exempted by contract tier.
+  **(d) Response:** revocation list + non-renewal; degraded-with-notice, never
+  remote-brick. What this deliberately does NOT promise: DRM-grade impossibility —
+  that doesn't exist in JavaScript, and pretending otherwise is how vendors ship
+  user-hostile phone-home requirements. Binding + detection + revocation is the
+  honest, industry-proven ceiling.
+
+**Clean output:** A premium plugin can exist: it installs with a valid dev license,
+refuses politely without one, and no amount of client-side tampering unlocks it.
+
+---
+
+### PHASE 23 — Web Platform, Part 2: Admin Panel + License Service *(same `open-editor-web` repo)*
+**Goal:** The fully-admin-controlled back office, behind auth in the same fresh web
+project. **The core design — packages via TWO PIPES (decided 2026-07-14):** a Package
+is ONE feature matrix the admin edits (bold ✓, lists ✓, color ✗, tables ✓, PDF export
+✓, collaboration ✗ …) that emits BOTH artifacts at once:
+- **a config profile** (JSON) for core/visible features — which toolbar buttons and
+  plugins that package's editor ships; delivered via a profile endpoint the customer
+  integration loads. No DRM needed for core features; fully dynamic; editable live.
+- **a signed license** (Phase 22 JWT) for premium features — paid code, offline-
+  verified. Optionally carries core-feature flags too for hard-enforced B2B deals
+  (license present → honored even for core; license absent → full free editor, so
+  plain npm users are never affected).
+New plans, price changes, feature re-bundling: admin dashboard only — engineering is
+never in the loop.
+
+Milestones:
+- [ ] 23.1 — **Data model**: FeatureRegistry (synced from editor 22.1: core + premium
+  IDs) → Packages (the admin-composed matrix + limits + price metadata) → Customers/
+  Orgs → Licenses (issued snapshots: domains, seats, expiry, status) → ConfigProfiles
+  (versioned, per package/customer) → AdminUsers + Roles → append-only AuditLog.
+- [ ] 23.2 — **License service**: Ed25519 issuance (22.2 format), renewal (re-issue),
+  revocation list, key rotation (`kid`); signing keys isolated in a server-only module
+  (KMS-ready), never in the web tier.
+- [ ] 23.3 — **Admin panel — the matrix**: package builder UI (per-feature checkboxes
+  spanning core AND premium), live preview (an embedded editor rendering exactly what
+  that package gets), profile publishing, license issue/renew/revoke/extend, customer
+  CRUD, search.
+- [ ] 23.4 — **Full admin control**: Owner/Admin/Support/ReadOnly roles, admin 2FA,
+  every mutation audit-logged, dashboards (licenses issued/active/expiring, package
+  distribution, optional anonymous activation pings), site content controls (announce
+  banners, pricing page copy) so the PUBLIC half is admin-editable too.
+- [ ] 23.5 — Hardening: rate limits, backup/restore drills, staging environment,
+  penetration checklist on the auth + signing paths.
+
+**Clean output:** An admin creates a "Business" package by ticking features, hits
+publish — a customer's editor (config profile + license) reflects exactly that matrix,
+offline-capable, revocable, and every admin action is attributable.
+
+---
+
+### PHASE 24 — Web Platform, Part 3: Commerce & Customer Portal *(same `open-editor-web` repo)*
+**Goal:** Self-serve: customers buy, renew, and manage licenses without an admin in
+the loop.
+
+Milestones:
+- [ ] 24.1 — Customer accounts + portal (view licenses/keys, domains, seats, invoices)
+- [ ] 24.2 — Billing integration (Stripe-class): checkout → automatic license issuance;
+  renewals → re-issue; failed payment → grace then expiry (never remote-brick — offline
+  licenses simply expire on their own terms)
+- [ ] 24.3 — Trials: time-boxed full-feature licenses, self-serve
+- [ ] 24.4 — Email lifecycle (receipts, expiry warnings, renewal links)
+
+**Clean output:** A stranger goes from the Phase 21 playground's "try premium" button
+to a paid, working license with zero human involvement.
 
 ---
 
