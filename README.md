@@ -332,7 +332,7 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **Competitive Parity Pass** (list style auto-progression, typed-URL autolink, to-do lists, F&R whole-word, table properties split, table header-click selection, source syntax highlighting, responsive images, selection word count) | 16.7 | ✅ done |
 | **npm Publishing** (ships as `@open-editor-hq/core` — rc.1 LIVE on `next`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, WCAG conformance statement, plugin guide, 4 locale packs) | 17 | ✅ **done — 1.0.0 LIVE on npm (2026-07-14)** |
 | **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | ✅ **12/12 core done (2026-07-14) — ships as 1.1.0; 2 stretch items deferred** |
-| **Framework wrappers** (React / Vue / Angular) | 18 | planned |
+| **Framework wrappers** (React / Vue / Angular — all three live-proven caret-stable from packed tarballs) | 18 | ✅ **done (2026-07-14)** |
 | **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
 | **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned (parallel, non-blocking) |
 | **Web Platform 1: Public Site + Playground** (fresh `open-editor-web` project — Next.js/NestJS; landing, live demo with config reflector, docs, comparison) | 21 | planned |
@@ -1908,20 +1908,32 @@ pages, server runtime + RBAC for `/admin` later; a **NestJS** API tier is option
 API separation is preferred at build time). Repo private; the DEPLOYED site is public
 (deployment visibility ≠ repo visibility — also fits the closed-source stance).
 
-Milestones:
-- [ ] 21.1 — Project scaffold: repo, CI, deploy pipeline, Postgres+ORM foundations
-  (dormant until Phase 23), env/secrets discipline from day one.
-- [ ] 21.2 — **Landing page**: the measured pitch (zero-dep, no license key, smallest
-  full-featured editor, security-first), install snippet, live hero editor.
-- [ ] 21.3 — **Playground**: all 19 plugins; theme + locale (incl. RTL) switchers;
-  feature toggles; the **config reflector** — the page shows the copy-paste-ready
-  `new OpenEditor(…)` config for whatever the visitor toggled (no competitor demo
-  has this).
-- [ ] 21.4 — **Docs**: CONFIG/THEMING/PLUGINS/ACCESSIBILITY/SECURITY rendered from the
-  editor repo's markdown (synced at build — single source of truth, no forked docs).
-- [ ] 21.5 — **Comparison page** vs CKEditor/Jodit (every row links to live playground
-  proof) + framework-usage demos once Phase 18 wrappers exist.
-- [ ] 21.6 — Quality gates on the site itself: Lighthouse + axe in CI.
+Milestones *(built 2026-07-14/15 in the separate `open-editor-web` repo — Next.js
+16.2.10, App Router, TS, Tailwind v4, fully static output; committed 58f1eb9)*:
+- [x] 21.1 — Project scaffold: separate repo, CI workflow (lint + build + axe gate),
+  live core from the registry + **vendored react wrapper tarball** (`file:vendor/…` —
+  wrappers are unpublished until month-end; swap to registry at 25.2). *Deviations
+  from spec, deliberate:* Postgres/ORM NOT scaffolded (dormant code helps nobody —
+  arrives with Phase 23); deploy pipeline pending the hosting decision (CI file ready).
+- [x] 21.2 — **Landing page**: live hero editor (`dynamic({ssr:false})` — the site
+  dogfoods the real packages), measured claims (0 deps / 61KB gz / 2800+ tests /
+  0 license keys), feature grid, install snippet.
+- [x] 21.3 — **Playground**: all 19 plugins toggleable; theme/locale (en/es/fr/de/ar)/
+  direction switchers (Arabic auto-sets RTL); the **config reflector** emits the exact
+  imports + `new OpenEditor(…)` + plugin installs for the current toggles, with Copy.
+  Verified live: SITE LIVE DRIVE 10/10 checks (typing, toggle→toolbar+reflector,
+  Arabic UI+RTL+locale reflection), zero page errors.
+- [x] 21.4 — **Docs**: 8 markdown files (CONFIG/THEMING/THEME-TOKENS/PLUGINS/
+  ACCESSIBILITY/SECURITY/ERROR-REPORTING/CHANGELOG) synced from this repo via
+  `scripts/sync-docs.mjs` (committed copies, editor repo = source of truth), rendered
+  SSG with GFM tables.
+- [x] 21.5 — **Comparison page** vs CKEditor/Jodit — honest rows (license keys, size,
+  features), each linking to live playground proof. Framework demos deferred to the
+  docs-site pass at 25.2 (wrappers publish then; READMEs already written 2026-07-15).
+- [x] 21.6 — Quality gate in CI: **axe WCAG 2.0 A/AA on all 5 routes — PASS exit 0**
+  (fails build on any critical/serious violation; live editors mounted during scan).
+  *Deviation:* Lighthouse deferred until the site has a real deploy target — scoring
+  localhost is noise; tracked for the deploy moment.
 
 **Clean output:** A public URL where a stranger tries everything in 30 seconds, copies
 a working config, and installs.
@@ -1951,9 +1963,19 @@ Design decisions (the contract):
 Milestones:
 - [ ] 22.1 — Feature-ID registry + conventions doc (additive-only, never renamed)
 - [ ] 22.2 — License verification (Ed25519 JWT, offline, key-rotation-ready) + expiry/
-  domain/seat semantics + graceful degradation UX
-- [ ] 22.3 — `FeatureManager` + premium-plugin gating contract (`@open-editor-hq-premium/*`
-  package skeleton, never bundled with core — 19.11)
+  domain/seat semantics + graceful degradation UX. **Dev-domain exception (decided
+  2026-07-15, the Jodit rule):** `localhost`, `127.0.0.1`, `*.local` and common dev/
+  staging hostnames always run WITHOUT any key (premium included, with a quiet
+  "development mode" console note) — development never fights the license; only
+  production domains need the key.
+- [ ] 22.3 — `FeatureManager` + premium-plugin gating contract. **Premium delivery
+  model (decided 2026-07-15): premium code ships as a NORMAL PUBLIC npm package**
+  (minified, dormant without a valid key) — one ordinary `npm install`, no private
+  registry, no tokens, no extra steps; the customer experience is exactly
+  "paste `licenseKey` in config → features activate offline." Kept as a separate
+  package (not folded into the engine) so heavy premium features never bloat free
+  users' bundles or the size budgets; the CLI later makes even that install
+  invisible (`npx openeditors add premium`).
 - [ ] 22.4 — Dev license issuer script + the adversarial test sweep (forged signature,
   tampered payload, expired, wrong domain, feature not granted — all must fail closed)
 - [ ] 22.5 — **Anti-sharing enforcement (one payment = one customer, decided
@@ -1963,7 +1985,10 @@ Milestones:
   **(a) Domain lock (the hard wall):** every license is bound to the customer's
   domain(s); the editor verifies `location.hostname` against the key offline — a key
   issued for `customer.com` is inert anywhere else. This alone kills casual sharing
-  for web products.
+  for web products. **The domain is collected AT PURCHASE (decided 2026-07-15):**
+  checkout requires the production domain(s) up front, so every key is born already
+  bound — an unbound key never exists. (Dev domains are exempt per 22.2, so the
+  customer can build before their production domain even goes live.)
   **(b) Seats/limits in the payload** for per-editor/per-user pricing tiers.
   **(c) Activation pings (detection):** premium builds send an optional, privacy-light
   activation beacon (license id + hostname hash); the platform flags one license
@@ -2026,14 +2051,54 @@ the loop.
 
 Milestones:
 - [ ] 24.1 — Customer accounts + portal (view licenses/keys, domains, seats, invoices)
-- [ ] 24.2 — Billing integration (Stripe-class): checkout → automatic license issuance;
-  renewals → re-issue; failed payment → grace then expiry (never remote-brick — offline
-  licenses simply expire on their own terms)
+- [ ] 24.2 — Billing integration (Stripe-class): checkout **collects the production
+  domain(s) as a required field** → automatic license issuance with the key born
+  domain-bound (22.5a); renewals → re-issue; failed payment → grace then expiry
+  (never remote-brick — offline licenses simply expire on their own terms)
 - [ ] 24.3 — Trials: time-boxed full-feature licenses, self-serve
 - [ ] 24.4 — Email lifecycle (receipts, expiry warnings, renewal links)
 
 **Clean output:** A stranger goes from the Phase 21 playground's "try premium" button
 to a paid, working license with zero human involvement.
+
+---
+
+### PHASE 25 — Distribution: `openeditors` CLI + name migration *(decided 2026-07-15)*
+**Goal:** One brand, one command. Full proposal: [PROPOSAL-CLI.md](PROPOSAL-CLI.md).
+
+**Naming decision record (2026-07-15, supersedes `@open-editor-hq/*` for all
+forward-looking work; historical milestone notes keep the old names as facts):**
+- Bare `open-editor`/`openeditor`/`open-editor-cli` are permanently impossible
+  (Sindre Sorhus's packages + npm's punctuation-similarity rule — verified by a
+  real rejected publish). The `@openeditor` scope belongs to an unrelated
+  active product (found 2026-07-15).
+- **Final family — all claimed live on npm (v0.0.2 placeholders, owner
+  `ami-hasan-parselab`, managed by the `openeditors` org):** `openeditors` (CLI),
+  `openeditor-text` (engine), `openeditor-text-react` / `-vue` / `-angular`
+  (wrappers), `openeditor-image` (future). The `openeditors` npm org also secures
+  the `@openeditors` scope defensively.
+- Commands: `npx openeditors add text` (zero-install door) and, after
+  `npm i -g openeditors`, literally `openeditor add text` (bin names have no
+  similarity rule). Old orgs (`open-editor-hq`, `open-editor-hq-premium`, …)
+  stay parked as brand protection; `@open-editor-hq/core` retires at the
+  month-end migration (deprecation notice pointing to `openeditor-text`).
+
+Milestones:
+- [ ] 25.1 — CLI v1: `add text` — detect package manager (npm/pnpm/yarn) +
+  framework (React/Vue/Angular/none from package.json), install `openeditor-text`
+  + the right wrapper, print framework-exact starter code. Small by design
+  (detect → install → print); no config mutation in v1.
+- [ ] 25.2 — Name migration (month-end publish moment): rename packages in the
+  monorepo (`openeditor-text*`), adapt the engine README, publish 1.x over the
+  placeholders, deprecate `@open-editor-hq/core` with a pointer. Detailed
+  per-framework READMEs are already written to the new names (2026-07-15:
+  packages/react|vue|angular/README.md).
+- [ ] 25.3 — CLI Phase-22/23 hooks (later, with those phases): `openeditors login`,
+  license-key activation, `add premium`.
+
+**Clean output:** A stranger with an empty React/Vue/Angular app runs ONE command
+and has a working, styled editor plus paste-ready code — and every doc leads with
+that command.
 
 ---
 
