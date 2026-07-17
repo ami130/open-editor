@@ -1,15 +1,16 @@
 {
-  "name": "open-editor-hq-root",
+  "name": "openeditors-root",
   "private": true,
   "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter playground dev",
-    "build": "pnpm --filter @open-editor-hq/core build",
-    "test": "pnpm --filter @open-editor-hq/core test",
+    "build": "pnpm --filter openeditor-text build",
+    "test": "pnpm --filter openeditor-text test",
     "test:e2e": "pnpm --filter playground test:e2e",
-    "test:all": "pnpm test && pnpm test:e2e",
-    "lint": "eslint packages/core/src/ packages/core/tests/"
+    "test:all": "pnpm test && pnpm test:packages && pnpm test:e2e",
+    "lint": "eslint packages/core/src/ packages/core/tests/ packages/react/src/ packages/react/tests/ packages/vue/src/ packages/vue/tests/ packages/cli/ packages/entitlements/ premium/ apps/playground/src/",
+    "test:packages": "pnpm -r --filter '!openeditor-text' --filter '!openeditors-root' --filter '!playground' test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

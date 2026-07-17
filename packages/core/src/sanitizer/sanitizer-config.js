@@ -16,13 +16,25 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   ['s',          ['class', 'style']],
   ['del',        ['class', 'style']],
   ['ins',        ['class', 'style']],
-  ['sup',        ['class', 'style']],
+  // 19.12 (premium footnotes) — a footnote reference marker is
+  // <sup class="oe-footnote-ref" contenteditable="false" data-oe-footnote-ref id>.
+  // `id` + `contenteditable` are already trusted on <a> (bookmarks) with the
+  // same reasoning: a contenteditable VALUE locks nothing an author doesn't own,
+  // and `data-oe-footnote-ref` is an inert numbering marker (no URL/script/CSS
+  // sink). Allowlisting them lets footnote markers survive getHTML()/setHTML();
+  // without this they'd be stripped to a bare <sup> and the links would break.
+  ['sup',        ['class', 'style', 'id', 'contenteditable', 'data-oe-footnote-ref']],
   ['sub',        ['class', 'style']],
   // 17.5.7 — `id` + `contenteditable` on <a> for named bookmarks
   // (<a id class="oe-bookmark" contenteditable="false">). `id` was already
   // allowlisted on p/div/headings, so no new clobbering surface; a
   // contenteditable VALUE can't lock anything an author doesn't own.
-  ['a',          ['href', 'title', 'target', 'rel', 'class', 'aria-label', 'style', 'id', 'contenteditable']],
+  // `data-oe-icon`/`data-oe-color` carry bookmark marker PRESENTATION only
+  // (icon glyph + color, both key-validated by the plugin against SAFE_KEY_RE
+  // before they're ever written). They are inert data attributes — no URL, no
+  // script, no CSS sink — so allowlisting them on <a> adds no attack surface;
+  // it just lets styled bookmarks survive the getHTML()→setHTML() round-trip.
+  ['a',          ['href', 'title', 'target', 'rel', 'class', 'aria-label', 'style', 'id', 'contenteditable', 'data-oe-icon', 'data-oe-color', 'tabindex']],
   ['img',        ['src', 'alt', 'width', 'height', 'class', 'style', 'id', 'srcset', 'sizes', 'loading', 'title', 'fetchpriority', 'decoding']],
   // 16.7.8 — responsive image output. <picture>/<source> carry no scriptable
   // surface of their own; their src-bearing attributes (srcset) are scheme-
@@ -33,10 +45,14 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   // 17.5.12-found: to-do attrs were MISSING here — saved checklists degraded
   // to plain bullets on reload (setHTML stripped them). Data-loss bug in 1.0.0.
   ['ul',         ['class', 'style', 'id', 'dir', 'data-todo-list']],
-  ['ol',         ['class', 'style', 'id', 'start', 'type', 'dir']],
+  // 19.12 (premium footnotes) — the notes section is
+  // <ol class="oe-footnotes" data-oe-footnotes> of <li id="fn-N" data-oe-footnote="N">.
+  // `data-oe-footnotes`/`data-oe-footnote` are inert markers (no sink); `id`
+  // was already allowed on ol/li. Lets the footnotes section round-trip.
+  ['ol',         ['class', 'style', 'id', 'start', 'type', 'dir', 'data-oe-footnotes']],
   // (role/aria-checked deliberately NOT on li — checkbox semantics live on
   // the inner .oe-todo-check span so the li keeps its listitem role.)
-  ['li',         ['class', 'style', 'id', 'dir', 'data-todo', 'data-checked']],
+  ['li',         ['class', 'style', 'id', 'dir', 'data-todo', 'data-checked', 'data-oe-footnote']],
   ['dl',         ['class', 'style']],
   ['dt',         ['class', 'style']],
   ['dd',         ['class', 'style']],

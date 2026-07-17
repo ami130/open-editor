@@ -99,24 +99,40 @@ export function insertAtCursor(manager, htmlOrNode) {
     }
   } else if (htmlOrNode != null && typeof htmlOrNode === 'object' && 'nodeType' in htmlOrNode) {
     // Element node path (C-1 fix): if the selection is non-collapsed and the
-    // target is an element wrapper (e.g. <span>, <code>), MOVE the selected
+    // target is an editable wrapper (e.g. <span>, <code>), MOVE the selected
     // content INTO the wrapper first so it is preserved, then insert the
     // now-populated wrapper in place.  The old code called deleteContents()
     // unconditionally which wiped the selection before inserting an empty node.
-    if (htmlOrNode.nodeType === 1 && !range.collapsed) {
+    //
+    // GUARD (bookmark bug, 2026-07-16): NEVER absorb the selection into an
+    // atomic island — an element that is `contenteditable="false"` (bookmark
+    // marker, and any future island) is a self-contained unit; stuffing the
+    // user's selected text inside it destroys the text and corrupts the DOM.
+    // Such an element is always inserted BESIDE the selection (collapsed),
+    // never around it. Editable wrappers (<span>/<code>) are unaffected.
+    const isAtomicIsland = htmlOrNode.nodeType === 1 &&
+      String(htmlOrNode.getAttribute && htmlOrNode.getAttribute('contenteditable')).toLowerCase() === 'false';
+    if (htmlOrNode.nodeType === 1 && !range.collapsed && !isAtomicIsland) {
       const frag = range.extractContents(); // moves selected nodes into frag
       htmlOrNode.appendChild(frag);
       range.insertNode(htmlOrNode);
       range.selectNodeContents(htmlOrNode);
     } else {
+      // Atomic island with a non-collapsed selection: collapse to the START of
+      // the selection first so the island lands beside the text, and the
+      // selected text is left completely intact (never deleted).
+      if (isAtomicIsland && !range.collapsed) range.collapse(true);
       // Collapsed selection or non-element node: just insert at caret.
       range.deleteContents();
       range.insertNode(htmlOrNode);
-      if (htmlOrNode.nodeType === 1 && htmlOrNode.childNodes.length === 0) {
-        // Empty element (e.g. freshly-created <code>) — place cursor inside.
+      if (htmlOrNode.nodeType === 1 && htmlOrNode.childNodes.length === 0 && !isAtomicIsland) {
+        // Empty EDITABLE element (e.g. freshly-created <code>) — place the
+        // cursor inside so the user can type into it.
         range.setStart(htmlOrNode, 0);
         range.collapse(true);
       } else {
+        // Atomic island (or populated element): caret goes AFTER it — the caret
+        // must never sit inside a contenteditable="false" island.
         range.setStartAfter(htmlOrNode);
         range.collapse(true);
       }

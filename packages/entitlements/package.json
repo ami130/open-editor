@@ -1,0 +1,25 @@
+{
+  "name": "@openeditors/entitlements",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open Editor entitlements foundation (Phase 22) — feature registry + offline ES256 license verification. Isolated from the editor core: imports nothing from openeditor-text.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./issuer": "./src/issuer/dev-issuer.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "1.6.1"
+  }
+}

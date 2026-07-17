@@ -1,5 +1,5 @@
 /**
- * @open-editor-hq/react — the official React wrapper (Phase 18.1/18.2).
+ * openeditor-text-react — the official React wrapper (Phase 18.1/18.2).
  *
  * Design (see the editor repo's README, Phase 18 deep analysis):
  *  - UNCONTROLLED BY DEFAULT. `value` is initial content + external-change
@@ -19,7 +19,7 @@
 import {
   createElement, forwardRef, useEffect, useImperativeHandle, useRef,
 } from 'react';
-import { OpenEditor as OpenEditorCore } from '@open-editor-hq/core';
+import { OpenEditor as OpenEditorCore } from 'openeditor-text';
 
 export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
   const {

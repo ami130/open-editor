@@ -64,4 +64,45 @@ test.describe('Phase 13 — content plugins', () => {
     const after = await page.evaluate(() => document.querySelector('.oe-editor').getAttribute('spellcheck'));
     expect(after).not.toBe(before);
   });
+
+  test('Special characters dialog is compact & organized: category select, footer, switching', async ({ page }) => {
+    await page.locator('[title="Special characters"], [aria-label="Special characters"]').first().click();
+    await page.waitForSelector('.oe-chargrid', { state: 'visible' });
+    // a category SELECT (compact) present with several options
+    const select = page.locator('.oe-chargrid__select');
+    await expect(select).toBeVisible();
+    expect(await select.locator('option').count()).toBeGreaterThanOrEqual(5);
+    // slim footer present
+    await expect(page.locator('.oe-chargrid__foot')).toBeVisible();
+    // switching to Currency shows the Euro sign
+    await select.selectOption({ label: 'Currency' });
+    await page.waitForTimeout(50);
+    const cellTexts = await page.locator('.oe-chargrid__cell').allTextContents();
+    expect(cellTexts).toContain('€');
+    // hovering a cell updates the footer name
+    await page.locator('.oe-chargrid__cell').first().hover();
+    await expect(page.locator('.oe-chargrid__foot-name')).not.toBeEmpty();
+    // fills the modal body width (no fixed 300px pin) — the grid spans the
+    // body's CONTENT box (body width minus its horizontal padding), and is much
+    // wider than the old fixed 300px.
+    const { gridW, contentW } = await page.evaluate(() => {
+      const grid = document.querySelector('.oe-chargrid');
+      const body = grid.closest('.oe-modal__body') || grid.parentElement;
+      const cs = getComputedStyle(body);
+      const contentW = body.getBoundingClientRect().width
+        - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      return { gridW: grid.getBoundingClientRect().width, contentW };
+    });
+    expect(gridW).toBeGreaterThan(360);              // no longer pinned at 300px
+    expect(Math.abs(gridW - contentW)).toBeLessThanOrEqual(2); // fills the body
+  });
+
+  test('Special characters search spans all categories', async ({ page }) => {
+    await page.locator('[title="Special characters"], [aria-label="Special characters"]').first().click();
+    await page.waitForSelector('.oe-chargrid', { state: 'visible' });
+    await page.fill('.oe-chargrid__search', 'omega');   // a Greek char, not the default tab
+    await page.waitForTimeout(50);
+    const cells = await page.locator('.oe-chargrid__cell').allTextContents();
+    expect(cells.join('')).toContain('Ω');
+  });
 });

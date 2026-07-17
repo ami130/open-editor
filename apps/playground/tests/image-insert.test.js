@@ -219,4 +219,70 @@ test.describe('Phase 9 — Image Insert', () => {
     );
     expect(html).toContain('data-oe-island');
   });
+
+  // ── User-flow fixes (2026-07-16) ────────────────────────────────────────────
+
+  // #2: clicking the toolbar button with NO caret in the editor still inserts
+  // predictably (at document end), not at a stale/absent selection.
+  test('insert with no prior caret lands the image at the end of content', async ({ page }) => {
+    await page.evaluate(() => {
+      window.__openEditorInstance.setHTML('<p>first</p><p>second</p><p>third</p>');
+      // clear any selection so there is no caret in the editor
+      const s = window.getSelection(); s.removeAllRanges();
+      document.querySelector('.oe-editor').blur();
+    });
+    await openImageDialog(page);
+    await fillUrlAndInsert(page, DATA_IMG);
+    await page.waitForTimeout(100);
+    // the figure should be at/after the last paragraph, not before "first"
+    const afterLast = await page.evaluate(() => {
+      const blocks = [...document.querySelectorAll('.oe-editor > *')];
+      const figIdx = blocks.findIndex((b) => b.matches('figure[data-oe-island]'));
+      const thirdIdx = blocks.findIndex((b) => b.textContent.trim() === 'third');
+      return figIdx > thirdIdx;      // figure comes AFTER the last text block
+    });
+    expect(afterLast).toBe(true);
+  });
+
+  // #1: a REAL image drop on the third paragraph must land the figure THERE,
+  // not at the stale caret sitting in the first paragraph. This dispatches a
+  // genuine `drop` event with an image file, exercising the drop handler's
+  // placeCaretFromPoint() call end-to-end.
+  test('drop positions the image at the drop point (not the stale selection)', async ({ page }) => {
+    await page.evaluate(() => window.__openEditorInstance.setHTML('<p>alpha</p><p>beta</p><p>gamma</p>'));
+    // stale caret in the FIRST paragraph
+    await page.evaluate(() => {
+      const p = document.querySelector('.oe-editor p');
+      const r = document.createRange(); r.setStart(p.firstChild, 0); r.collapse(true);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    const result = await page.evaluate(async (img) => {
+      const edEl = document.querySelector('.oe-editor');
+      const gamma = [...edEl.querySelectorAll('p')].find((p) => p.textContent === 'gamma');
+      const rect = gamma.getBoundingClientRect();
+      // build a real image File in a DataTransfer
+      const bytes = Uint8Array.from(atob(img.split(',')[1]), (c) => c.charCodeAt(0));
+      const file = new File([bytes], 'd.png', { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const at = { clientX: rect.left + 3, clientY: rect.top + rect.height / 2 };
+      for (const type of ['dragenter', 'dragover', 'drop']) {
+        edEl.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, ...at }));
+      }
+      // wait for the async file→figure insert
+      await new Promise((r) => setTimeout(r, 250));
+      const kids = [...edEl.children];
+      const figIdx = kids.findIndex((k) => k.matches('figure[data-oe-island]'));
+      const gammaIdx = kids.findIndex((k) => k.textContent === 'gamma');
+      const alphaIdx = kids.findIndex((k) => k.textContent === 'alpha');
+      return { hasFig: figIdx !== -1, figIdx, gammaIdx, alphaIdx };
+    }, DATA_IMG);
+    expect(result.hasFig).toBe(true);
+    // landed near gamma (after alpha), NOT at the top where the stale caret was
+    expect(result.figIdx).toBeGreaterThan(result.alphaIdx);
+  });
+
+  // (#4 — the "Upload tab warns when uploads aren't configured" dead-end guard —
+  //  is covered deterministically by a unit test in image-dialog.test.js, which
+  //  can construct the exact no-upload/no-data-URI config in isolation.)
 });

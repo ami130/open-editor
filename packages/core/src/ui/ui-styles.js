@@ -170,9 +170,12 @@ export const MENU_CSS = `
   background: var(--oe-border);
   margin: 4px 0;
 }
+/* Submenu position is computed at open time (JS) against the parent-row rect,
+   so it can flip up/left near screen edges. A max-height + scroll keeps a long
+   submenu reachable on short viewports (it would otherwise clip off-screen). */
 .oe-menu__submenu {
   position: absolute;
-  left: 100%;
-  top: -4px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 `;

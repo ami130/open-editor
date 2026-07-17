@@ -12,7 +12,7 @@
  * Implements { name, install, destroy, getToolbarButtons }.
  */
 import { buildCharGrid } from './char-grid.js';
-import { resolveSpecialChars } from './char-data.js';
+import { resolveSpecialChars, hasCategories, SPECIAL_CHAR_CATEGORIES } from './char-data.js';
 import { injectCharStyles } from './char-styles.js';
 import { escapeLinkBoundary } from './char-insert-utils.js';
 
@@ -30,7 +30,8 @@ export function createSpecialCharsPlugin() {
 
     install(editor) {
       this._editor = editor;
-      const doc = (typeof document !== 'undefined') ? document : null;
+      // iframe-aware: styles must land in the document the editable lives in.
+      const doc = editor._iframeDoc || ((typeof document !== 'undefined') ? document : null);
       if (doc) injectCharStyles(doc);
     },
 
@@ -55,11 +56,18 @@ export function createSpecialCharsPlugin() {
       const bookmark = editor.selection ? editor.selection.save() : null;
 
       // Build the grid; picking a char resolves the modal with that char.
+      // Category tabs are shown only for the built-in set (every item has a
+      // `cat`); a custom flat `specialCharacters` config stays a flat grid.
       let picked = null;
       const grid = buildCharGrid(doc, items, (ch) => {
         picked = ch;
         editor.ui.modal.close(ch); // resolve the open() promise
-      }, { columns: 10, searchPlaceholder: 'Search characters…' });
+      }, {
+        columns: 9,
+        searchPlaceholder: 'Search characters…',
+        gridLabel: 'Special characters',
+        categories: hasCategories(items) ? SPECIAL_CHAR_CATEGORIES : null,
+      });
 
       const result = await editor.ui.modal.open({
         title: 'Special characters',

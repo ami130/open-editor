@@ -1,5 +1,5 @@
 /**
- * @open-editor-hq/core — TypeScript declarations (17.3).
+ * openeditor-text — TypeScript declarations (17.3).
  *
  * HAND-AUTHORED against the frozen 1.0 public API. The frozen surface is
  * enforced at runtime by tests/api-contract.test.js; these declarations are
@@ -98,6 +98,18 @@ export interface OpenEditorConfig {
    * sizes? }] }` to emit a responsive `<picture>` (every srcset scheme-checked).
    */
   imageUploadUrl?: string | null;
+  /**
+   * 19.7 — FREE BYO-endpoint AI hook. URL this editor POSTs `{ prompt, system,
+   * stream, ... }` to and streams tokens back from (see `aiComplete`). null =
+   * the AI hook is inert.
+   */
+  aiEndpoint?: string | null;
+  /** Extra request headers for the AI endpoint (e.g. an Authorization value). */
+  aiHeaders?: Record<string, string> | null;
+  /** Max upload size in bytes (default 10 MB) — shared by dialog/drop/paste guards. */
+  imageMaxFileSize?: number;
+  /** Map a custom upload-server response to a URL: (json) => url | { url, sources? }. */
+  imageUploadResponse?: ((json: unknown) => string | { url?: string; src?: string; sources?: unknown[] } | null) | null;
   tableAvailableClasses?: ClassOption[] | null;
   tableDefaultClass?: string | null;
   tableDefaultHeaderRow?: boolean;
@@ -146,6 +158,18 @@ export interface OpenEditorConfig {
    * RTL codes (ar/he/fa/…) get dir="rtl" automatically.
    */
   textPartLanguages?: Array<{ code: string; label?: string }> | null;
+  /** Bookmark icon choices. `undefined` → built-in set; `null`/`false` → no icon picker. */
+  bookmarkIcons?: Array<{ value: string; label?: string }> | boolean | null;
+  /** Bookmark color choices. `undefined`/`true` → built-in palette; `null`/`false` → no picker; array → custom. */
+  bookmarkColors?: Array<{ value: string; label?: string; css?: string }> | boolean | null;
+  /** Default bookmark icon key (defaults to the first icon). */
+  bookmarkDefaultIcon?: string;
+  /** Default bookmark color key (defaults to none). */
+  bookmarkDefaultColor?: string;
+  /** Marker size: number (px) or CSS length ('1.4em'). Default 1em — tracks the surrounding text size. */
+  bookmarkIconSize?: number | string;
+  /** Show the jump-to-bookmark navigator toolbar button (default false). */
+  bookmarkPanel?: boolean;
 }
 
 // ─── Events (frozen names + payload shapes) ──────────────────────────────────
@@ -188,6 +212,10 @@ export interface OpenEditorEventMap {
   pluginInstalled: { name: string };
   pluginUninstalled: { name: string };
   error: { error: Error; context?: string };
+  /** 19.7 — free AI hook lifecycle. */
+  aiStart: unknown;
+  aiDone: { text: string };
+  aiError: { reason: string; status?: number; error?: Error };
 }
 
 export type OpenEditorEventName = keyof OpenEditorEventMap;
@@ -326,6 +354,20 @@ export class OpenEditor {
   getCharCount(): number;
   /** Serialize the (sanitized) content to GitHub-flavored Markdown (17.5.12). */
   getMarkdown(): string;
+  /**
+   * 19.7 — FREE BYO-endpoint AI hook. Streams a completion from `aiEndpoint`,
+   * inserting tokens at the caret as they arrive; resolves the full text.
+   * No-ops (resolves "") if no endpoint is set. Never throws — network/stream
+   * errors emit an `aiError` event and resolve what was produced.
+   */
+  aiComplete(opts: {
+    prompt: string;
+    system?: string;
+    body?: Record<string, unknown>;
+    insert?: boolean;
+    onToken?: (token: string, full: string) => void;
+    signal?: AbortSignal;
+  }): Promise<string>;
 
   // state
   focus(): void;
@@ -487,7 +529,7 @@ export const bookmarkPlugin: EditorPlugin;
 // ─── UI locale packs (17.11) ─────────────────────────────────────────────────
 // Complete translations of the toolbar/dialog/status UI. Pass to the
 // constructor: `new OpenEditor('#app', { locale: localeEs })`. Also available
-// as NAMED subpath imports: `import { es } from '@open-editor-hq/core/locales/es'`.
+// as NAMED subpath imports: `import { es } from 'openeditor-text/locales/es'`.
 export const localeEs: Record<string, string>;
 export const localeFr: Record<string, string>;
 export const localeDe: Record<string, string>;

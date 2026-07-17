@@ -11,6 +11,7 @@
 import { injectTableStyles }   from './table-styles.js';
 import { buildGridPicker }     from './table-grid-picker.js';
 import { createTable, insertTable } from './table-dom.js';
+import { BUILTIN_TABLE_STYLES, applyInsertStyle } from './table-format.js';
 import { handleTableKey }      from './table-keyboard.js';
 import { buildTableMenuItems } from './table-contextmenu.js';
 import { TableSelectionManager } from './table-selection.js';
@@ -104,11 +105,18 @@ export function createTablePlugin() {
 
       const config = editor._config || {};
       let dims = null;
+      // Offer the BUILT-IN styles (Default/Bordered/Striped/Dotted/Borderless)
+      // out of the box — they map to real shipped CSS. Integrator
+      // `tableAvailableClasses` (arbitrary class names) are appended after.
+      const presets = [
+        ...BUILTIN_TABLE_STYLES.map((s) => ({ ...s, builtin: true })),
+        ...(Array.isArray(config.tableAvailableClasses) ? config.tableAvailableClasses : []),
+      ];
       const picker = buildGridPicker(doc, (rows, cols) => {
         dims = { rows, cols };
         // Close the modal as soon as a size is chosen.
         editor.ui.modal.close('picked');
-      }, { presets: config.tableAvailableClasses || [] });
+      }, { presets });
 
       await editor.ui.modal.open({
         title: 'Insert Table',
@@ -123,12 +131,15 @@ export function createTablePlugin() {
       if (bookmark && editor.selection) editor.selection.restore(bookmark);
       else { const el = editor.getEditorElement(); if (el) el.focus(); }
 
-      // 11.18 — a chosen preset class wins; else the configured default.
-      const preset = picker.getClassName();
+      // A chosen preset wins; else the configured default class.
+      const chosen = picker.getPreset();
       const table = createTable(doc, dims.rows, dims.cols, {
         headerRow: config.tableDefaultHeaderRow === true,
-        className: preset || config.tableDefaultClass || '',
+        // built-in styles apply via real oe-table-- classes (below); an
+        // integrator preset or default is a raw class on the element.
+        className: (chosen && !chosen.builtin ? chosen.value : '') || config.tableDefaultClass || '',
       });
+      if (chosen && chosen.builtin) applyInsertStyle(table, chosen.value);
       insertTable(editor, table);
     },
   };

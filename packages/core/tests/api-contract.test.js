@@ -33,6 +33,7 @@ const INSTANCE_METHODS = [
   // content
   'getHTML', 'setHTML', 'getText', 'getJSON', 'setJSON', 'isEmpty', 'getWordCount', 'getCharCount',
   'getMarkdown', // 17.5.12 — additive, like reset() in 16.5.4
+  'aiComplete', // 19.7 — additive; FREE BYO-endpoint AI streaming hook
   // state
   'focus', 'blur', 'enable', 'disable', 'setReadOnly', 'isReadOnly',
   'setTheme', 'getTheme', 'setCSSVar', 'getCSSVar', 'setDirection', 'getDirection',
@@ -64,6 +65,7 @@ const FROZEN_EVENTS = [
   'autosaveSaved', 'autosaveRestored', 'autosaveFailed', 'autosaveDraftSkipped',
   'pluginInstalled', 'pluginUninstalled',
   'error',
+  'aiStart', 'aiDone', 'aiError', // 19.7 — free AI hook lifecycle events
 ];
 
 // ── The frozen config keys (top-level). ──
@@ -71,13 +73,21 @@ const FROZEN_CONFIG_KEYS = [
   'debug', 'logger', 'toolbar', 'statusBar', 'readonly', 'spellcheck', 'autofocus',
   'iframe', 'direction', 'theme', 'minHeight', 'maxHeight', 'height', 'defaultContent',
   'placeholder', 'sanitize', 'allowTags', 'allowAttributes', 'imageAllowDataUri',
-  'imageDefaultWidth', 'imageAvailableClasses', 'imageOpenOnDblClick', 'imageUploadUrl', 'tableAvailableClasses',
+  'imageDefaultWidth', 'imageAvailableClasses', 'imageOpenOnDblClick', 'imageUploadUrl',
+  'imageMaxFileSize', 'imageUploadResponse', 'tableAvailableClasses',
   'tableDefaultClass', 'tableDefaultHeaderRow', 'denyTags', 'askBeforePasteHTML',
   'askBeforePasteFromWord', 'defaultActionOnPaste', 'defaultActionOnPasteFromWord',
   'pasteStripStyles', 'specialCharacters', 'emojis', 'formatPainterSticky',
   'codeBlockLanguages', 'sourceModeBeautify', 'sourceModeHighlight', 'maxLength', 'autosave', 'onChange',
   'locale', 'inlineToolbar', 'blockquoteToolbar', 'warnOnUnload', 'autoformat', 'mentions',
   'textTransformations', 'styles', 'textPartLanguages',
+  // Additive (1.x, 2026-07-16) — bookmark presentation config. Adding keys is
+  // permitted under the freeze (it never removes/renames); this list tracks them.
+  'bookmarkIcons', 'bookmarkColors', 'bookmarkDefaultIcon', 'bookmarkDefaultColor',
+  'bookmarkIconSize', 'bookmarkPanel',
+  // Additive (1.x, 2026-07-17) — FREE BYO-endpoint AI hook (19.7). null by
+  // default → inert; the premium AI product builds on editor.aiComplete().
+  'aiEndpoint', 'aiHeaders',
 ];
 
 describe('16.D — frozen instance methods', () => {

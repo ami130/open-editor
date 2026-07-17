@@ -139,8 +139,14 @@ export function createImagePlugin() {
       const editor = this._editor;
       if (!editor) return;
 
-      // Save selection before opening the modal so focus shift doesn't lose it
-      const bookmark = editor.selection ? editor.selection.save() : null;
+      // #2 fix: only treat the caret as a real insertion point if the selection
+      // was genuinely INSIDE the editor when the dialog was invoked. Clicking
+      // the toolbar button focuses the editable and auto-places a caret at the
+      // START of content — a misleading position that made images land at the
+      // top. Capturing "was there a real in-editor caret?" up front lets us
+      // fall back to the END of content when there wasn't.
+      const hadRealCaret = !!(editor.selection && editor.selection.isInsideEditor());
+      const bookmark = hadRealCaret ? editor.selection.save() : null;
 
       let result;
       try {
@@ -157,8 +163,16 @@ export function createImagePlugin() {
       if (bookmark && editor.selection) {
         editor.selection.restore(bookmark);
       } else {
+        // No real caret at open time — focus and drop the caret at the END of
+        // content so the image lands predictably at the document end, not at
+        // the auto-placed start-of-content position.
         const edEl = editor.getEditorElement();
         if (edEl) edEl.focus();
+        if (editor.selection) {
+          const root = editor.getEditorElement();
+          const last = root && (root.lastElementChild || root);
+          if (last) editor.selection.collapse(last, last.childNodes ? last.childNodes.length : 0);
+        }
       }
 
       buildAndInsertFigure(editor, result, {

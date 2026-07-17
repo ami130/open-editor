@@ -11,6 +11,28 @@
 
 import { isUnsafeUrl } from '../../sanitizer/sanitizer-utils.js';
 
+// ─── Shared file-size guard (single source of truth, config-driven) ──────────
+
+const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/** The effective max upload size in bytes (config.imageMaxFileSize or 10 MB). */
+export function maxFileSize(config = {}) {
+  const v = config.imageMaxFileSize;
+  return (typeof v === 'number' && v > 0) ? v : DEFAULT_MAX_FILE_SIZE;
+}
+
+/** Human "12.3 MB" for messages. */
+export function formatMB(bytes) { return `${(bytes / 1024 / 1024).toFixed(1)} MB`; }
+
+/** Returns an error string if the file exceeds the limit, else null. */
+export function fileSizeError(file, config = {}) {
+  const max = maxFileSize(config);
+  if (file && file.size > max) {
+    return `File is too large (${formatMB(file.size)}). Maximum is ${formatMB(max)}.`;
+  }
+  return null;
+}
+
 // ─── Measure image dimensions from a data URL ────────────────────────────────
 
 // Measure via a detached <img>. A pathological src can fire NEITHER load nor
@@ -72,7 +94,7 @@ export function readFileAsBase64(file, doc = document) {
  * @param {Document} doc        For dimension measurement
  * @returns {Promise<{src, width, height}|null>}
  */
-export async function uploadFile(file, uploadUrl, onProgress, signal, doc = document) {
+export async function uploadFile(file, uploadUrl, onProgress, signal, doc = document, config = {}) {
   if (!file || !uploadUrl) return null;
 
   const formData = new FormData();
@@ -122,8 +144,34 @@ export async function uploadFile(file, uploadUrl, onProgress, signal, doc = docu
   }
 
   if (!json) return null; // aborted (resolve(null)) or empty response
-  const src = json.url || json.src || null;
-  if (!src) return null;
+
+  // Resolve the hosted URL from the server's JSON. Order:
+  //   1. a caller-supplied mapper `config.imageUploadResponse(json)` (Jodit's
+  //      `process()` equivalent) — returns a URL string or { url, sources? };
+  //   2. the common flat shapes `{ url }` / `{ src }`;
+  //   3. the common NESTED shape `{ data: { url|src } }` (NestJS/Laravel-style)
+  //      — previously unhandled, so those backends silently inserted nothing.
+  let src = null;
+  let mappedSources = null;
+  if (typeof config.imageUploadResponse === 'function') {
+    let mapped;
+    try { mapped = config.imageUploadResponse(json); } catch { mapped = null; }
+    if (typeof mapped === 'string') src = mapped;
+    else if (mapped && typeof mapped === 'object') {
+      src = mapped.url || mapped.src || null;
+      if (Array.isArray(mapped.sources)) mappedSources = mapped.sources;
+    }
+  }
+  if (!src) {
+    const data = (json && typeof json.data === 'object' && json.data) || {};
+    src = json.url || json.src || data.url || data.src || null;
+  }
+  if (!src) {
+    // Explicit error instead of a silent no-op, so integrators immediately see
+    // their response shape isn't recognized (and can add imageUploadResponse).
+    throw new Error('Image upload: could not find a URL in the server response ' +
+      '(expected { url } / { src } / { data: { url } }, or set imageUploadResponse).');
+  }
 
   // Defense in depth: never trust the upload server's URL. A compromised or
   // misconfigured endpoint could return javascript:/data:/vbscript: — reject
@@ -139,7 +187,9 @@ export async function uploadFile(file, uploadUrl, onProgress, signal, doc = docu
   // createFigure wraps the <img> in a <picture>. Every srcset is still
   // scheme-checked in buildSources; a missing/invalid array is simply ignored.
   const result = { src, width: dims.width, height: dims.height };
-  if (Array.isArray(json.sources)) result.sources = json.sources;
+  // Responsive sources: mapper-supplied wins, else the server's top-level array.
+  const sources = mappedSources || (Array.isArray(json.sources) ? json.sources : null);
+  if (sources) result.sources = sources;
   return result;
 }
 
@@ -155,7 +205,7 @@ export async function processImageFile(file, config = {}, onProgress = null, sig
   if (!file || !file.type.startsWith('image/')) return null;
 
   if (config.imageUploadUrl) {
-    return uploadFile(file, config.imageUploadUrl, onProgress, signal, doc);
+    return uploadFile(file, config.imageUploadUrl, onProgress, signal, doc, config);
   }
   return readFileAsBase64(file, doc);
 }

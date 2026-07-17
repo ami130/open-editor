@@ -7,9 +7,7 @@
  */
 
 import { buildResizeOverlay, pointFromEvent, showBadgeDimensions, HANDLES } from './image-resize-overlay.js';
-
-const MIN_WIDTH  = 40;
-const MIN_HEIGHT = 20;
+import { computeResize as computeResizeImpl } from './image-resize-compute.js';
 
 export class ImageResizeManager {
   constructor() {
@@ -156,13 +154,22 @@ export class ImageResizeManager {
     const h     = iRect.height || img.offsetHeight || parseInt(img.style.height) || 150;
     const pt    = pointFromEvent(e);
 
+    // #1: base the aspect ratio on the image's INTRINSIC dimensions
+    // (naturalWidth/naturalHeight), NOT the current rendered box. Otherwise a
+    // deliberate Shift-stretch permanently "poisons" the ratio, so every later
+    // aspect-preserving drag would lock in the distorted shape. Fall back to the
+    // current box only when the natural size isn't known yet (e.g. still loading).
+    const natural = (img.naturalWidth && img.naturalHeight)
+      ? img.naturalWidth / img.naturalHeight
+      : w / (h || 1);
+
     this._drag = {
       pos,
       startX: pt.x,
       startY: pt.y,
       startW: w,
       startH: h,
-      aspect: w / (h || 1),
+      aspect: natural,
     };
 
     // Lock global cursor
@@ -179,41 +186,12 @@ export class ImageResizeManager {
     doc.addEventListener('touchcancel', this._onMouseUp);
   }
 
+  // Pure resize math lives in image-resize-compute.js (keeps this file ≤300).
+  // Kept as a static method so media-resize.js's existing call site
+  // (ImageResizeManager.computeResize) is unchanged. See that module for the
+  // aspect-preserving-corner / auto-edge behavior + return shape.
   static computeResize(drag, clientX, clientY, shiftKey) {
-    const pos = drag.pos || drag.corner; // support legacy 'corner' key
-    const { startX, startY, startW, startH, aspect } = drag;
-
-    let dx = clientX - startX;
-    let dy = clientY - startY;
-
-    // Invert for handles that pull left or up
-    const flipX = pos === 'nw' || pos === 'sw' || pos === 'w';
-    const flipY = pos === 'nw' || pos === 'ne' || pos === 'n';
-    if (flipX) dx = -dx;
-    if (flipY) dy = -dy;
-
-    // Edge handles: constrain to one axis only
-    const isHorizontalOnly = pos === 'e' || pos === 'w';
-    const isVerticalOnly   = pos === 'n' || pos === 's';
-
-    let newW = isVerticalOnly   ? startW : Math.max(MIN_WIDTH,  startW + dx);
-    let newH = isHorizontalOnly ? startH : Math.max(MIN_HEIGHT, startH + dy);
-
-    if (shiftKey && aspect && !isHorizontalOnly && !isVerticalOnly) {
-      const dxAbs = Math.abs(clientX - startX);
-      const dyAbs = Math.abs(clientY - startY);
-      if (dxAbs >= dyAbs) {
-        newH = Math.max(MIN_HEIGHT, newW / aspect);
-      } else {
-        newW = Math.max(MIN_WIDTH, newH * aspect);
-      }
-    }
-
-    return {
-      width:  Math.round(newW),
-      height: Math.round(newH),
-      locked: shiftKey && !isHorizontalOnly && !isVerticalOnly,
-    };
+    return computeResizeImpl(drag, clientX, clientY, shiftKey);
   }
 
   _handleDragMove(e) {
@@ -225,19 +203,22 @@ export class ImageResizeManager {
     if (e.cancelable && e.touches) e.preventDefault();
     const pt = pointFromEvent(e);
 
-    const { width, height, locked } = ImageResizeManager.computeResize(
-      this._drag, pt.x, pt.y, e.shiftKey
-    );
+    const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
 
-    img.style.width  = `${width}px`;
-    img.style.height = `${height}px`;
+    // One axis may be null → CSS 'auto' (edge drag); the browser keeps the
+    // aspect ratio. The badge shows the aspect-DERIVED size (no reflow, #2).
+    img.style.width  = r.width  == null ? 'auto' : `${r.width}px`;
+    img.style.height = r.height == null ? 'auto' : `${r.height}px`;
     this._reposition();
 
-    // Update badge
     if (this._badge) {
-      this._badge.textContent = `${width} × ${height}`;
+      const shownW = r.width  == null ? r.derivedWidth  : r.width;
+      const shownH = r.height == null ? r.derivedHeight : r.height;
+      this._badge.textContent = `${shownW} × ${shownH}`;
       this._badge.classList.add('oe-resize-badge--visible');
     }
+
+    const locked = r.locked;
 
     // Aspect-lock pill
     if (this._lockPill) {
@@ -252,13 +233,16 @@ export class ImageResizeManager {
 
     if (img) {
       const pt = pointFromEvent(e);
-      const { width, height } = ImageResizeManager.computeResize(
-        this._drag, pt.x, pt.y, e.shiftKey
-      );
-      img.style.width  = `${width}px`;
-      img.style.height = `${height}px`;
-      img.setAttribute('width',  width);
-      img.setAttribute('height', height);
+      const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
+      // Commit CONCRETE dimensions to the HTML (width + height attributes) so
+      // saved content has a stable box, using the aspect-derived value for the
+      // auto axis — no getBoundingClientRect read, so no forced reflow (#2).
+      const finalW = r.width  == null ? r.derivedWidth  : r.width;
+      const finalH = r.height == null ? r.derivedHeight : r.height;
+      img.style.width  = `${finalW}px`;
+      img.style.height = `${finalH}px`;
+      img.setAttribute('width',  finalW);
+      img.setAttribute('height', finalH);
     }
 
     this._cancelDrag();

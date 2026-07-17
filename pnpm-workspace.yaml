@@ -1,6 +1,9 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+  # Premium packages (Phase 19) — separate tree so the free/premium boundary
+  # is structural, not conventional. Never bundled with the free core (19.11).
+  - 'premium/*'
 allowBuilds:
   '@parcel/watcher': set this to true or false
   esbuild: true

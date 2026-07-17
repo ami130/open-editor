@@ -6,7 +6,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
 import { StrictMode, createRef, createElement as h, useState } from 'react';
-import { createTodoListPlugin } from '@open-editor-hq/core';
+import { createTodoListPlugin } from 'openeditor-text';
 import { OpenEditor } from '../src/index.js';
 
 afterEach(() => {

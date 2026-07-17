@@ -159,6 +159,54 @@ describe('9.4 — uploadFile', () => {
     await expect(uploadFile(file, 'https://api.test/upload', null, null, makeMockDoc()))
       .rejects.toThrow(/HTTP 500/);
   });
+
+  // ── response-shape flexibility (#3) ──
+  const jpg = () => new File([''], 'p.jpg', { type: 'image/jpeg' });
+
+  it('accepts the NESTED { data: { url } } shape (NestJS/Laravel-style)', async () => {
+    globalThis.XMLHttpRequest = vi.fn(() => makeMockXHR(200, '{"data":{"url":"https://cdn.x/n.jpg"}}'));
+    const r = await uploadFile(jpg(), 'https://api/up', null, null, makeMockDoc(10, 10));
+    expect(r.src).toBe('https://cdn.x/n.jpg');
+  });
+
+  it('a custom imageUploadResponse mapper (string) wins', async () => {
+    globalThis.XMLHttpRequest = vi.fn(() => makeMockXHR(200, '{"weird":{"path":"https://cdn.x/m.png"}}'));
+    const config = { imageUploadResponse: (j) => j.weird.path };
+    const r = await uploadFile(jpg(), 'https://api/up', null, null, makeMockDoc(10, 10), config);
+    expect(r.src).toBe('https://cdn.x/m.png');
+  });
+
+  it('a mapper returning { url, sources } carries responsive sources through', async () => {
+    globalThis.XMLHttpRequest = vi.fn(() => makeMockXHR(200, '{"x":1}'));
+    const config = { imageUploadResponse: () => ({ url: 'https://cdn.x/r.jpg', sources: [{ srcset: 'https://cdn.x/r.avif' }] }) };
+    const r = await uploadFile(jpg(), 'https://api/up', null, null, makeMockDoc(10, 10), config);
+    expect(r.src).toBe('https://cdn.x/r.jpg');
+    expect(r.sources).toEqual([{ srcset: 'https://cdn.x/r.avif' }]);
+  });
+
+  it('THROWS (not silent null) when no URL is found in the response', async () => {
+    globalThis.XMLHttpRequest = vi.fn(() => makeMockXHR(200, '{"nope":true}'));
+    await expect(uploadFile(jpg(), 'https://api/up', null, null, makeMockDoc()))
+      .rejects.toThrow(/could not find a URL/);
+  });
+});
+
+// ── file-size guard (#9) ─────────────────────────────────────────────────────
+describe('fileSizeError / maxFileSize (config-driven)', () => {
+  it('defaults to 10 MB and flags larger files', async () => {
+    const { fileSizeError, maxFileSize } = await import('../src/plugins/image/image-upload.js');
+    expect(maxFileSize({})).toBe(10 * 1024 * 1024);
+    const big = { size: 11 * 1024 * 1024 };
+    expect(fileSizeError(big, {})).toMatch(/too large/);
+    const ok = { size: 1024 };
+    expect(fileSizeError(ok, {})).toBeNull();
+  });
+  it('honors a custom imageMaxFileSize', async () => {
+    const { fileSizeError, maxFileSize } = await import('../src/plugins/image/image-upload.js');
+    expect(maxFileSize({ imageMaxFileSize: 2 * 1024 * 1024 })).toBe(2 * 1024 * 1024);
+    const f = { size: 3 * 1024 * 1024 };
+    expect(fileSizeError(f, { imageMaxFileSize: 2 * 1024 * 1024 })).toMatch(/Maximum is 2\.0 MB/);
+  });
 });
 
 // ── 9.17 — AbortController ───────────────────────────────────────────────────

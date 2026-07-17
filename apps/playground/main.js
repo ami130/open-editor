@@ -1,5 +1,5 @@
-import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin } from '@open-editor-hq/core';
-import { localeEs, localeFr, localeDe, localeAr } from '@open-editor-hq/core';
+import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin } from 'openeditor-text';
+import { localeEs, localeFr, localeDe, localeAr } from 'openeditor-text';
 
 // Fixture user list for the @mentions e2e (16.6.5) — a real async source.
 const DEMO_USERS = [
@@ -34,7 +34,15 @@ window.__openEditorInstance = editor;
 window.__OpenEditor = OpenEditor;
 // 17.11 — locale packs exposed for the RTL/i18n e2e (locale-rtl.test.js).
 window.__OpenEditorLocales = { es: localeEs, fr: localeFr, de: localeDe, ar: localeAr };
-window.__playgroundFactories = { todo: createTodoListPlugin };
+window.__playgroundFactories = { todo: createTodoListPlugin, bookmark: createBookmarkPlugin };
+
+// Phase 22 gap #11 — expose the REAL offline verifier so an e2e can prove the
+// ES256/WebCrypto verify path works in real browsers (Chromium/Firefox/WebKit),
+// the algorithm bet behind PHASE-22-DESIGN.md. The entitlements package is
+// browser-safe ESM and imports nothing from core, so exposing it here does not
+// couple it to the editor — it's test-surface only.
+import { verifyLicense, importEs256PublicKey, REASON } from '../../packages/entitlements/src/index.js';
+window.__entitlements = { verifyLicense, importEs256PublicKey, REASON };
 
 // Install plugins immediately — 'ready' already fired synchronously above.
 // Use the factory so each editor instance gets its own plugin state.
@@ -57,6 +65,11 @@ editor.plugins.install(createMentionsPlugin());
 editor.plugins.install(createBlockDragPlugin());
 editor.plugins.install(createTodoListPlugin());
 editor.plugins.install(createBookmarkPlugin());
+
+// Phase 19 foundation — dev license switcher + gated hello-premium plugin.
+// Installs nothing until driven (panel buttons or window.__premium in e2e).
+import { initPremiumPanel } from './src/premium-panel.js';
+initPremiumPanel(editor);
 
 editor.on('ready', () => {
   console.log('[Playground] Editor ready');

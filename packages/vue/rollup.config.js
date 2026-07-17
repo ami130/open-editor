@@ -2,7 +2,7 @@ import terser from '@rollup/plugin-terser';
 
 // Same minified-only distribution posture as the core. vue and the core are
 // externals — the wrapper is a few-KB shim by design.
-const external = ['vue', '@open-editor-hq/core'];
+const external = ['vue', 'openeditor-text'];
 
 export default [
   {

@@ -171,17 +171,21 @@ export class MediaResizeManager {
     doc.addEventListener('touchcancel', this._onMouseUp);
   }
 
-  /** Apply a computed size to the figure: width always; height only overrides
-   *  the default aspect-ratio for vertical-only (n/s) edge drags (otherwise
-   *  the figure's own aspect-ratio CSS keeps height in sync with width). */
+  /** Apply a computed size to the figure. `width`/`height` may be null → the
+   *  figure's own aspect-ratio CSS drives that axis. A vertical (n/s) drag pins
+   *  an explicit height (aspectRatio:auto); everything else lets width drive and
+   *  the aspect-ratio box follow. */
   _applySize(width, height, pos) {
     const fig = this._figure;
-    fig.style.width = `${width}px`;
     if (pos === 'n' || pos === 's') {
-      fig.style.aspectRatio = 'auto';
-      fig.style.height = `${height}px`;
-    } else {
+      // height-driven: pin height, let width follow via aspect-ratio
       fig.style.aspectRatio = '';
+      if (width != null) fig.style.width = `${width}px`;
+      fig.style.height = height == null ? '' : `${height}px`;
+    } else {
+      // width-driven (corners + e/w): pin width, clear height so aspect follows
+      fig.style.aspectRatio = '';
+      if (width != null) fig.style.width = `${width}px`;
       fig.style.height = '';
     }
   }
@@ -190,31 +194,33 @@ export class MediaResizeManager {
     if (!this._drag || !this._figure) return;
     if (e.cancelable && e.touches) e.preventDefault();
     const pt = pointFromEvent(e);
-    const { width, height, locked } = ImageResizeManager.computeResize(
-      this._drag, pt.x, pt.y, e.shiftKey
-    );
-    const clampedW = Math.max(MIN_WIDTH, width);
-    const clampedH = Math.max(MIN_HEIGHT, height);
-    this._applySize(clampedW, clampedH, this._drag.pos);
+    const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
+    // Pin the driven axis; leave the auto axis null so aspect-ratio CSS follows.
+    // The badge shows the aspect-derived value for the auto axis (no reflow).
+    const pinW = r.width  == null ? null : Math.max(MIN_WIDTH,  r.width);
+    const pinH = r.height == null ? null : Math.max(MIN_HEIGHT, r.height);
+    this._applySize(pinW, pinH, this._drag.pos);
     this._reposition();
 
     if (this._badge) {
-      this._badge.textContent = `${clampedW} × ${clampedH}`;
+      const shownW = pinW == null ? r.derivedWidth  : pinW;
+      const shownH = pinH == null ? r.derivedHeight : pinH;
+      this._badge.textContent = `${shownW} × ${shownH}`;
       this._badge.classList.add('oe-resize-badge--visible');
     }
     if (this._lockPill) {
-      this._lockPill.classList.toggle('oe-resize-lock--visible', locked);
-      this._lockPill.textContent = locked ? '⇔ ratio locked' : '';
+      this._lockPill.classList.toggle('oe-resize-lock--visible', r.locked);
+      this._lockPill.textContent = r.locked ? '⇔ ratio locked' : '';
     }
   }
 
   _handleDragEnd(e) {
     if (!this._drag || !this._figure) { this._cancelDrag(); return; }
     const pt = pointFromEvent(e);
-    const { width, height } = ImageResizeManager.computeResize(
-      this._drag, pt.x, pt.y, e.shiftKey
-    );
-    this._applySize(Math.max(MIN_WIDTH, width), Math.max(MIN_HEIGHT, height), this._drag.pos);
+    const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
+    const pinW = r.width  == null ? null : Math.max(MIN_WIDTH,  r.width);
+    const pinH = r.height == null ? null : Math.max(MIN_HEIGHT, r.height);
+    this._applySize(pinW, pinH, this._drag.pos);
 
     this._cancelDrag();
     this._reposition();

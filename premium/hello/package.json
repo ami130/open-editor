@@ -1,0 +1,28 @@
+{
+  "name": "@openeditor-premium/hello",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Premium feature-package TEMPLATE + pipeline smoke test. Gated on the internal dev.smoke flag — never sold, never shipped. Copy this package's shape for every real Phase 19 feature.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openeditor-premium/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "vitest": "1.6.1"
+  }
+}

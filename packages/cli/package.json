@@ -1,0 +1,41 @@
+{
+  "name": "openeditors",
+  "version": "1.0.0",
+  "description": "Open Editor CLI — one command to add any Open Editor (text today, image later) to React, Vue, Angular, or plain JS projects.",
+  "license": "MIT",
+  "author": "Open Editor <ami@parselab.com>",
+  "type": "module",
+  "bin": {
+    "openeditors": "bin/openeditors.js",
+    "openeditor": "bin/openeditors.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "1.6.1"
+  },
+  "keywords": [
+    "open-editor",
+    "openeditor",
+    "rich-text-editor",
+    "wysiwyg",
+    "cli",
+    "editor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ami130/open-editor.git"
+  },
+  "homepage": "https://github.com/ami130/open-editor#readme",
+  "bugs": {
+    "url": "https://github.com/ami130/open-editor/issues"
+  }
+}

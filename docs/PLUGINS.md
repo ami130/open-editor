@@ -1,7 +1,7 @@
 # Writing a Plugin for Open Editor
 
 This guide shows how to build, test, and publish a third-party plugin against
-the published package (`@open-editor-hq/core`). Everything here uses only the
+the published package (`openeditor-text`). Everything here uses only the
 public API — the worked example below is verified in CI against the live npm
 release.
 
@@ -140,7 +140,7 @@ export function createWordGoalPlugin({ goal = 100 } = {}) {
 Use it:
 
 ```js
-import { OpenEditor } from '@open-editor-hq/core';
+import { OpenEditor } from 'openeditor-text';
 import { createWordGoalPlugin } from './word-goal-plugin.js';
 
 const editor = new OpenEditor('#app');
@@ -189,7 +189,7 @@ The package exports the same jsdom harness the core's 1,969 unit tests use:
 
 ```js
 import { describe, it, expect } from 'vitest';
-import { createTestEditor } from '@open-editor-hq/core';
+import { createTestEditor } from 'openeditor-text';
 import { createWordGoalPlugin } from '../word-goal-plugin.js';
 
 describe('word-goal', () => {
@@ -216,7 +216,7 @@ fire real selections, IME, or clipboard events.
 - **Name:** `open-editor-plugin-<thing>` (searchable convention).
 - **Peer dependency, not dependency:**
   ```json
-  { "peerDependencies": { "@open-editor-hq/core": ">=1.0.0-rc.1" } }
+  { "peerDependencies": { "openeditor-text": ">=1.1.0" } }
   ```
   so your users' bundler dedupes to their editor instance.
 - **Ship a factory** as your main export; document its options.
@@ -230,4 +230,4 @@ fire real selections, IME, or clipboard events.
 - [ ] Inserted markup survives `setHTML(getHTML())`
 - [ ] Toolbar icons `aria-hidden`, buttons get tooltips
 - [ ] Unit tests on `createTestEditor` + one real-browser smoke
-- [ ] `peerDependencies` on `@open-editor-hq/core`
+- [ ] `peerDependencies` on `openeditor-text`

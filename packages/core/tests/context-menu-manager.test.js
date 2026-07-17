@@ -183,6 +183,24 @@ describe('ContextMenuManager', () => {
     mgr.hide();
   });
 
+  // Regression (2026-07-16): after moving the submenu to the WRAPPER, ArrowLeft
+  // must RETURN FOCUS to the parent row (via the tracked owner row) — not get
+  // stranded on the wrapper. Previously used _subMenuEl.parentNode = wrapper.
+  it('ArrowLeft restores focus to the parent row after closing the submenu', () => {
+    mgr.show(10, 10, ITEMS);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    // the focused row is now the "Format" submenu parent
+    const parentRow = wrapper.querySelector('.oe-menu__item--focused');
+    expect(parentRow.textContent).toContain('Format');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    // submenu closed AND focus is back on the parent row (not lost)
+    expect(wrapper.querySelector('.oe-menu__submenu')).toBeNull();
+    const refocused = wrapper.querySelector('.oe-menu__item--focused');
+    expect(refocused).toBe(parentRow);
+    mgr.hide();
+  });
+
   // 6.6 — Escape with submenu open closes only submenu, not entire menu
   it('Escape with submenu open closes only the submenu', () => {
     mgr.show(10, 10, ITEMS);

@@ -1,0 +1,28 @@
+{
+  "name": "@openeditor-premium/export-docx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Premium plugin (19.5) — export editor content to a real Word .docx via hand-generated OOXML in a zero-dependency ZIP. Gated on 'export.docx'. Ships no code in the free build.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openeditor-premium/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "vitest": "1.6.1"
+  }
+}

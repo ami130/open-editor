@@ -1,0 +1,15 @@
+{
+  "name": "@openeditor-premium/ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Premium plugin (19.7) — AI Writing product: Quick Actions (rewrite/summarize/tone) + Chat panel, built on the free BYO-endpoint editor.aiComplete() hook. Gated on 'ai.quickActions' / 'ai.panel'.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "files": ["src"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "vitest run" },
+  "dependencies": { "@openeditor-premium/runtime": "workspace:*" },
+  "devDependencies": { "jsdom": "29.1.1", "vitest": "1.6.1" }
+}

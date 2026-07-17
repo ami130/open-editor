@@ -60,13 +60,14 @@ describe('MediaResizeManager — _applySize (aspect-ratio handling)', () => {
     expect(f.style.aspectRatio).toBe('');
   });
 
-  it('a vertical-only edge drag (n/s) overrides aspect-ratio with an explicit height', () => {
+  it('a vertical-only edge drag (n/s) pins an explicit height; width auto (null) lets aspect follow', () => {
     const f = insertFig();
     mgr._figure = f;
-    mgr._applySize(480, 200, 's');
-    expect(f.style.width).toBe('480px');
+    // vertical drag → width is null (auto), height pinned
+    mgr._applySize(null, 200, 's');
     expect(f.style.height).toBe('200px');
-    expect(f.style.aspectRatio).toBe('auto');
+    expect(f.style.width).toBe('');           // width not pinned → aspect-ratio drives it
+    expect(f.style.aspectRatio).toBe('');
   });
 
   it('a horizontal-only edge drag (e/w) behaves like a corner drag (width-driven aspect ratio)', () => {

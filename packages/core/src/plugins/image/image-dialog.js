@@ -10,9 +10,9 @@
  * input without losing what they typed.
  */
 import { sanitizeSrc } from './image-dom.js';
-import { processImageFile } from './image-upload.js';
+import { processImageFile, fileSizeError, maxFileSize, formatMB } from './image-upload.js';
 import {
-  el, labeledInput, isValidImageUrl, buildAlignmentField,
+  el, labeledInput, isValidImageUrl, buildAlignmentField, buildProgressBar,
 } from './image-dialog-parts.js';
 
 // ─── Main dialog builder ──────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export async function openImageDialog(editor) {
   chooseLbl.appendChild(fileInput);
   dzText.appendChild(chooseLbl);
   dropZone.appendChild(dzText);
-  const dzHint = el(doc, 'span', { className: 'oe-img-dialog__dz-hint' }, 'PNG, JPG, GIF, WebP · Max 10 MB');
+  const dzHint = el(doc, 'span', { className: 'oe-img-dialog__dz-hint' }, `PNG, JPG, GIF, WebP · Max ${formatMB(maxFileSize(config))}`);
   dropZone.appendChild(dzHint);
 
   const filePreview    = el(doc, 'img', { className: 'oe-img-dialog__preview oe-img-dialog__preview--hidden', alt: '' });
@@ -64,16 +64,8 @@ export async function openImageDialog(editor) {
   panelFile.appendChild(filePreview);
   panelFile.appendChild(filePreviewDim);
 
-  // Progress bar (hidden until upload starts)
-  const progressWrap  = el(doc, 'div', { className: 'oe-img-dialog__progress-wrap oe-img-dialog__panel--hidden' });
-  const progressTrack = el(doc, 'div', { className: 'oe-img-dialog__progress-track' });
-  const progressBar   = el(doc, 'div', { className: 'oe-img-dialog__progress-bar' });
-  const progressPct   = el(doc, 'span', { className: 'oe-img-dialog__progress-pct' }, '0%');
-  const abortBtn      = el(doc, 'button', { className: 'oe-img-dialog__abort', type: 'button' }, 'Cancel upload');
-  progressTrack.appendChild(progressBar);
-  progressWrap.appendChild(progressTrack);
-  progressWrap.appendChild(progressPct);
-  progressWrap.appendChild(abortBtn);
+  // Progress bar (hidden until upload starts) — built in image-dialog-parts.js.
+  const { progressWrap, progressBar, progressPct, abortBtn } = buildProgressBar(doc);
   panelFile.appendChild(progressWrap);
 
   root.appendChild(panelUrl);
@@ -126,6 +118,9 @@ export async function openImageDialog(editor) {
     errEl.textContent = '';
     errEl.classList.add('oe-img-dialog__panel--hidden');
   }
+  // #4: a local file needs an upload server or data-URI embedding; neither = dead-end.
+  const fileUploadDeadEnd = !config.imageUploadUrl && !config.imageAllowDataUri;
+
   function switchTab(tab) {
     activeTab = tab;
     tabUrl.classList.toggle('oe-img-dialog__tab--active',  tab === 'url');
@@ -135,20 +130,29 @@ export async function openImageDialog(editor) {
     panelUrl.classList.toggle('oe-img-dialog__panel--hidden',  tab !== 'url');
     panelFile.classList.toggle('oe-img-dialog__panel--hidden', tab !== 'file');
     clearError();
+    if (tab === 'file' && fileUploadDeadEnd) {   // warn up front, not after a failed insert
+      showError('Uploading local files is not configured. Use the “From URL” tab, ' +
+        'or ask your developer to enable image uploads (imageUploadUrl) or inline embedding (imageAllowDataUri).');
+    }
   }
   tabUrl.addEventListener('click',  () => switchTab('url'));
   tabFile.addEventListener('click', () => switchTab('file'));
 
-  // Live URL preview — debounced 400ms so it doesn't fire on every keystroke
+  // Live URL preview — debounced 400ms. A token guards against a STALE
+  // load/error from a previous URL firing after a new one is typed (#5).
   let _urlDebounce = null;
+  let _previewToken = 0;
   function refreshUrlPreview() {
     const raw = inUrl.value.trim();
+    const token = ++_previewToken;
     if (raw && sanitizeSrc(raw, config)) {
       urlPreview.onload = () => {
+        if (token !== _previewToken) return;   // superseded
         urlPreviewDim.textContent = `${urlPreview.naturalWidth} × ${urlPreview.naturalHeight} px`;
         urlPreviewDim.classList.remove('oe-img-dialog__preview--hidden');
       };
       urlPreview.onerror = () => {
+        if (token !== _previewToken) return;   // superseded
         urlPreviewDim.textContent = '';
         urlPreviewDim.classList.add('oe-img-dialog__preview--hidden');
       };
@@ -186,7 +190,7 @@ export async function openImageDialog(editor) {
     progressBar.style.width = '0%';
     progressPct.textContent = '0%';
   }
-  // File-panel status line (neutral, reused for dimensions + cancel notice).
+  // File-panel status line (neutral: dimensions + cancel notice).
   function setPanelStatus(text) {
     filePreviewDim.textContent = text;
     filePreviewDim.classList.toggle('oe-img-dialog__preview--hidden', !text);
@@ -195,12 +199,9 @@ export async function openImageDialog(editor) {
   async function handleFile(file) {
     if (!file) return;
     clearError();
-    setPanelStatus('');   // clear any prior "Upload cancelled." notice
-    // 10 MB guard
-    if (file.size > 10 * 1024 * 1024) {
-      showError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`);
-      return;
-    }
+    setPanelStatus('');
+    const sizeErr = fileSizeError(file, config);   // config-driven, shared with drop/paste
+    if (sizeErr) { showError(sizeErr); return; }
     resolvedSrc = null;
     abortCtrl = new AbortController();
     showProgress(0);

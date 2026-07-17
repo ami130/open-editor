@@ -76,6 +76,7 @@ export function createEmojiPlugin() {
         columns: 8,
         categories: EMOJI_CATEGORIES,
         searchPlaceholder: 'Search emoji…',
+        gridLabel: 'Emoji',
       });
 
       const result = await editor.ui.modal.open({

@@ -16,7 +16,8 @@
  */
 import {
   setTableStyle, setCellBorder, setCellBackground, setCellTextColor,
-  setCellAlign, setCellVAlign,
+  setCellAlign, setCellVAlign, setTableStyleClass, getTableStyleState,
+  setHeaderColor, setStripeColor,
 } from './table-format.js';
 
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'none'];
@@ -91,9 +92,35 @@ export function openTablePropertiesDialog(editor, table, run) {
       { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' },
     ],
   });
+
+  // ── Built-in style + coloring (13.T) ──
+  const st = getTableStyleState(table);
+  const styleF = field(doc, 'Style', 'select', {
+    options: [
+      { value: 'default', label: 'Default' }, { value: 'bordered', label: 'Bordered' },
+      { value: 'borderless', label: 'Borderless' },
+    ],
+    value: st.bordered ? 'bordered' : st.borderless ? 'borderless' : 'default',
+  });
+  const stripedF = field(doc, 'Striped rows', 'checkbox', { value: '' });
+  stripedF.input.checked = st.striped;
+  const stripeColorF = field(doc, 'Stripe color', 'color',
+    { value: cssColorToHex(readStripe(table)) || '#f1f5f9' });
+  // Seed the header color from the table's current <th> background (bug #3), and
+  // pre-check "apply" when one exists so reopening + Apply keeps it.
+  const seedHeader = readHeaderColor(table);
+  const headerBgF = field(doc, 'Header color', 'color', { value: seedHeader || '#e2e8f0' });
+  const applyHeader = el(doc, 'input'); applyHeader.type = 'checkbox'; applyHeader.checked = !!seedHeader;
+  headerBgF.row.querySelector('label').prepend(applyHeader);
+
   const border = buildBorderFields(doc);
-  form.append(widthF.row, alignF.row,
-    el(doc, 'div', 'oe-tprops__sep'), border.width.row, border.style.row, border.color.row);
+  form.append(
+    widthF.row, alignF.row,
+    el(doc, 'div', 'oe-tprops__sep'),
+    styleF.row, stripedF.row, stripeColorF.row, headerBgF.row,
+    el(doc, 'div', 'oe-tprops__sep'),
+    border.width.row, border.style.row, border.color.row,
+  );
 
   editor.ui.modal.open({
     title: 'Table properties',
@@ -101,12 +128,52 @@ export function openTablePropertiesDialog(editor, table, run) {
     buttons: [{ label: 'Cancel', value: null }, { label: 'Apply', value: 'apply', variant: 'primary' }],
   }).then((v) => {
     if (v !== 'apply') return;
-    run(() => setTableStyle(table, {
-      width: widthF.input.value.trim(),
-      align: alignF.input.value,
-      border: composeBorder(border.width.input.value, border.style.input.value, border.color.input.value),
-    }), 'tableProperties');
+    run(() => {
+      setTableStyle(table, {
+        width: widthF.input.value.trim(),
+        align: alignF.input.value,
+        border: composeBorder(border.width.input.value, border.style.input.value, border.color.input.value),
+      });
+      // Border mode (default/bordered/borderless) is a set, not a toggle here.
+      setTableStyleClass(table, 'default');
+      if (styleF.input.value === 'bordered') setTableStyleClass(table, 'bordered');
+      else if (styleF.input.value === 'borderless') setTableStyleClass(table, 'borderless');
+      // Striped is a checkbox → sync to the desired state (toggle if mismatched).
+      if (stripedF.input.checked !== getTableStyleState(table).striped) setTableStyleClass(table, 'striped');
+      if (stripedF.input.checked) setStripeColor(table, stripeColorF.input.value);
+      else setStripeColor(table, '');
+      if (applyHeader.checked) setHeaderColor(table, headerBgF.input.value);
+    }, 'tableProperties');
   });
+}
+
+/** Read the table's current stripe color custom property (or ''). */
+function readStripe(table) {
+  return (table.style.getPropertyValue('--oe-table-stripe') || '').trim();
+}
+
+/**
+ * Convert a CSS color (hex or rgb()/rgba()) to a 6-digit #hex for seeding an
+ * <input type="color">. Returns null when the value is empty/unparseable, so
+ * callers fall back to a sensible default without a misleading swatch.
+ */
+export function cssColorToHex(value) {
+  const v = (value || '').trim();
+  if (!v) return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) return '#' + v.slice(1).split('').map((c) => c + c).join('').toLowerCase();
+  const m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (m) {
+    const h = (n) => Math.min(255, Number(n)).toString(16).padStart(2, '0');
+    return `#${h(m[1])}${h(m[2])}${h(m[3])}`;
+  }
+  return null;
+}
+
+/** Read the header (first <th>) background as hex, or null if unset. */
+function readHeaderColor(table) {
+  const th = table.querySelector('th');
+  return th ? cssColorToHex(th.style.backgroundColor) : null;
 }
 
 /**
@@ -126,25 +193,36 @@ export function openCellPropertiesDialog(editor, table, cells, run) {
       { value: 'left', label: 'Left' },
     ],
   });
+  // Seed from the FIRST target cell so reopening shows what's applied (bug #3).
+  const seed = (cells && cells[0]) || null;
+  const seedBg = seed ? cssColorToHex(seed.style.backgroundColor) : null;
+  const seedFg = seed ? cssColorToHex(seed.style.color) : null;
+  const seedHAlign = seed ? (seed.style.textAlign || '') : '';
+  const seedVAlign = seed ? (seed.style.verticalAlign || '') : '';
+
   const border = buildBorderFields(doc);
-  const bgF = field(doc, 'Background', 'color', { value: '#ffffff' });
-  const fgF = field(doc, 'Text color', 'color', { value: '#000000' });
+  const bgF = field(doc, 'Background', 'color', { value: seedBg || '#ffffff' });
+  const fgF = field(doc, 'Text color', 'color', { value: seedFg || '#000000' });
   const hAlignF = field(doc, 'Horizontal align', 'select', {
     options: [
       { value: '', label: 'Default' }, { value: 'left', label: 'Left' },
       { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' },
     ],
+    value: seedHAlign,
   });
   const vAlignF = field(doc, 'Vertical align', 'select', {
     options: [
       { value: '', label: 'Default' }, { value: 'top', label: 'Top' },
       { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' },
     ],
+    value: seedVAlign,
   });
   // Checkboxes let the user opt in to only the fields they want to change, so
   // the color inputs (which always have SOME value) don't clobber unset cells.
-  const applyBg = el(doc, 'input'); applyBg.type = 'checkbox';
-  const applyFg = el(doc, 'input'); applyFg.type = 'checkbox';
+  // Pre-check them when the cell ALREADY has that color, so reopening + Apply
+  // preserves the existing design instead of silently wiping it (bug #3).
+  const applyBg = el(doc, 'input'); applyBg.type = 'checkbox'; applyBg.checked = !!seedBg;
+  const applyFg = el(doc, 'input'); applyFg.type = 'checkbox'; applyFg.checked = !!seedFg;
   bgF.row.querySelector('label').prepend(applyBg);
   fgF.row.querySelector('label').prepend(applyFg);
 

@@ -15,20 +15,26 @@
  * background, text color, h/v align — scoped to the selection). The simple
  * one-shot items (header toggle, caption, copy) stay as direct submenu entries.
  */
-import { toggleHeaderRow, setCaption } from './table-format.js';
+import { toggleHeaderRow, setCaption, setTableStyleClass } from './table-format.js';
 import { copyTable } from './table-copy.js';
 import { openTablePropertiesDialog, openCellPropertiesDialog } from './table-props-dialog.js';
 
 export function buildFormatMenuItems(editor, table, cell, selectedCells, run) {
   const targets = (selectedCells && selectedCells.length) ? selectedCells : [cell];
 
-  // A single "Table format" submenu, ONE level deep (nested sub-submenus are
-  // fragile via hover — Jodit keeps these flat too).
+  // A single "Table format" submenu. The safe-triangle/bridge fix (context-menu-
+  // submenu.js) makes this flyout reliable for real mouse travel.
   return [{
     label: 'Table format',
     submenu: [
       { label: 'Table properties…', action: () => openTablePropertiesDialog(editor, table, run) },
       { label: 'Cell properties…',  action: () => openCellPropertiesDialog(editor, table, targets, run) },
+      { separator: true },
+      // Built-in styles — work with zero config, applyable anytime.
+      { label: 'Style: Default',    action: () => run(() => setTableStyleClass(table, 'default'), 'tableStyle') },
+      { label: 'Style: Bordered',   action: () => run(() => setTableStyleClass(table, 'bordered'), 'tableStyle') },
+      { label: 'Style: Striped',    action: () => run(() => setTableStyleClass(table, 'striped'), 'tableStyle') },
+      { label: 'Style: Borderless', action: () => run(() => setTableStyleClass(table, 'borderless'), 'tableStyle') },
       { separator: true },
       { label: 'Toggle header row', action: () => run(() => toggleHeaderRow(table), 'tableHeaderToggle') },
       { label: 'Edit caption…', action: () => _editCaption(editor, table, run) },

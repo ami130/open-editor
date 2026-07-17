@@ -1,15 +1,15 @@
 {
-  "name": "@open-editor-hq/ui",
+  "name": "openeditor-text-ui",
   "version": "1.1.0",
   "private": true,
-  "description": "Open Editor shared UI primitives — placeholder; UI primitives currently ship inside the core package (@open-editor-hq/core)",
+  "description": "Open Editor shared UI primitives \u2014 placeholder; UI primitives currently ship inside the core package (openeditor-text)",
   "type": "module",
   "main": "./src/index.js",
   "scripts": {
-    "test": "vitest run"
+    "test": "echo 'stub package - implementation lives in core/src; no tests here' && exit 0"
   },
   "dependencies": {
-    "@open-editor-hq/core": "workspace:*"
+    "openeditor-text": "workspace:*"
   },
   "devDependencies": {
     "vitest": "1.6.1"

@@ -32,7 +32,20 @@ const BUDGETS = {
   // language dropdowns, type-around, sanitizer guardrails, getMarkdown) cost
   // ~6KB gz full / ~4KB gz core — measured 123_153 / 65_879. Prior baseline
   // (1.0.0): 111_977 / 62_537 with budgets 118/66K.
-  full: 130_000,  // bytes, gz
+  // 2026-07-16 — raised full 130→132K (conscious): advanced bookmarks (icons/
+  // colors/panel + shared HSV picker) and the modernized special-characters
+  // picker (category tabs, ~24 more chars, live preview) — measured ~129.8K gz
+  // full; +2K restores safe headroom. Core budget unchanged (66.3K).
+  // 2026-07-16 (later) — raised full 132→134K (conscious): advanced tables
+  // (built-in bordered/striped/dotted/borderless styles + header/stripe/cell
+  // coloring + dialog seeding) and the robust submenu (on-screen flip, safe
+  // corridor, RTL, keyboard focus-restore) — measured ~131.9K gz full, only
+  // 65B under the old ceiling. +2K restores safe headroom for future work.
+  // 2026-07-17 — raised full 134→135K (conscious): the FREE BYO-endpoint AI
+  // streaming hook (19.7 tier-split — editor.aiComplete(), the funnel for the
+  // premium AI product). Measured 134,047 gz full, 47B over the old ceiling;
+  // +1K restores headroom. Core budget unchanged (67.6K, well under 69K).
+  full: 135_000,  // bytes, gz
   core: 69_000,   // bytes, gz
 };
 

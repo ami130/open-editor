@@ -50,7 +50,7 @@ describe('createEmojiPlugin', () => {
     expect(() => editor.plugins.uninstall('emoji')).not.toThrow();
   });
 
-  it('the grid renders category tabs', async () => {
+  it('the grid renders a category select', async () => {
     const p = createEmojiPlugin();
     p.install(editor);
     editor.getEditorElement().innerHTML = '<p>x</p>';
@@ -59,7 +59,7 @@ describe('createEmojiPlugin', () => {
     const s = editor.selection.getWindow().getSelection(); s.removeAllRanges(); s.addRange(r);
     const openP = p._open();
     await new Promise((res) => setTimeout(res, 0));
-    expect(document.querySelectorAll('.oe-chargrid__tab').length).toBe(EMOJI_CATEGORIES.length);
+    expect(document.querySelectorAll('.oe-chargrid__select option').length).toBe(EMOJI_CATEGORIES.length);
     // pick the first visible emoji
     const cell = document.querySelector('.oe-chargrid__cell');
     expect(cell).toBeTruthy();

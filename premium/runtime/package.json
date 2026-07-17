@@ -1,0 +1,28 @@
+{
+  "name": "@openeditor-premium/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open Editor premium runtime (19.2/19.3) — license host + plugin gate + graceful-degrade upgrade notice. Every premium feature package wraps its plugin with gatePremiumPlugin(); no premium code ever ships in the free build.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openeditors/entitlements": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "vitest": "1.6.1"
+  }
+}

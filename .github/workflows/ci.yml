@@ -28,8 +28,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Run unit tests
+      - name: Run core unit tests
         run: pnpm test
+
+      - name: Run wrapper / CLI / entitlements tests
+        run: pnpm test:packages
 
   e2e:
     name: E2E (Playwright)

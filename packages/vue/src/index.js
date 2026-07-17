@@ -1,5 +1,5 @@
 /**
- * @open-editor-hq/vue — the official Vue 3 wrapper (Phase 18.3/18.4).
+ * openeditor-text-vue — the official Vue 3 wrapper (Phase 18.3/18.4).
  *
  * Same design contract as the React wrapper (README, Phase 18 deep analysis):
  * uncontrolled-by-default with external-change diffing (v-model echoes of the
@@ -12,7 +12,7 @@
 import {
   defineComponent, h, ref, watch, onMounted, onBeforeUnmount, shallowRef,
 } from 'vue';
-import { OpenEditor as OpenEditorCore } from '@open-editor-hq/core';
+import { OpenEditor as OpenEditorCore } from 'openeditor-text';
 
 /**
  * 18.4 — Composition-API idiom: bring-your-own element.

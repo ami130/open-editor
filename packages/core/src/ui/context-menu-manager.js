@@ -28,6 +28,8 @@ export class ContextMenuManager {
     this._onClickOutside = null;
     this._onKeyDown = null;
     this._subMenuEl = null;
+    this._subBridgeEl = null;  // invisible "safe bridge" over the parent↔submenu gap
+    this._subOwnerRow = null;  // the row whose submenu is open (for aria cleanup)
     this._activeMenuEl = null; // menu currently receiving keyboard nav (root or submenu)
     this._rowIdCounter = 0;
   }
@@ -51,7 +53,15 @@ export class ContextMenuManager {
     else this._menuEl.focus();
 
     this._onClickOutside = (e) => {
-      if (this._menuEl && !this._menuEl.contains(e.target)) this.hide();
+      // The submenu is a child of the WRAPPER (not _menuEl) so it can flip
+      // freely near screen edges — so "inside" means the root menu OR the open
+      // submenu. Without this, clicking a submenu item counted as an outside
+      // click and tore the menu down before the item's action ran (the toggle
+      // appeared to do nothing).
+      const t = e.target;
+      const inside = (this._menuEl && this._menuEl.contains(t)) ||
+                     (this._subMenuEl && this._subMenuEl.contains(t));
+      if (this._menuEl && !inside) this.hide();
     };
     this._onKeyDown = (e) => this._handleRootKeyDown(e);
     doc.addEventListener('mousedown', this._onClickOutside, true);
@@ -219,8 +229,11 @@ export class ContextMenuManager {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       // Return focus to the parent row in the root menu, then close the submenu.
+      // The submenu is now a child of the WRAPPER (so it can flip past screen
+      // edges), so its .parentNode is NOT the parent row — use the tracked
+      // owner row captured in openSubMenu(). (Regression fix, 2026-07-16.)
       if (this._subMenuEl) {
-        const parentRow = this._subMenuEl.parentNode;
+        const parentRow = this._subOwnerRow;
         this._closeSubMenu();
         this._activeMenuEl = this._menuEl;
         const rootFocusable = this._menuEl ? (this._menuEl._focusable || []) : [];

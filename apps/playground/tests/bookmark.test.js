@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 test('insert a bookmark via the dialog; flag marker renders; round-trips', async ({ page }) => {
   await page.click('.oe-tb__btn[data-name="bookmark"]');
   await page.waitForTimeout(200);
-  await page.fill('.oe-bookmark-dialog__input', 'sec-1');
+  await page.fill('.oe-bm-dialog__input', 'sec-1');
   await page.click('.oe-modal__btn--primary');
   await page.waitForTimeout(200);
   const html = await page.evaluate(() => window.__openEditorInstance.getHTML());
@@ -66,4 +66,140 @@ test('clicking a bookmark opens manage; Remove deletes it', async ({ page }) => 
   expect(html).not.toContain('oe-bookmark');
   expect(html).toContain('x');
   expect(html).toContain('y');
+});
+
+// ── Regression for the reported bug (2026-07-16): bookmarking a SELECTION
+//    used to swallow the selected text into the marker and break the line. ──
+test('bookmarking a SELECTION preserves the text (no swallow, no break)', async ({ page }) => {
+  await page.evaluate(() => window.__openEditorInstance.setHTML('<p>keep every word of this</p>'));
+  // select the whole paragraph's text
+  await page.evaluate(() => {
+    const p = document.querySelector('.oe-editor p');
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  });
+  await page.click('.oe-tb__btn[data-name="bookmark"]');
+  await page.waitForTimeout(200);
+  await page.fill('.oe-bm-dialog__input', 'sel-mark');
+  await page.click('.oe-modal__btn--primary');
+  await page.waitForTimeout(200);
+
+  const text = await page.evaluate(() => document.querySelector('.oe-editor').textContent);
+  expect(text).toContain('keep every word of this');           // text intact
+  const emptyMarker = await page.evaluate(() =>
+    document.querySelector('.oe-editor a.oe-bookmark').childNodes.length);
+  expect(emptyMarker).toBe(0);                                  // marker holds NO text
+});
+
+test('right-click a bookmark opens the manage context menu', async ({ page }) => {
+  await page.evaluate(() => window.__openEditorInstance.setHTML(
+    '<p>a <a id="ctx" class="oe-bookmark" contenteditable="false"></a> b</p>'));
+  await page.click('.oe-editor a.oe-bookmark', { button: 'right' });
+  await page.waitForTimeout(200);
+  // the shared context menu should be showing our Edit/Remove items
+  const menu = page.locator('.oe-menu');
+  await expect(menu).toBeVisible();
+});
+
+test('marker has NO underline and its glyph is centered', async ({ page }) => {
+  await page.evaluate(() => window.__openEditorInstance.setHTML(
+    '<p>text <a id="u" class="oe-bookmark" contenteditable="false"></a> more</p>'));
+  const deco = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('.oe-editor a.oe-bookmark')).textDecorationLine);
+  expect(deco).toBe('none');                       // the reported underline is gone
+  const display = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('.oe-editor a.oe-bookmark')).display);
+  expect(display).toBe('inline-flex');             // centered flex marker
+});
+
+test('a custom hex color renders and round-trips', async ({ page }) => {
+  await page.evaluate(() => window.__openEditorInstance.setHTML(
+    '<p>x <a id="cc" class="oe-bookmark" contenteditable="false" style="--oe-bm-color: #ff8800"></a> y</p>'));
+  const color = await page.evaluate(() => {
+    const m = document.querySelector('.oe-editor a.oe-bookmark');
+    return getComputedStyle(m, '::before').color;  // resolved marker glyph color
+  });
+  // #ff8800 → rgb(255, 136, 0)
+  expect(color.replace(/\s/g, '')).toBe('rgb(255,136,0)');
+  const html = await page.evaluate(() => window.__openEditorInstance.getHTML());
+  expect(html).toContain('--oe-bm-color: #ff8800');
+});
+
+test('bookmark dialog embeds the REAL HSV color picker and applies a color', async ({ page }) => {
+  await page.click('.oe-tb__btn[data-name="bookmark"]');
+  await page.waitForTimeout(250);
+  // the same advanced picker as text color is embedded in the dialog
+  const dialogPicker = page.locator('.oe-modal .oe-bm-dialog__cp');
+  await expect(dialogPicker).toBeVisible();
+  await expect(dialogPicker.locator('.oe-cp__grad')).toBeVisible();   // HSV gradient canvas
+  await expect(dialogPicker.locator('.oe-cp__hex-input')).toBeVisible(); // hex field
+  await expect(dialogPicker.locator('.oe-tb__swatch').first()).toBeVisible(); // preset swatches
+
+  await page.fill('.oe-bm-dialog__input', 'colored');
+  // pick a preset swatch inside the embedded picker
+  await dialogPicker.locator('.oe-tb__swatch').nth(3).click();
+  await page.click('.oe-modal__btn--primary');
+  await page.waitForTimeout(200);
+
+  const html = await page.evaluate(() => window.__openEditorInstance.getHTML());
+  expect(html).toContain('id="colored"');
+  // a concrete color was stored on the marker (inline var), text intact
+  expect(html).toMatch(/--oe-bm-color:\s*#[0-9a-f]{6}/i);
+});
+
+test('DRAGGING the gradient then Save applies the color (mouseup ends on document)', async ({ page }) => {
+  // The reported bug: makeDraggable ends drags with mouseup on `document`, so
+  // the old panel-level tracking missed them and Save stored no color. This
+  // reproduces a gradient drag whose mousedown is on the wrap and mouseup on
+  // document (dispatched to sidestep cross-engine synthetic-mouse hit-testing
+  // through the transformed modal — the interaction path is identical).
+  await page.click('.oe-tb__btn[data-name="bookmark"]');
+  await page.waitForTimeout(250);
+  await page.fill('.oe-bm-dialog__input', 'dragged');
+
+  const changed = await page.evaluate(() => {
+    const wrap = document.querySelector('.oe-bm-dialog__cp .oe-cp__grad-wrap');
+    const hex = document.querySelector('.oe-bm-dialog__cp .oe-cp__hex-input');
+    const before = hex.value;
+    const r = wrap.getBoundingClientRect();
+    wrap.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.right - 6, clientY: r.top + 6 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.right - 6, clientY: r.top + 6 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); // ends on document
+    return before !== hex.value;
+  });
+  expect(changed).toBe(true);                                // the drag moved the picker
+
+  await page.click('.oe-modal__btn--primary');
+  await page.waitForTimeout(200);
+  const html = await page.evaluate(() => window.__openEditorInstance.getHTML());
+  expect(html).toContain('id="dragged"');
+  expect(html).toMatch(/--oe-bm-color:\s*#[0-9a-f]{6}/i);   // the dragged color stuck
+});
+
+test('Clear in the embedded picker then Save stores NO color', async ({ page }) => {
+  await page.click('.oe-tb__btn[data-name="bookmark"]');
+  await page.waitForTimeout(250);
+  await page.fill('.oe-bm-dialog__input', 'cleared');
+  // interact with the picker first (type a hex), then hit Clear
+  await page.fill('.oe-bm-dialog__cp .oe-cp__hex-input', '#00ff00');
+  await page.click('.oe-bm-dialog__cp .oe-cp__clear-btn');
+  await page.click('.oe-modal__btn--primary');
+  await page.waitForTimeout(200);
+  const html = await page.evaluate(() => window.__openEditorInstance.getHTML());
+  expect(html).toContain('id="cleared"');
+  expect(html).not.toContain('--oe-bm-color');
+});
+
+test('bookmark dialog looks modern: icon grid + labelled sections present', async ({ page }) => {
+  await page.click('.oe-tb__btn[data-name="bookmark"]');
+  await page.waitForTimeout(200);
+  const dialog = page.locator('.oe-modal .oe-bm-dialog');
+  await expect(dialog).toBeVisible();
+  // icon grid with multiple choices
+  const icons = dialog.locator('.oe-bm-dialog__icon');
+  expect(await icons.count()).toBeGreaterThanOrEqual(12);
+  // uppercase section labels (name / icon / color)
+  const labels = await dialog.locator('.oe-bm-dialog__label').count();
+  expect(labels).toBeGreaterThanOrEqual(3);
 });

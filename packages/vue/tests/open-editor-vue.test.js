@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, ref, nextTick } from 'vue';
-import { createTodoListPlugin } from '@open-editor-hq/core';
+import { createTodoListPlugin } from 'openeditor-text';
 import { OpenEditor, useOpenEditor } from '../src/index.js';
 
 let wrapper;
@@ -85,21 +85,12 @@ describe('component', () => {
 
 describe('useOpenEditor composable (18.4)', () => {
   it('binds an editor to a host ref with component lifecycle', async () => {
-    const Comp = defineComponent({
-      setup() {
-        const host = ref(null);
-        const { editor } = useOpenEditor(host, { config: { placeholder: 'via composable' } });
-        return { host, editor };
-      },
-      render() { return h('div', { ref: 'host' }); },
-      mounted() { /* host bound via template ref in render */ },
-    });
-    // Simpler harness: composable needs the ref before onMounted — use a
-    // wrapper component that passes the same ref into both the div and the composable.
+    // The composable needs the host ref before onMounted — a wrapper component
+    // passes the same ref into both the div and useOpenEditor().
     const Harness = defineComponent({
       setup() {
         const host = ref(null);
-        const { editor } = useOpenEditor(host);
+        useOpenEditor(host, { config: { placeholder: 'via composable' } });
         return () => h('div', { ref: host });
       },
     });

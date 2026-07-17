@@ -28,6 +28,20 @@ export function labeledInput(doc, id, labelText, inputAttrs = {}) {
   return { wrap, input };
 }
 
+/** The upload progress bar (hidden until upload starts). Returns its refs. */
+export function buildProgressBar(doc) {
+  const progressWrap  = el(doc, 'div', { className: 'oe-img-dialog__progress-wrap oe-img-dialog__panel--hidden' });
+  const progressTrack = el(doc, 'div', { className: 'oe-img-dialog__progress-track' });
+  const progressBar   = el(doc, 'div', { className: 'oe-img-dialog__progress-bar' });
+  const progressPct   = el(doc, 'span', { className: 'oe-img-dialog__progress-pct' }, '0%');
+  const abortBtn      = el(doc, 'button', { className: 'oe-img-dialog__abort', type: 'button' }, 'Cancel upload');
+  progressTrack.appendChild(progressBar);
+  progressWrap.appendChild(progressTrack);
+  progressWrap.appendChild(progressPct);
+  progressWrap.appendChild(abortBtn);
+  return { progressWrap, progressBar, progressPct, abortBtn };
+}
+
 // Alignment icon button SVGs (inline — no external resource)
 export const ALIGN_ICONS = {
   '':       '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><rect x="1" y="3" width="14" height="2"/><rect x="1" y="7" width="10" height="2"/><rect x="1" y="11" width="12" height="2"/></svg>',

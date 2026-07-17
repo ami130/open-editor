@@ -44,10 +44,19 @@ const CSS = `
    inline width style collapses to 0x0. A default width fixes align-left/
    right BEFORE any resize; a later drag resize overrides it with an inline
    style anyway (inline styles win over this class rule). */
-.oe-embed--left   { float: left;  margin-right: 1.25em; width: 50%; }
-.oe-embed--right  { float: right; margin-left:  1.25em; width: 50%; }
-.oe-embed--center { display: block; margin-left: auto; margin-right: auto; }
-.oe-embed--inline { display: inline-block; }
+/* Class-driven alignment (single source of truth). Embeds have no intrinsic
+   width, so center constrains to a readable default and auto-centers it — a
+   full-width block can't visibly center. */
+.oe-embed--left   { float: left;  margin: 0.25em 1.25em 0.75em 0; width: 50%; }
+.oe-embed--right  { float: right; margin: 0.25em 0 0.75em 1.25em; width: 50%; }
+.oe-embed--center {
+  display: block;
+  width: 70%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.oe-embed--inline { display: inline-block; vertical-align: bottom; margin: 0 0.35em; }
 .oe-embed-dialog { display: flex; flex-direction: column; gap: 8px; min-width: 320px; }
 .oe-embed-dialog__input {
   width: 100%; padding: 8px 10px; font-size: 0.95em; box-sizing: border-box;

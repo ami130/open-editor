@@ -1,6 +1,6 @@
 # Accessibility Conformance Statement — Open Editor
 
-**Product:** Open Editor (`@open-editor-hq/core`)
+**Product:** Open Editor (`openeditor-text`)
 **Assessed version:** 1.0.0-rc.1 line (2026-07-14)
 **Claimed conformance: WCAG 2.1 Level AA self-assessment** (editor chrome and
 authoring UI). This is an honest engineering self-assessment backed by

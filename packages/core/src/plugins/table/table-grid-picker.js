@@ -87,6 +87,11 @@ export function buildGridPicker(doc, onPick, opts = {}) {
   // Programmatic hover for tests / keyboard use.
   function hover(r, c) { paint(r, c); }
   function getClassName() { return presetSelect ? presetSelect.value : ''; }
+  /** The selected preset object ({value,label,builtin?}) or null. */
+  function getPreset() {
+    if (!presetSelect || !presetSelect.value) return null;
+    return presets.find((p) => p.value === presetSelect.value) || null;
+  }
 
-  return { panel, cells, hover, getHover: () => ({ rows: hoverR, cols: hoverC }), getClassName };
+  return { panel, cells, hover, getHover: () => ({ rows: hoverR, cols: hoverC }), getClassName, getPreset };
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@open-editor-hq/vue",
+  "name": "openeditor-text-vue",
   "version": "1.1.0",
   "private": false,
   "description": "Official Vue 3 wrapper for Open Editor — v-model component + useOpenEditor composable",
@@ -27,11 +27,11 @@
     "prepublishOnly": "rollup -c rollup.config.js"
   },
   "peerDependencies": {
-    "@open-editor-hq/core": ">=1.1.0",
+    "openeditor-text": ">=1.1.0",
     "vue": ">=3.3"
   },
   "devDependencies": {
-    "@open-editor-hq/core": "workspace:*",
+    "openeditor-text": "workspace:*",
     "@rollup/plugin-terser": "^1.0.0",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "29.1.1",

@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm --filter @open-editor-hq/core test --reporter=verbose)",
+      "Bash(pnpm --filter openeditor-text test --reporter=verbose)",
       "Bash(node --input-type=module)",
       "Bash(npm test *)",
       "Bash(node -e ' *)",

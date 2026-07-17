@@ -75,11 +75,77 @@ describe('buildCharGrid', () => {
     expect(node.querySelector('.oe-chargrid__search')).toBeNull();
   });
 
-  it('renders category tabs when configured', () => {
+  it('renders a category select when configured', () => {
     const { node } = buildCharGrid(document, items, () => {}, {
       categories: [{ id: 'money', label: 'Money' }, { id: 'other', label: 'Other' }],
     });
-    expect(node.querySelectorAll('.oe-chargrid__tab').length).toBe(2);
+    const select = node.querySelector('.oe-chargrid__select');
+    expect(select).not.toBeNull();
+    expect(select.querySelectorAll('option').length).toBe(2);
+  });
+
+  it('the category select filters to the active category and switches on change', () => {
+    const catItems = [
+      { ch: '$', label: 'dollar', cat: 'money' },
+      { ch: '@', label: 'at', cat: 'other' },
+    ];
+    const { node } = buildCharGrid(document, catItems, () => {}, {
+      categories: [{ id: 'money', label: 'Money' }, { id: 'other', label: 'Other' }],
+    });
+    // first category active → only its char
+    let cells = [...node.querySelectorAll('.oe-chargrid__cell')].map((c) => c.textContent);
+    expect(cells).toEqual(['$']);
+    // change the select → its char
+    const select = node.querySelector('.oe-chargrid__select');
+    select.value = 'other';
+    select.dispatchEvent(new Event('change'));
+    cells = [...node.querySelectorAll('.oe-chargrid__cell')].map((c) => c.textContent);
+    expect(cells).toEqual(['@']);
+  });
+
+  it('search spans ALL categories (ignores the active category while querying)', () => {
+    const catItems = [
+      { ch: '$', label: 'dollar', cat: 'money' },
+      { ch: '@', label: 'at sign', cat: 'other' },
+    ];
+    const { node } = buildCharGrid(document, catItems, () => {}, {
+      categories: [{ id: 'money', label: 'Money' }, { id: 'other', label: 'Other' }],
+    });
+    const input = node.querySelector('.oe-chargrid__search');
+    input.value = 'at sign'; input.dispatchEvent(new Event('input')); // in 'other', not active cat
+    const cells = [...node.querySelectorAll('.oe-chargrid__cell')].map((c) => c.textContent);
+    expect(cells).toEqual(['@']);
+  });
+
+  it('renders a slim footer that updates on hover', () => {
+    const { node } = buildCharGrid(document, items, () => {});
+    const foot = node.querySelector('.oe-chargrid__foot');
+    expect(foot).not.toBeNull();
+    const cell = node.querySelector('.oe-chargrid__cell');
+    cell.dispatchEvent(new Event('mouseenter'));
+    expect(node.querySelector('.oe-chargrid__foot-glyph').textContent).toBe(cell.textContent);
+  });
+
+  it('the footer can be disabled', () => {
+    const { node } = buildCharGrid(document, items, () => {}, { footer: false });
+    expect(node.querySelector('.oe-chargrid__foot')).toBeNull();
+  });
+});
+
+describe('special-char categories', () => {
+  it('every built-in char has a category, and all cats are declared', async () => {
+    const { DEFAULT_SPECIAL_CHARS, SPECIAL_CHAR_CATEGORIES, hasCategories } =
+      await import('../src/plugins/chars/char-data.js');
+    expect(hasCategories(DEFAULT_SPECIAL_CHARS)).toBe(true);
+    const ids = new Set(SPECIAL_CHAR_CATEGORIES.map((c) => c.id));
+    expect(DEFAULT_SPECIAL_CHARS.every((c) => ids.has(c.cat))).toBe(true);
+  });
+
+  it('a custom flat config (no cat) reports no categories', async () => {
+    const { resolveSpecialChars, hasCategories } =
+      await import('../src/plugins/chars/char-data.js');
+    const custom = resolveSpecialChars(['★', '☆']);
+    expect(hasCategories(custom)).toBe(false);
   });
 });
 
@@ -120,9 +186,14 @@ describe('createSpecialCharsPlugin', () => {
     const s = editor.selection.getWindow().getSelection(); s.removeAllRanges(); s.addRange(r);
 
     const openPromise = p._open();
-    // grid was rendered into the modal — click the euro cell
+    // grid was rendered into the modal. Euro lives under the Currency tab now
+    // (category tabs, 2026-07-16) — search finds it across ALL categories,
+    // which is the common user path.
     await new Promise((res) => setTimeout(res, 0));
     const euro = String.fromCharCode(0x20AC);
+    const search = document.querySelector('.oe-chargrid__search');
+    search.value = 'euro';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
     const cells = Array.from(document.querySelectorAll('.oe-chargrid__cell'));
     const euroCell = cells.find((c) => c.textContent === euro);
     expect(euroCell).toBeTruthy();

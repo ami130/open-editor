@@ -16,6 +16,7 @@ import { editorMaxLengthMixin } from './editor-maxlength.js';
 import { editorApiMixin } from './editor-api.js';
 import { editorJsonMixin } from './editor-json.js';
 import { markdownMixin } from './markdown/markdown-export.js';
+import { aiMixin } from './ai/ai-complete.js';
 import { editorViewMixin } from './editor-view.js';
 import { editorMobileMixin } from './editor-mobile.js';
 import { BASE_CSS } from './utils/base-css.js';
@@ -284,6 +285,7 @@ Object.assign(OpenEditor.prototype, editorEventsMixin);
 Object.assign(OpenEditor.prototype, editorPasteMixin);
 Object.assign(OpenEditor.prototype, editorDomMixin);
 Object.assign(OpenEditor.prototype, markdownMixin); // 17.5.12 — getMarkdown()
+Object.assign(OpenEditor.prototype, aiMixin); // 19.7 — editor.aiComplete() (free BYO-endpoint hook)
 Object.assign(OpenEditor.prototype, editorLifecycleMixin);
 Object.assign(OpenEditor.prototype, editorMaxLengthMixin);
 Object.assign(OpenEditor.prototype, editorApiMixin);

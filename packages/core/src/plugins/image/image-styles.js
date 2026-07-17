@@ -278,10 +278,25 @@ export const IMAGE_CSS = `
 .oe-figure--selected {
   box-shadow: 0 0 0 2px var(--oe-bg), 0 0 0 4px var(--oe-primary);
 }
-.oe-figure--left   { float: left;  margin-right: 1.25em; }
-.oe-figure--right  { float: right; margin-left:  1.25em; }
-.oe-figure--center { display: block; margin-left: auto; margin-right: auto; }
-.oe-figure--inline { display: inline-block; }
+/* Alignment is class-driven (single source of truth — no inline styles from JS).
+   Left/right float and wrap text; center shrink-wraps the figure to its image
+   and auto-centers it (a full-width block can't be centered — the width:
+   fit-content is what actually makes centering visible); inline flows with text. */
+.oe-figure--left   { float: left;  margin: 0.25em 1.25em 0.75em 0; }
+.oe-figure--right  { float: right; margin: 0.25em 0 0.75em 1.25em; }
+.oe-figure--center {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* #4: if a caption is wider than the image, fit-content grows the figure to the
+   caption — keep the image itself centered inside that wider box (not stuck
+   left) and center the caption text. */
+.oe-figure--center img { margin-left: auto; margin-right: auto; }
+.oe-figure--center figcaption { text-align: center; }
+.oe-figure--inline { display: inline-block; vertical-align: bottom; margin: 0 0.35em; }
 
 /* ── Resize overlay CSS lives in ui/resize-overlay-styles.js (shared with the
    media plugin) — injected separately by injectImageStyles() below. ── */

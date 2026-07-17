@@ -134,38 +134,54 @@ export function buildAndInsertFigure(editor, result, opts, config, doc, context)
   return false;
 }
 
+/**
+ * Place the caret at the (clientX, clientY) drop point so a dropped image lands
+ * WHERE it was dropped — not at whatever the previous text selection was (the
+ * #1 drag-drop bug). Uses the standard caret-from-point APIs (caretRangeFromPoint
+ * in Chrome/Safari, caretPositionFromPoint in Firefox). If the point isn't
+ * inside the editable, or the APIs are unavailable (jsdom), it's a safe no-op
+ * and insertion falls back to the existing selection logic.
+ */
+export function placeCaretFromPoint(editor, clientX, clientY) {
+  const root = editor.getEditorElement && editor.getEditorElement();
+  const doc = root && root.ownerDocument;
+  const win = doc && doc.defaultView;
+  if (!root || !doc || !win) return false;
+  let range = null;
+  if (typeof doc.caretRangeFromPoint === 'function') {
+    range = doc.caretRangeFromPoint(clientX, clientY);
+  } else if (typeof doc.caretPositionFromPoint === 'function') {
+    const pos = doc.caretPositionFromPoint(clientX, clientY);
+    if (pos) { range = doc.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+  }
+  // Only honor a point that lands inside the editable content.
+  if (!range || !root.contains(range.startContainer)) return false;
+  const sel = win.getSelection && win.getSelection();
+  if (sel) { sel.removeAllRanges(); sel.addRange(range); return true; }
+  return false;
+}
+
 // ─── 9.9 — alignment ──────────────────────────────────────────────────────────
 export function applyAlignment(figure, alignment) {
-  // Clear previous alignment classes
+  // CLASS-ONLY (2026-07-16): all alignment layout lives in the stylesheet
+  // (.oe-figure--left/right/center/inline). Previously this ALSO wrote inline
+  // float/display/margin, duplicating the CSS and drifting from it — and the
+  // inline `margin: 0 auto` for center wiped the figure's vertical margin AND
+  // couldn't center a full-width block. Toggling one class is the single source
+  // of truth; any stale inline styles from older documents are cleared.
   figure.classList.remove('oe-figure--left', 'oe-figure--center',
                           'oe-figure--right', 'oe-figure--inline');
-  figure.style.cssFloat   = '';
-  figure.style.marginLeft  = '';
+  // Clear inline styles a previous (pre-fix) version may have written, so the
+  // class rules aren't overridden by higher-specificity leftovers.
+  figure.style.cssFloat = '';
+  figure.style.display = '';
+  figure.style.margin = '';
+  figure.style.marginLeft = '';
   figure.style.marginRight = '';
-  figure.style.display     = '';
-  figure.style.margin      = '';
 
-  switch (alignment) {
-    case 'left':
-      figure.classList.add('oe-figure--left');
-      figure.style.cssFloat   = 'left';
-      figure.style.marginRight = '1em';
-      break;
-    case 'right':
-      figure.classList.add('oe-figure--right');
-      figure.style.cssFloat  = 'right';
-      figure.style.marginLeft = '1em';
-      break;
-    case 'center':
-      figure.classList.add('oe-figure--center');
-      figure.style.display = 'block';
-      figure.style.margin  = '0 auto';
-      break;
-    case 'inline':
-      figure.classList.add('oe-figure--inline');
-      figure.style.display = 'inline-block';
-      break;
-  }
+  const cls = { left: 'oe-figure--left', right: 'oe-figure--right',
+                center: 'oe-figure--center', inline: 'oe-figure--inline' }[alignment];
+  if (cls) figure.classList.add(cls);
 }
 
 // ─── 9.16 — wrap image in link ───────────────────────────────────────────────

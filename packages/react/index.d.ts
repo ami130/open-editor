@@ -1,5 +1,5 @@
 /**
- * @open-editor-hq/react — TypeScript declarations. Types are REUSED from the
+ * openeditor-text-react — TypeScript declarations. Types are REUSED from the
  * core package (OpenEditorConfig etc.) — zero type forks.
  */
 import type { ComponentType, CSSProperties, Ref } from 'react';
@@ -9,7 +9,7 @@ import type {
   OpenEditorTheme,
   OpenEditorDirection,
   EditorPlugin,
-} from '@open-editor-hq/core';
+} from 'openeditor-text';
 
 export interface OpenEditorHandle {
   /** The live core editor instance (null before mount / after unmount). */

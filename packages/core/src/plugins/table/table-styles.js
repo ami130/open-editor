@@ -34,6 +34,26 @@ const TABLE_CSS = `
   text-align: left;
 }
 
+/* ── Built-in visual styles (13.T) — shipped, zero-config, applyable anytime ── */
+/* bordered: heavier outer frame + inner grid. */
+.oe-editor table.oe-table--bordered { border: 2px solid var(--oe-border-strong); }
+.oe-editor table.oe-table--bordered td,
+.oe-editor table.oe-table--bordered th { border: 1px solid var(--oe-border-strong); }
+/* striped: zebra body rows; the color is overridable per-table via --oe-table-stripe. */
+.oe-editor table.oe-table--striped tbody tr:nth-child(even) td,
+.oe-editor table.oe-table--striped > tr:nth-child(even) td {
+  background: var(--oe-table-stripe, var(--oe-panel-hover));
+}
+/* borderless: clean text-table look (still keeps a faint header underline). */
+.oe-editor table.oe-table--borderless td,
+.oe-editor table.oe-table--borderless th { border: 0; }
+.oe-editor table.oe-table--borderless { border: 0; }
+.oe-editor table.oe-table--borderless th { border-bottom: 2px solid var(--oe-border-strong); }
+/* dotted: dotted cell borders — a distinct visual style. */
+.oe-editor table.oe-table--dotted td,
+.oe-editor table.oe-table--dotted th { border: 1px dotted var(--oe-border-strong); }
+.oe-editor table.oe-table--dotted { border: 1px dotted var(--oe-border-strong); }
+
 /* ── Selected cells (drag-select range) ──────────────────────────────────────── */
 .oe-editor table.oe-table td.oe-cell--selected,
 .oe-editor table.oe-table th.oe-cell--selected {

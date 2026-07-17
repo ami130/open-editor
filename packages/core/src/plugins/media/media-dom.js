@@ -60,35 +60,20 @@ export function insertTrailingParagraph(editor, fig) {
  *  image-dom.js's applyAlignment — same classes/inline-style shape, scoped
  *  to .oe-embed instead of .oe-figure). */
 export function applyAlignment(figure, alignment) {
+  // CLASS-ONLY (2026-07-16) — mirrors the image plugin's fix: layout lives in
+  // the stylesheet (.oe-embed--*), so center can shrink-wrap + auto-center and
+  // keep vertical margin. Clear any stale inline styles from older documents.
   figure.classList.remove('oe-embed--left', 'oe-embed--center',
                           'oe-embed--right', 'oe-embed--inline');
-  figure.style.cssFloat    = '';
-  figure.style.marginLeft  = '';
+  figure.style.cssFloat = '';
+  figure.style.display = '';
+  figure.style.margin = '';
+  figure.style.marginLeft = '';
   figure.style.marginRight = '';
-  figure.style.display     = '';
-  figure.style.margin      = '';
 
-  switch (alignment) {
-    case 'left':
-      figure.classList.add('oe-embed--left');
-      figure.style.cssFloat    = 'left';
-      figure.style.marginRight = '1em';
-      break;
-    case 'right':
-      figure.classList.add('oe-embed--right');
-      figure.style.cssFloat   = 'right';
-      figure.style.marginLeft = '1em';
-      break;
-    case 'center':
-      figure.classList.add('oe-embed--center');
-      figure.style.display = 'block';
-      figure.style.margin  = '0 auto';
-      break;
-    case 'inline':
-      figure.classList.add('oe-embed--inline');
-      figure.style.display = 'inline-block';
-      break;
-  }
+  const cls = { left: 'oe-embed--left', right: 'oe-embed--right',
+                center: 'oe-embed--center', inline: 'oe-embed--inline' }[alignment];
+  if (cls) figure.classList.add(cls);
 }
 
 /** Insert a parsed embed spec at the caret, with the trailing-paragraph fix. */

@@ -8,7 +8,8 @@
  * Only intercepts when the data transfer contains image files.
  */
 import { buildAndInsertFigure } from './image-dom.js';
-import { processImageFile } from './image-upload.js';
+import { processImageFile, fileSizeError } from './image-upload.js';
+import { placeCaretFromPoint } from './image-dom.js';
 
 const DRAGOVER_CLASS = 'oe-editor--dragover';
 
@@ -70,6 +71,14 @@ export function installDragDrop(editor) {
     );
     if (!files.length) return;
 
+    // #1 fix: move the caret to WHERE the image was dropped, so it lands there
+    // instead of at the stale text selection. If the point isn't in the
+    // editable (or the API is unavailable), this is a no-op and we fall back to
+    // the current selection.
+    if (typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+      placeCaretFromPoint(editor, e.clientX, e.clientY);
+    }
+
     // Insert every dropped image, in drop order (sequential so the insert
     // position — which depends on cursor state — stays deterministic).
     handleDroppedFiles(editor, files);
@@ -86,11 +95,9 @@ async function handleDroppedFile(editor, file) {
   const config = editor._config || {};
   const doc    = editor._wrapper && editor._wrapper.ownerDocument || document;
 
-  if (file.size > 10 * 1024 * 1024) {
-    editor.emit('error', {
-      error: new Error(`Dropped image is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`),
-      context: 'plugin:image:drop:size',
-    });
+  const sizeErr = fileSizeError(file, config);
+  if (sizeErr) {
+    editor.emit('error', { error: new Error(sizeErr), context: 'plugin:image:drop:size' });
     return;
   }
 

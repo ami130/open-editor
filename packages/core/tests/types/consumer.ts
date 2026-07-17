@@ -16,7 +16,7 @@ import {
   type EditorPlugin,
   type SelectionInfo,
   type EditorJSON,
-} from '@open-editor-hq/core';
+} from 'openeditor-text';
 
 const config: OpenEditorConfig = {
   theme: 'dark',

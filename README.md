@@ -17,13 +17,14 @@ Zero dependencies. Runs forever. You own every line.
 
 ## Quickstart
 
-> **Status:** `1.0.0` staged — `1.0.0-rc.1` is **LIVE on npm** (published
-> 2026-07-14). One name, forever: **`@open-editor-hq/core`**
-> (`npm install @open-editor-hq/core`). The API below is **frozen** and
-> contract-tested; post-1.0.0 features (Phase 17.5+) land additively in 1.x.
+> **Status:** `1.1.0` — ships as **`openeditor-text`** (`npm install
+> openeditor-text`, or `npx openeditors add text`), part of the `openeditors`
+> family (Phase 25 naming decision; the earlier `@open-editor-hq/core` name is
+> deprecated with a pointer). The API below is **frozen** and contract-tested;
+> post-1.0.0 features land additively in 1.x.
 
 ```js
-import { OpenEditor } from '@open-editor-hq/core';
+import { OpenEditor } from 'openeditor-text';
 
 // 1. Construct on any element (selector string or HTMLElement).
 const editor = new OpenEditor('#app', {
@@ -44,7 +45,7 @@ editor.on('onChange', ({ html }) => save(html));
 **Optional plugins** are opt-in via factories (tree-shakeable — you only ship what you install):
 
 ```js
-import { OpenEditor, createImagePlugin, createLinkPlugin, createTablePlugin } from '@open-editor-hq/core';
+import { OpenEditor, createImagePlugin, createLinkPlugin, createTablePlugin } from 'openeditor-text';
 
 const editor = new OpenEditor('#app');
 editor.plugins.install(createImagePlugin());
@@ -287,7 +288,7 @@ open-editor/
 
 ## Status
 
-**Phases 0–16.7 (incl. 4.5 and 7.5) are implemented and verified** — the editor is feature-complete through Accessibility & Mobile (14), the Theme System (15), the frozen Public API (16, `1.0.0-rc.1`), Production Hardening (16.5), Modern Editing UX (16.6), and the Competitive Parity Pass (16.7). Phase 13 (Content Plugins) adds 11 plugins — Source Code view (zero-dep, XSS-verified round-trip), Find & Replace (CSS Custom Highlight API), Special Characters, Emoji, Media Embed (sandboxed provider iframes, 72-probe XSS-verified), Horizontal Rule, Code Block, Resizable Editor, Format Painter, Spellcheck, and Preview — with Emoji, dedicated Code Block, and sandboxed Media Embed going **beyond standard Jodit**. Phase 12 (Paste Engine) is complete — staged cleanup pipeline, ask-on-paste dialog, Ctrl+Shift+V, context-aware insertion — also beyond Jodit in several respects. Phase 11 (Table) is complete on a formal-matrix model. The core package has **1964 passing unit tests** (Vitest + jsdom, 151 files) and the playground has **638 e2e tests passing across Chromium, Firefox, and WebKit (13 skipped of 651 runs)**, including a public-API freeze contract test, a 100-cycle memory-leak test, and performance-budget gates. Every source file is within the 300-line limit.
+**Phases 0–16.7 (incl. 4.5 and 7.5) are implemented and verified** — the editor is feature-complete through Accessibility & Mobile (14), the Theme System (15), the frozen Public API (16, `1.0.0-rc.1`), Production Hardening (16.5), Modern Editing UX (16.6), and the Competitive Parity Pass (16.7). Phase 13 (Content Plugins) adds 11 plugins — Source Code view (zero-dep, XSS-verified round-trip), Find & Replace (CSS Custom Highlight API), Special Characters, Emoji, Media Embed (sandboxed provider iframes, 72-probe XSS-verified), Horizontal Rule, Code Block, Resizable Editor, Format Painter, Spellcheck, and Preview — with Emoji, dedicated Code Block, and sandboxed Media Embed going **beyond standard Jodit**. Phase 12 (Paste Engine) is complete — staged cleanup pipeline, ask-on-paste dialog, Ctrl+Shift+V, context-aware insertion — also beyond Jodit in several respects. Phase 11 (Table) is complete on a formal-matrix model. The core package has **2060 passing unit tests** (Vitest + jsdom, 166 files) and the playground has **e2e tests passing across Chromium, Firefox, and WebKit**, including a public-API freeze contract test, a 100-cycle memory-leak test, and performance-budget gates. The React (7), Vue (5), Angular (9), CLI (14), and entitlements (39) packages have their own suites, now **all run in CI** (previously core-only — fixed 2026-07-16). Every `.js` source file is within the 300-line limit (the one 305-line file, `image-styles.js`, is CSS-in-JS, which the limit exempts). **Known cross-browser coverage gap:** clipboard/paste e2e is skipped on Firefox (13 tests) — synthetic paste events are unreachable in headless Firefox; the paths are covered on Chromium + WebKit.
 
 Phase 4.5 (block editing semantics) is fully shipped: Enter-split, Backspace/Delete-merge, structural conversions, multi-block delete, `contenteditable="false"` island handling, editor floor, and block indent/outdent.
 
@@ -335,8 +336,8 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **Framework wrappers** (React / Vue / Angular — all three live-proven caret-stable from packed tarballs) | 18 | ✅ **done (2026-07-14)** |
 | **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
 | **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned (parallel, non-blocking) |
-| **Web Platform 1: Public Site + Playground** (fresh `open-editor-web` project — Next.js/NestJS; landing, live demo with config reflector, docs, comparison) | 21 | planned |
-| **Entitlements Foundation** (feature registry, offline Ed25519 licenses, FeatureManager, dev issuer + adversarial sweep) | 22 | planned |
+| **Web Platform 1: Public Site + Playground** (fresh `open-editor-web` project — Next.js; landing, live demo with config reflector, docs, comparison) | 21 | ✅ **built (2026-07-15)** — deploy/hosting/domain deliberately deferred to project completion |
+| **Entitlements Foundation** (feature registry, offline ES256 licenses, FeatureManager, dev issuer + adversarial sweep) | 22 | 🔨 22.1–22.4 built (isolated pkg); 22.5 with Phase 23 |
 | **Web Platform 2: Admin Panel + License Service** (same repo, behind auth: two-pipe package matrix — config profiles for core features + signed licenses for premium; roles, audit, full admin control) | 23 | planned |
 | **Web Platform 3: Commerce & Customer Portal** (same repo: self-serve buy/renew, billing, trials) | 24 | planned |
 
@@ -406,7 +407,7 @@ Milestones:
 - [x] 1.19 — Config deep merge is prototype-pollution-safe: strips `__proto__`, `constructor`, `prototype` keys
 - [x] 1.20 — `ShortcutManager`: central registry for all keyboard shortcuts — `register(keys, command, label)`, `unregister(keys)`, `getAll()`, conflict detection (warns if two handlers claim same keys), plugins register their own shortcuts here on install and unregister on destroy
 - [x] 1.21 — `Logger` module: wraps all internal `console.*` calls — active only when `debug: true`, levels (info / warn / error), plugins call `editor.logger.warn(...)` not `console.warn(...)` directly, integrators can replace with custom logger via `config.logger`
-- [x] 1.22 — `iframe` config option: `iframe: true` renders the contenteditable inside a sandboxed `<iframe>` for full CSS isolation from host page — host page styles cannot bleed in; editor injects its own stylesheet into the iframe document
+- [x] 1.22 — `iframe` config option: `iframe: true` renders the contenteditable inside a sandboxed `<iframe>` for full CSS isolation from host page — host page styles cannot bleed in; editor injects its own stylesheet into the iframe document. **Bug found + fixed 2026-07-16 (audit):** iframe mode threw on construction in ALL real browsers — the iframe's `contentDocument` was read while the iframe was still detached from the document (the wrapper was appended AFTER the frame was populated). jsdom's leniency hid it and there was zero iframe e2e coverage. Fixed by attaching the wrapper before building the frame internals; now verified constructing + rendering across Chromium/Firefox/WebKit (`bookmark-iframe.test.js`, plus the plugin-style-injection path).
 - [x] 1.23 — `beforeinput` event used as primary input handler where available (Chrome 60+, Firefox 87+, Safari 14+); `keydown`+`input` fallback for gaps
 - [x] 1.24 — Destroy cleanup checklist enforced: all event listeners removed, MutationObservers disconnected, timers cancelled, DOM nodes removed, all references nullified
 - [x] 1.25 — MutationObserver strategy defined: used to catch programmatic DOM changes that `input` event misses; set up on init, disconnected on destroy
@@ -575,7 +576,7 @@ Milestones:
 - [x] 7.24 — Locale config: `locale: 'en'` (built-in) or `locale: { bold: 'Gras', … }` (override); status bar uses CJK-aware word counting
 - [x] 7.25 — Performance benchmark CI gate (16ms / 50ms) *(smoke tests in toolbar-buttons.test.js verify toolbar sync + getHTML on large documents without throwing)*
 
-**Clean output:** Toolbar renders, bold button highlights when cursor is in bold text, dropdowns open/close, color picker applies colors, fullscreen + print work, status bar updates live, all strings overridable. **All source files ≤300 lines.** Pixel-level positioning (dropdown flip, bubble anchoring, sticky, mobile touch) needs Playwright verification. `[~]` = shipped-but-needs-browser-verification.
+**Clean output:** Toolbar renders, bold button highlights when cursor is in bold text, dropdowns open/close, color picker applies colors, fullscreen + print work, status bar updates live, all strings overridable. **All `.js` source files ≤300 lines** (the sole 305-line file is `image-styles.js`, CSS-in-JS, which the limit exempts). Pixel-level positioning (dropdown flip, bubble anchoring, sticky, mobile touch) needs Playwright verification. `[~]` = shipped-but-needs-browser-verification.
 
 ---
 
@@ -1780,6 +1781,13 @@ Milestones (execution order — React first, it unblocks Phase 21's dogfooding):
   ZERO dependencies (framework + core as peers only). Angular carries exactly one —
   `tslib`, the Angular platform's own mandated import-helper library, present in
   every Angular app by definition (the documented exception).
+> **Audit note (2026-07-16):** the "live-proven from packed tarballs" claims below
+> were real one-time manual drives; those throwaway consumer apps are NOT in the repo
+> and were NOT reproducible in CI. Automated coverage has since been added and wired
+> into CI: React (7), Vue (5), and — closing a zero-coverage hole — **Angular (9,
+> ControlValueAccessor logic)**. The live browser drive remains the historical proof;
+> the unit suites are the standing regression guard.
+
 - [x] 18.7 — *(done 2026-07-14)* Each wrapper is its own npm package under the owned
   org scope with its own npm-facing README (quickstart, reactive-prop contract, ref
   surface); publishing happens at the month-end release (Angular publishes its `dist/`
@@ -1796,15 +1804,19 @@ page imports the React wrapper without SSR crashes.
 **Goal:** License-gated features that generate revenue, completely separated from free core.
 
 Milestones:
-- [ ] 19.1 — License key format: signed JWT, validated client-side with embedded public key (no network call)
-- [ ] 19.2 — `FeatureManager`: checks license payload for specific feature flags before activating premium plugins
-- [ ] 19.3 — Invalid / expired license: shows non-blocking upgrade prompt, degrades gracefully
-- [ ] 19.4 — Premium plugin: **SEO Analyzer** — keyword density, heading structure, readability score, meta description editor
-- [ ] 19.5 — Premium plugin: **Export** — HTML to PDF (print API), HTML to DOCX (raw XML generation, no deps)
-- [ ] 19.6 — Premium plugin: **Markdown Export** — converts editor content to clean Markdown string
+- [x] 19.1 — License key format: signed JWT, validated client-side with embedded public key (no network call). **Algorithm (amended 2026-07-15, see [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md)): ES256 (ECDSA P-256) via native WebCrypto — Ed25519 isn't available at the browser support floor and ES256 ships zero crypto code; tokens are `alg`+`kid` agile so Ed25519 becomes the designated successor via key rotation.** *(Built as Phase 22: `@openeditors/entitlements` — offline verifier, fails closed, 39 tests.)*
+- [x] 19.2 — `FeatureManager`: checks license payload for specific feature flags before activating premium plugins. *(2026-07-17: runtime integration shipped — `@openeditor-premium/runtime`: `createPremiumHost()` + `gatePremiumPlugin()`; feature-id vocabulary frozen additive-only in the registry (one id per sellable unit, all of Phase 19 covered) so the admin plan-builder composes packages with zero code changes.)*
+- [x] 19.3 — Invalid / expired license: shows non-blocking upgrade prompt, degrades gracefully. *(2026-07-17: denied plugin becomes a same-name no-op stub — emits `premiumDenied`, one aggregated dismissible notice per editor, free editor untouched; proven by the `hello-premium` template package + `premium-gate.test.js` e2e across all 3 engines with REAL in-browser-minted ES256 licenses, dev-host bypass OFF.)*
+- [x] 19.4 — Premium plugin: **SEO Analyzer** — keyword density, heading structure, readability score, meta description editor. ✅ **done 2026-07-17** (`@openeditor-premium/seo`, gated on `seo`). READ-ONLY content analysis: overall 0–100 score, word count, heading-outline warnings (no/multiple H1, skipped levels), whole-word/phrase keyword density with a healthy-range check, Flesch Reading Ease + label, meta-description length assessment, top-words. Toolbar button opens a live panel (keyword + meta inputs re-analyze the current content on each keystroke) + headless `editor.analyzeSeo()`. Pure engine (readability + analyze) with 47 unit + 7 e2e (×3 engines), including a byte-identical before/after test proving it never mutates the document. Grep-verified absent from the free bundle. **Advanced upgrade (2026-07-17):** content-depth (avg sentence length, long-sentence %, passive-voice + transition-word estimates), link/image SEO (internal/external/empty/nofollow links, images missing alt), keyword intelligence (keyword in H1/first-paragraph/subheadings/meta + n-gram related phrases), and a Google-style search-snippet preview with a title-length check.
+- [x] 19.5 — Premium plugin: **Export** — HTML to PDF (print API) ✅ **done 2026-07-17**, HTML to DOCX (raw XML generation, no deps) ✅ **done 2026-07-17**.
+  **PDF (`@openeditor-premium/export-pdf`, gated on `export.pdf`):** styled, page-configured PDF via the browser's native print-to-PDF (zero rendering deps). Distinct from the FREE `editor.print()` (raw unstyled dump): a real `@page` setup (A4/Letter/Legal, orientation, margin), a typographic print stylesheet (headings, tables, code blocks, blockquotes, images), optional header/footer, injection-safe option strings. Toolbar button + `editor.exportPdf(opts)`. 21 unit + 6 e2e (×3 engines).
+  **DOCX (`@openeditor-premium/export-docx`, gated on `export.docx`):** real Word `.docx` from **hand-generated OOXML** in a **zero-dependency** STORE-method ZIP (own CRC-32 + local/central-directory/EOCD writer — no JSZip, no docx lib). Converts headings, emphasis/underline/strike/code, nested bullet+ordered lists, blockquotes, code blocks, tables, HR; title paragraph; toolbar button + `editor.exportDocx()`/`editor.buildDocxBytes()`. **Links + images (2026-07-17):** real clickable `w:hyperlink` relationships (http/mailto/tel/anchor; unsafe schemes fall back to text), and `data:` images embedded as real `word/media/` parts + `w:drawing` (remote images → labeled placeholder, captions always preserved). Validated: real `unzip -t` integrity + `xmllint` well-formedness on every part + style/relationship-reference lockstep + embedded-image/hyperlink round-trip; 76 unit + 4 e2e (×3 engines). Only remaining gap: remote image *bytes* aren't fetched (needs async/CORS). Both exporters grep-verified absent from the free bundle.
+  **Full visual fidelity (amended 2026-07-17):** both exporters now carry over ALL editor styling — table style presets (bordered/striped/dotted/borderless), per-cell background/text/border colors, header fill, `--oe-table-stripe`, column widths, and captions, plus inline text color/highlight/font-size. PDF replicates the editor's classes with literal token values (inline styles win by specificity); DOCX emits `w:shd`/`w:tcBorders`/`w:gridCol`/`w:color` via a zero-dep CSS-color→OOXML-hex parser. A colored table was real-file validated. (Fixed the reported "table color not showing".)
+- [~] 19.6 — Premium plugin: **Markdown Export** — converts editor content to clean Markdown string. **Basic export shipped FREE in 1.1.0** (`editor.getMarkdown()`, Phase 17.5.12 — the plan predated it; decision 2026-07-17: keep the basic GFM string free, it's public + advertised). Premium extras (download-as-`.md`, YAML front-matter, CommonMark/GFM flavor toggle, lossless MD⇄HTML round-trip) remain to build under this line.
 - [ ] 19.6b — Premium plugin: **Word Import** — full-fidelity DOCX → editor HTML (styles, lists, tables, layout preserved), distinct from the free Phase-12 "paste from Word" cleanup, which only sanitizes/promotes pasted markup rather than parsing a `.docx` file directly. Tier-1 competitive gap: CKEditor gates this behind Professional+.
-- [ ] 19.7 — Premium plugin: **AI Writing** — configurable API endpoint, streaming tokens at cursor. Tier-1 competitive scope (both CKEditor and Jodit Pro sell this): **(a)** Chat — multi-turn content generation in a side panel, **(b)** Quick Actions — rewrite/summarize/change-tone on a selection, **(c)** Review — grammar/clarity suggestions rendered as accept/reject (shares UI with 19.9 Comments' suggestion-thread rendering), **(d)** Translate. Ship (a)+(b) first; (c)+(d) can follow.
+- [x] 19.7 — Premium plugin: **AI Writing** — **(a) Chat + (b) Quick Actions + (c) Review + (d) Translate ✅ all done 2026-07-17**. Tier-1 competitive scope (both CKEditor and Jodit Pro sell this): **(a)** Chat — multi-turn content generation in a side panel, **(b)** Quick Actions — rewrite/summarize/change-tone on a selection, **(c)** Review — grammar/clarity suggestions rendered as accept/reject (shares UI with 19.9 Comments' suggestion-thread rendering), **(d)** Translate.
   **Tier split (amended 2026-07):** the raw *plumbing* — a BYO-endpoint/BYO-key command surface + streaming-insert-at-cursor hook — ships **FREE** in core (Jodit ships a free AI hook since 4.1; 2025-26 demand research: "the demanded shape is bring-your-own-API-key AI hooks — almost nobody offers this openly"). Premium 19.7 sells the *product* on top: the polished Chat panel, Review-as-suggestions, Translate, and any hosted convenience. Free plumbing is the funnel; the panel is the revenue.
+  **Built 2026-07-17:** FREE core hook `editor.aiComplete({prompt,system,onToken,signal,insert})` + `aiEndpoint`/`aiHeaders` config — BYO-endpoint streaming-insert-at-cursor, fails soft (emits `aiStart`/`aiDone`/`aiError`), 11 core tests; added to the frozen API contract + `index.d.ts`; full-bundle budget consciously raised 134→135K (+1KB) for it. PREMIUM `@openeditor-premium/ai` — four independently-gated plugins: **Quick Actions** (`ai.quickActions` — improve/summarize/shorten/lengthen/tone), **Chat panel** (`ai.panel` — multi-turn, insert-on-demand), **Translate** (`ai.translate` — 12 languages, selection replaced in place), **Review** (`ai.review` — structured JSON suggestions with accept/reject, applied to the reviewed text). 29 unit + 7 e2e (×3 engines) incl. the full review accept→apply flow and the free hook working with no license. Premium logic grep-verified absent from the free bundle.
 - [ ] 19.8 — Premium plugin: **Collaboration** — WebSocket-based multi-user editing. Tier-1 scope: live multi-cursor + named presence indicators (who's editing where), no content locking, and comments/track-changes (19.9/19.9b) sync in real time when both are active — not just text merge in isolation.
   **Positioning (amended 2026-07):** must be **self-hostable with flat licensing** — the single loudest market complaint is metered "editor-loads" collab pricing (CKEditor/TinyMCE/Tiptap all meter it; Tiptap killed its free cloud tier in 2025). A self-hosted server binary + flat license is the sharpest attack on every incumbent. **Evaluate CRDT (Yjs-compatible wire format) over OT** before building — the CRDT ecosystem effect (existing providers/persistence adapters) may outweigh a bespoke OT implementation, and offline-first (20.3) falls out of the same data structure.
 - [ ] 19.8b — **Restricted Editing / Permission Zones** — mark a sub-range of the document non-editable independent of whole-document `readonly` (e.g. a locked header/footer in an otherwise-editable contract template); role-based read-only mode.
@@ -1824,13 +1836,22 @@ Milestones:
   History (19.10) — the review bundle (comments + track changes + versions) is what
   teams actually buy.
 - [ ] 19.10 — Premium plugin: **Version History** — named snapshot restore UI beyond undo/redo (Tier-1: CKEditor's third moat feature alongside collaboration/comments)
-- [ ] 19.11 — Premium packages never bundled with free core, separate npm scope `@open-editor-hq-premium/`
+- [ ] 19.11 — Premium packages never bundled with free core, separate npm scope `@openeditor-premium/` *(scope renamed from `@open-editor-hq-premium/` with the 2026-07 naming migration; structural half done 2026-07-17 — separate `premium/` workspace tree, free bundle grep-verified premium-free; remaining: npm scope registration + publish pipeline at first paid release)*
 
 **Document-app pack (added 2026-07 competitive analysis — all verified paid-only at
 CKEditor, none previously in this plan):**
-- [ ] 19.12 — Premium plugin: **Footnotes** — auto-numbered footnote references with a
-  managed notes section (decimal/roman numbering, multi-block bodies). CKEditor shipped
-  this premium in v47.2 (late 2025) and is actively pushing it.
+- [x] 19.12 — Premium plugin: **Footnotes** — auto-numbered footnote references with a
+  managed notes section. ✅ **done 2026-07-17** (`@openeditor-premium/footnotes`, gated on `footnotes`).
+  Inserts a `contenteditable="false"` `<sup>` reference marker at the caret and keeps an
+  `<ol data-oe-footnotes>` notes section in sync — **renumbers 1..N in document order** on
+  every insert, note text follows its footnote across insertions, click-to-scroll both ways.
+  **One undo step** (single `insertFootnote` command returning `SKIP_RESTORE`); **survives
+  `getHTML()`/`setHTML()`** via a small additive core-sanitizer allowlist extension (`sup`
+  gets `id`/`contenteditable`/`data-oe-footnote-ref`; `ol`/`li` get `data-oe-footnotes`/
+  `data-oe-footnote` — inert markers, no new attack surface, same reasoning as bookmark/to-do).
+  8 core + 9 plugin unit (against a real editor) + 5 e2e (×3 engines), incl. undo-is-one-step
+  and round-trip. Premium logic grep-verified absent from the free bundle (only the sanitizer
+  allowlist strings live in core, as required). Multi-block bodies / roman numbering: future.
 - [ ] 19.13 — Premium plugin: **Multi-level legal lists** — 1 / 1.1 / 1.1.1 numbered
   lists with Word round-trip fidelity (pairs with 19.5/19.6b converters). CKEditor premium.
 - [ ] 19.14 — Premium plugin: **Document outline + Table of contents** — sidebar heading
@@ -1945,12 +1966,21 @@ a working config, and installs.
 premium plugin so 19.x plugins are entitlement-gated from day one, and BEFORE the
 platform (23) so it has a stable contract to issue against.
 
+> **Design decision pending owner approval:** [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md)
+> (2026-07-15) — recommends **ES256 via native WebCrypto** instead of Ed25519
+> (Ed25519 isn't available at the project's browser floor; ES256 ships zero
+> crypto code), with `alg`+`kid` agility so Ed25519 slots in later. Includes the
+> concrete token contract, domain semantics, and the adversarial-sweep matrix.
+
 Design decisions (the contract):
 - **Feature registry**: stable, versioned feature IDs (`export.pdf`, `collab.rt`,
   `trackChanges`, …) — the shared vocabulary between premium plugins, licenses, and
   the admin panel's plan builder. Plans compose feature IDs; **new plans never require
   code changes anywhere**.
-- **License format**: signed JWT (Ed25519, `kid` header for key rotation), verified
+- **License format**: signed JWT (**ES256 (ECDSA P-256) via native WebCrypto**,
+  `alg`+`kid` header for algorithm-agility and key rotation — amended 2026-07-15
+  from Ed25519 per [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md); Ed25519 is the
+  designated successor once the browser floor supports it), verified
   OFFLINE with an embedded public key (19.1) — no phone-home to function. Payload:
   `{ features[], limits{}, domains[], seats, plan, customer, exp, iat }`. The license
   snapshots its feature set at issuance (renewals re-issue) so offline verification
@@ -1960,15 +1990,29 @@ Design decisions (the contract):
 - **Dev issuer**: a local script that signs development licenses — Phase 19 plugins
   get built and tested against real license mechanics long before the platform exists.
 
+> **Build status (2026-07-15):** 22.1–22.4 are BUILT in a fully isolated package,
+> `packages/entitlements` (`@openeditors/entitlements`, private) — it imports
+> nothing from the editor core and the core imports nothing from it (verified:
+> zero cross-imports, core source digest unchanged, all 2,056 core tests still
+> green). **32 entitlements tests pass**, including the full 22.4 adversarial
+> sweep. Algorithm is **ES256 via native WebCrypto** (not Ed25519) per
+> [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md). Remaining: 22.5 (anti-sharing
+> layers — lands with the Phase 23 platform that issues/revokes).
+
 Milestones:
-- [ ] 22.1 — Feature-ID registry + conventions doc (additive-only, never renamed)
-- [ ] 22.2 — License verification (Ed25519 JWT, offline, key-rotation-ready) + expiry/
-  domain/seat semantics + graceful degradation UX. **Dev-domain exception (decided
-  2026-07-15, the Jodit rule):** `localhost`, `127.0.0.1`, `*.local` and common dev/
-  staging hostnames always run WITHOUT any key (premium included, with a quiet
-  "development mode" console note) — development never fights the license; only
-  production domains need the key.
-- [ ] 22.3 — `FeatureManager` + premium-plugin gating contract. **Premium delivery
+- [x] 22.1 — *(built 2026-07-15)* Feature-ID registry + conventions
+  (`feature-registry.js`): dot-namespaced, additive-only, never-renamed IDs
+  with shape validation and a grant-list validator the issuer enforces.
+- [x] 22.2 — *(built 2026-07-15)* License verification — **ES256 (ECDSA P-256)
+  JWT via native WebCrypto**, offline, keyring with `alg`+`kid` for rotation +
+  algorithm-agility (Ed25519 successor path), expiry/iat-skew/domain semantics,
+  every path fails closed. **Dev-domain exception (the Jodit rule):**
+  `localhost`, `127.0.0.1`, `*.local`, `*.test` and the localhost family always
+  run WITHOUT any key (premium included, quiet "development mode" note) —
+  development never fights the license; only production domains need the key.
+- [x] 22.3 — *(built 2026-07-15)* `FeatureManager` + premium-plugin gating
+  contract (`gate()` returns allow/decline + reason; absent/expired/invalid
+  license degrades to free tier, never throws). **Premium delivery
   model (decided 2026-07-15): premium code ships as a NORMAL PUBLIC npm package**
   (minified, dormant without a valid key) — one ordinary `npm install`, no private
   registry, no tokens, no extra steps; the customer experience is exactly
@@ -1976,8 +2020,13 @@ Milestones:
   package (not folded into the engine) so heavy premium features never bloat free
   users' bundles or the size budgets; the CLI later makes even that install
   invisible (`npx openeditors add premium`).
-- [ ] 22.4 — Dev license issuer script + the adversarial test sweep (forged signature,
-  tampered payload, expired, wrong domain, feature not granted — all must fail closed)
+- [x] 22.4 — *(built 2026-07-15)* Dev license issuer (`./issuer`, Node-only,
+  `node:crypto` P-256, DER→P1363 for JWS/WebCrypto compatibility) + the
+  adversarial sweep — forged signature, tampered payload, expired,
+  not-yet-valid, wrong domain, apex-vs-wildcard, unknown kid, alg-confusion
+  (`none`/HS256), malformed tokens, broken payload shape: **all verified to
+  fail closed.** Real issuer-signed tokens round-trip through the WebCrypto
+  verifier.
 - [ ] 22.5 — **Anti-sharing enforcement (one payment = one customer, decided
   2026-07-14).** Layered, engineering-honest design — any client-side key can be
   COPIED, so enforcement = hard binding + detection + response, the same model every
@@ -2084,15 +2133,27 @@ forward-looking work; historical milestone notes keep the old names as facts):**
   month-end migration (deprecation notice pointing to `openeditor-text`).
 
 Milestones:
-- [ ] 25.1 — CLI v1: `add text` — detect package manager (npm/pnpm/yarn) +
-  framework (React/Vue/Angular/none from package.json), install `openeditor-text`
-  + the right wrapper, print framework-exact starter code. Small by design
-  (detect → install → print); no config mutation in v1.
-- [ ] 25.2 — Name migration (month-end publish moment): rename packages in the
-  monorepo (`openeditor-text*`), adapt the engine README, publish 1.x over the
-  placeholders, deprecate `@open-editor-hq/core` with a pointer. Detailed
-  per-framework READMEs are already written to the new names (2026-07-15:
-  packages/react|vue|angular/README.md).
+- [x] 25.1 — *(built 2026-07-15)* CLI v1: `add text` — detects package manager
+  (npm/pnpm/yarn/bun from lockfiles) + framework (React/Vue/Angular/none from
+  package.json), installs `openeditor-text` + the right wrapper, prints
+  framework-exact starter code (kept in lockstep with the wrapper READMEs).
+  `--dry-run`, `--version`, help; both bins (`openeditors` + global
+  `openeditor`). Small by design (detect → install → print); no config
+  mutation in v1. New `packages/cli`, zero deps, 14 unit tests + live-driven
+  against fake React/Angular projects. **`openeditors@1.0.0` LIVE on npm
+  (2026-07-15)** — verified end-to-end from the public registry: one command in
+  a scratch React project detected, installed engine + wrapper (0
+  vulnerabilities), and printed the starter code.
+- [x] 25.2 — *(done 2026-07-15)* Name migration: monorepo packages renamed to
+  `openeditor-text` / `-react` / `-vue` / `-angular` (+ private `-ui`/`-toolbar`
+  stubs), engine README adapted, all builds green, 2056 core + 7 react + 5 vue
+  + 14 cli tests pass. **Published over the placeholders same day:
+  `openeditor-text@1.1.0` + all three wrappers + the CLI; `@open-editor-hq/core`
+  deprecated with a pointer.** Web repo runs on the registry packages (vendored
+  tarballs retired). Site follow-up delivered same day: the playground's config
+  reflector now has framework tabs (JavaScript / React / Vue / Angular) emitting
+  wrapper-exact code — closes the one funnel gap vs CKEditor's Builder.
+  **PHASE 25: 25.1 + 25.2 COMPLETE; 25.3 waits on Phases 22/23.**
 - [ ] 25.3 — CLI Phase-22/23 hooks (later, with those phases): `openeditors login`,
   license-key activation, `add premium`.
 

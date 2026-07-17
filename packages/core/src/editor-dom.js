@@ -27,26 +27,31 @@ export const editorDomMixin = {
     this._wrapper = document.createElement('div');
     this._wrapper.className = 'oe-wrapper';
 
+    // 15.11 — flash guard: stamp the configured theme on the wrapper BEFORE it is
+    // inserted into the live document, so a dark/minimal/auto theme is present on
+    // the very first frame (no flip). 'light' leaves the attribute off.
+    const theme = ['dark', 'minimal', 'auto'].includes(this._config.theme) ? this._config.theme : 'light';
+    if (theme !== 'light') this._wrapper.setAttribute('data-oe-theme', theme);
+
     if (this._config.iframe) {
+      // The iframe's contentDocument is only accessible once the iframe is
+      // CONNECTED to the live document — so the wrapper (holding the iframe)
+      // must be attached to the container BEFORE we populate the frame. A
+      // detached iframe returns a null contentDocument in real browsers
+      // (jsdom is lenient, which is how this stayed hidden). Attach first,
+      // then build the frame internals.
+      this._container.appendChild(this._wrapper);
       this._buildIframeDOM();
     } else {
       this._editorEl = document.createElement('div');
       this._editorEl.className = 'oe-editor';
       this._editorEl.contentEditable = 'true';
       this._wrapper.appendChild(this._editorEl);
+      this._container.appendChild(this._wrapper);
     }
 
-    // 15.11 — flash guard: stamp the configured theme on wrapper + editable BEFORE
-    // the wrapper is inserted into the live document, so a dark/minimal/auto theme
-    // is present on the very first frame the element is ever attached (no flip).
-    // 'light' leaves the attribute off (default cascade). _applyConfig re-affirms.
-    const theme = ['dark', 'minimal', 'auto'].includes(this._config.theme) ? this._config.theme : 'light';
-    if (theme !== 'light') {
-      this._wrapper.setAttribute('data-oe-theme', theme);
-      if (this._editorEl) this._editorEl.setAttribute('data-oe-theme', theme);
-    }
-
-    this._container.appendChild(this._wrapper);
+    // Re-affirm the theme on the editable now that it exists (iframe or not).
+    if (theme !== 'light' && this._editorEl) this._editorEl.setAttribute('data-oe-theme', theme);
   },
 
   _buildIframeDOM() {

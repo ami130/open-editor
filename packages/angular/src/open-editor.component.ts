@@ -1,5 +1,5 @@
 /**
- * @open-editor-hq/angular — the official Angular wrapper (Phase 18.5).
+ * openeditor-text-angular — the official Angular wrapper (Phase 18.5).
  *
  * Standalone component implementing ControlValueAccessor, so it plugs into
  * both template-driven ([(ngModel)]) and reactive (formControl) forms.
@@ -16,8 +16,8 @@ import {
   Output, ViewChild, forwardRef, OnChanges, SimpleChanges,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { OpenEditor } from '@open-editor-hq/core';
-import type { OpenEditorConfig, EditorPlugin } from '@open-editor-hq/core';
+import { OpenEditor } from 'openeditor-text';
+import type { OpenEditorConfig, EditorPlugin } from 'openeditor-text';
 
 @Component({
   selector: 'open-editor',

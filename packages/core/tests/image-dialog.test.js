@@ -88,6 +88,43 @@ describe('9.1 — openImageDialog builds correct DOM', () => {
     expect(alignBtns.length).toBeGreaterThanOrEqual(4);
   });
 
+  // #4 (2026-07-16): with no upload server AND data URIs blocked, switching to
+  // the Upload tab warns up front rather than letting the user hit a silent
+  // dead-end at insert.
+  it('warns on the Upload tab when file upload is not configured', async () => {
+    // editor has no imageUploadUrl and imageAllowDataUri is false by default
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    body.querySelector('#oe-img-tab-file').click();       // switch to Upload File
+    const err = body.querySelector('.oe-img-dialog__error');
+    expect(err.textContent.toLowerCase()).toContain('not configured');
+    expect(err.classList.contains('oe-img-dialog__panel--hidden')).toBe(false);
+  });
+
+  it('does NOT warn on the Upload tab when imageAllowDataUri is enabled', async () => {
+    editor._config.imageAllowDataUri = true;
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    body.querySelector('#oe-img-tab-file').click();
+    const err = body.querySelector('.oe-img-dialog__error');
+    expect(err.textContent).toBe('');
+  });
+
+  // #9: the dropzone hint reflects a custom imageMaxFileSize.
+  it('dropzone hint shows the configured max file size', async () => {
+    editor._config.imageMaxFileSize = 3 * 1024 * 1024; // 3 MB
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    const hint = body.querySelector('.oe-img-dialog__dz-hint');
+    expect(hint.textContent).toContain('3.0 MB');
+  });
+
   it('passes Insert and Cancel to modal buttons array', async () => {
     const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
     openImageDialog(editor);

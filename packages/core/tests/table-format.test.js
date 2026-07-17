@@ -6,7 +6,10 @@ import {
   toggleHeaderRow, setCellBackground, setCellTextColor,
   setCellAlign, setCellVAlign, setCellBorder, setTableStyle,
   setCaption, applyTableClasses,
+  setTableStyleClass, getTableStyleState, setHeaderColor, setStripeColor,
+  applyInsertStyle, BUILTIN_TABLE_STYLES,
 } from '../src/plugins/table/table-format.js';
+import { cssColorToHex } from '../src/plugins/table/table-props-dialog.js';
 import { buildMatrix, matrixDimensions } from '../src/plugins/table/table-matrix.js';
 
 function makeTable(rows) {
@@ -157,5 +160,98 @@ describe('applyTableClasses (11.18)', () => {
     expect(t.classList.contains('table-dark')).toBe(true);
     applyTableClasses(t, '');
     expect(t.className).toBe('oe-table');
+  });
+});
+
+describe('built-in table styles (13.T)', () => {
+  it('bordered / borderless are mutually exclusive border modes', () => {
+    const t = makeTable([['a']]);
+    setTableStyleClass(t, 'bordered');
+    expect(getTableStyleState(t).bordered).toBe(true);
+    setTableStyleClass(t, 'borderless');
+    expect(getTableStyleState(t)).toMatchObject({ bordered: false, borderless: true });
+    setTableStyleClass(t, 'default');
+    expect(getTableStyleState(t)).toMatchObject({ bordered: false, borderless: false });
+  });
+
+  it('striped toggles independently and composes with a border mode', () => {
+    const t = makeTable([['a']]);
+    setTableStyleClass(t, 'bordered');
+    setTableStyleClass(t, 'striped');
+    expect(getTableStyleState(t)).toMatchObject({ bordered: true, striped: true });
+    setTableStyleClass(t, 'striped'); // toggle off
+    expect(getTableStyleState(t).striped).toBe(false);
+    expect(getTableStyleState(t).bordered).toBe(true); // border mode untouched
+  });
+
+  it('default clears border modes but keeps striped', () => {
+    const t = makeTable([['a']]);
+    setTableStyleClass(t, 'bordered');
+    setTableStyleClass(t, 'striped');
+    setTableStyleClass(t, 'default');
+    expect(getTableStyleState(t)).toMatchObject({ bordered: false, striped: true });
+  });
+
+  it('dotted is a border mode, mutually exclusive with bordered/borderless', () => {
+    const t = makeTable([['a']]);
+    setTableStyleClass(t, 'dotted');
+    expect(getTableStyleState(t).dotted).toBe(true);
+    setTableStyleClass(t, 'bordered');
+    expect(getTableStyleState(t)).toMatchObject({ dotted: false, bordered: true });
+  });
+
+  it('applyInsertStyle sets the real oe-table-- class (non-toggle)', () => {
+    const t = makeTable([['a']]);
+    applyInsertStyle(t, 'bordered');
+    expect(t.classList.contains('oe-table--bordered')).toBe(true);
+    applyInsertStyle(t, 'striped');
+    expect(t.classList.contains('oe-table--striped')).toBe(true);
+    // ''/default is a no-op (stays plain besides what was set)
+    applyInsertStyle(t, '');
+    expect(t.classList.contains('oe-table--bordered')).toBe(true);
+  });
+
+  it('BUILTIN_TABLE_STYLES lists Default/Bordered/Striped/Dotted/Borderless', () => {
+    const vals = BUILTIN_TABLE_STYLES.map((s) => s.value);
+    expect(vals).toEqual(['', 'bordered', 'striped', 'dotted', 'borderless']);
+  });
+});
+
+describe('cssColorToHex (dialog seeding, bug #3)', () => {
+  it('passes 6-digit hex through, expands 3-digit', () => {
+    expect(cssColorToHex('#Ab12Cd')).toBe('#ab12cd');
+    expect(cssColorToHex('#abc')).toBe('#aabbcc');
+  });
+  it('converts rgb()/rgba() to hex', () => {
+    expect(cssColorToHex('rgb(255, 136, 0)')).toBe('#ff8800');
+    expect(cssColorToHex('rgba(18, 52, 86, 0.5)')).toBe('#123456');
+  });
+  it('returns null for empty/unparseable', () => {
+    expect(cssColorToHex('')).toBeNull();
+    expect(cssColorToHex('transparent')).toBeNull();
+    expect(cssColorToHex(null)).toBeNull();
+  });
+});
+
+describe('table coloring (13.T)', () => {
+  it('setHeaderColor colors every th background (and optional text)', () => {
+    const t = makeTable([[{ h: true, t: 'H1' }, { h: true, t: 'H2' }], ['a', 'b']]);
+    setHeaderColor(t, '#123456', '#ffffff');
+    const ths = t.querySelectorAll('th');
+    expect(ths.length).toBe(2);
+    ths.forEach((th) => {
+      expect(th.style.backgroundColor).toBeTruthy();
+      expect(th.style.color).toBeTruthy();
+    });
+    setHeaderColor(t, ''); // clear bg, leave text (fg undefined → untouched)
+    expect(t.querySelector('th').style.backgroundColor).toBe('');
+  });
+
+  it('setStripeColor sets/clears the --oe-table-stripe custom property', () => {
+    const t = makeTable([['a']]);
+    setStripeColor(t, '#eeeeee');
+    expect(t.style.getPropertyValue('--oe-table-stripe').trim()).toBe('#eeeeee');
+    setStripeColor(t, '');
+    expect(t.style.getPropertyValue('--oe-table-stripe')).toBe('');
   });
 });

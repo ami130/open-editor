@@ -27,6 +27,8 @@ export const DEFAULTS = {
   imageDefaultWidth: null,      // px width applied to inserted images that carry no size
   imageAvailableClasses: null,  // [{value,label}] → class dropdown in Image Properties
   imageOpenOnDblClick: true,    // double-click an image opens the properties dialog
+  imageMaxFileSize: 10 * 1024 * 1024, // bytes; single source of truth for the file-size guard (default 10 MB)
+  imageUploadResponse: null,    // (json) => url|{url,sources?} — map a custom upload-server response shape
   tableAvailableClasses: null,  // [{value,label}] → style preset selector on table insert
   tableDefaultClass: null,      // class applied to inserted tables when no preset chosen
   tableDefaultHeaderRow: false, // make the first row a header on insert
@@ -72,6 +74,14 @@ export const DEFAULTS = {
   // { url } (or { src }); optionally { sources: [{srcset, media?, type?, sizes?}] }
   // to emit a responsive <picture> (16.7.8) — every srcset is scheme-checked.
   imageUploadUrl: null,
+  // 19.7 — FREE BYO-endpoint AI hook (the funnel for the premium AI product).
+  // aiEndpoint: a URL this editor POSTs { prompt, system, stream, ...} to and
+  // streams tokens back from (see ai/ai-complete.js for the response contract).
+  // aiHeaders: extra request headers (e.g. an Authorization value if you
+  // knowingly expose a key client-side; prefer a server proxy). Both null =
+  // the AI hook is inert; editor.aiComplete() no-ops until aiEndpoint is set.
+  aiEndpoint: null,
+  aiHeaders: null,
   // 17.5.2 — typing autocorrect: (c)/(r)/(tm) symbols, 1/2-style fractions,
   // -- / --- dashes, and smart quotes. true = all on (default), false = all
   // off, or per-group: { symbols, fractions, dashes, smartQuotes }.
@@ -85,6 +95,16 @@ export const DEFAULTS = {
   // [{ code: 'ar', label: 'العربية' }]. RTL codes get dir="rtl" automatically.
   // null = no dropdown rendered.
   textPartLanguages: null,
+  // Bookmark presentation (advanced edition). Icons AND colors default to the
+  // built-in sets (pass null/false to disable a picker, or supply your own
+  // [{ value, label, css? }]). Keys are validated against SAFE_KEY_RE before
+  // ever being written to the DOM.
+  bookmarkIcons: undefined,        // undefined → built-in icon set; null/false → no icon picker
+  bookmarkColors: undefined,       // undefined/true → built-in palette; null/false → no color picker
+  bookmarkDefaultIcon: undefined,  // defaults to first icon ('flag')
+  bookmarkDefaultColor: undefined, // defaults to none
+  bookmarkIconSize: undefined,     // number (px) or CSS length ('1.4em'); default 1em = tracks text size
+  bookmarkPanel: false,            // true → adds the jump-to-bookmark navigator toolbar button
 };
 
 const BANNED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

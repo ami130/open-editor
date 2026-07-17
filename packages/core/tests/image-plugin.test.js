@@ -231,35 +231,39 @@ describe('9.13 / 9.14 / 9.18 — createFigure', () => {
 
 // ── 9.9 — applyAlignment ─────────────────────────────────────────────────────
 
-describe('9.9 — applyAlignment', () => {
+describe('9.9 — applyAlignment (class-only, 2026-07-16)', () => {
   function makeFig() { return createFigure('https://x.com/a.jpg', {}, {}, document); }
 
-  it('float left sets cssFloat and marginRight', () => {
+  // Alignment is now CLASS-DRIVEN (layout lives in CSS). applyAlignment toggles
+  // exactly one class and writes NO inline float/display/margin, so the center
+  // fix (fit-content + auto margins) can work and there's one source of truth.
+  it('left applies the class and writes no inline float', () => {
     const fig = makeFig();
     applyAlignment(fig, 'left');
-    expect(fig.style.cssFloat).toBe('left');
     expect(fig.classList.contains('oe-figure--left')).toBe(true);
+    expect(fig.style.cssFloat).toBe('');           // no inline duplication
   });
 
-  it('float right sets cssFloat and marginLeft', () => {
+  it('right applies the class and writes no inline float', () => {
     const fig = makeFig();
     applyAlignment(fig, 'right');
-    expect(fig.style.cssFloat).toBe('right');
     expect(fig.classList.contains('oe-figure--right')).toBe(true);
+    expect(fig.style.cssFloat).toBe('');
   });
 
-  it('center sets display:block and margin:0 auto', () => {
+  it('center applies the class and writes no inline display/margin', () => {
     const fig = makeFig();
     applyAlignment(fig, 'center');
-    expect(fig.style.display).toBe('block');
     expect(fig.classList.contains('oe-figure--center')).toBe(true);
+    expect(fig.style.display).toBe('');            // CSS handles fit-content + auto margins
+    expect(fig.style.margin).toBe('');
   });
 
-  it('inline sets display:inline-block', () => {
+  it('inline applies the class and writes no inline display', () => {
     const fig = makeFig();
     applyAlignment(fig, 'inline');
-    expect(fig.style.display).toBe('inline-block');
     expect(fig.classList.contains('oe-figure--inline')).toBe(true);
+    expect(fig.style.display).toBe('');
   });
 
   it('changing alignment clears previous alignment classes', () => {
@@ -267,6 +271,17 @@ describe('9.9 — applyAlignment', () => {
     applyAlignment(fig, 'left');
     applyAlignment(fig, 'center');
     expect(fig.classList.contains('oe-figure--left')).toBe(false);
+    expect(fig.classList.contains('oe-figure--center')).toBe(true);
+  });
+
+  it('clears stale inline styles a pre-fix document may carry', () => {
+    const fig = makeFig();
+    // simulate an old document where inline styles were written
+    fig.style.cssFloat = 'left'; fig.style.margin = '0 auto'; fig.style.display = 'block';
+    applyAlignment(fig, 'center');
+    expect(fig.style.cssFloat).toBe('');
+    expect(fig.style.margin).toBe('');
+    expect(fig.style.display).toBe('');
     expect(fig.classList.contains('oe-figure--center')).toBe(true);
   });
 });
@@ -370,7 +385,7 @@ describe('9.7 / 9.11 — plugin install, select, keyboard delete', () => {
 // ── 9.8 — ImageResizeManager.computeResize (pure math) ───────────────────────
 
 describe('9.8 — resize math (computeResize)', () => {
-  const baseDrag = { corner: 'se', startX: 100, startY: 100, startW: 200, startH: 150, aspect: 200 / 150 };
+  const baseDrag = { pos: 'se', startX: 100, startY: 100, startW: 200, startH: 150, aspect: 200 / 150 };
 
   it('dragging se corner right-down increases width and height', () => {
     const { width, height } = ImageResizeManager.computeResize(baseDrag, 150, 130, false);
@@ -385,22 +400,75 @@ describe('9.8 — resize math (computeResize)', () => {
   });
 
   it('nw corner: dragging left increases size (inverted delta)', () => {
-    const drag = { ...baseDrag, corner: 'nw' };
+    const drag = { ...baseDrag, pos: 'nw' };
     const { width } = ImageResizeManager.computeResize(drag, 50, 80, false);
     // nw flips dx, so moving left (dx < 0) → flipX → positive delta → larger
     expect(width).toBeGreaterThan(200);
-  });
-
-  it('shift key locks aspect ratio', () => {
-    const { width, height } = ImageResizeManager.computeResize(baseDrag, 250, 100, true);
-    const ratio = width / height;
-    expect(Math.abs(ratio - baseDrag.aspect)).toBeLessThan(0.1);
   });
 
   it('minimum width is enforced', () => {
     const drag = { ...baseDrag, startW: 50 };
     const { width } = ImageResizeManager.computeResize(drag, 50, 100, false); // extreme shrink
     expect(width).toBeGreaterThanOrEqual(40);
+  });
+
+  // ── 2026-07-16: corner drag PRESERVES aspect by default; Shift frees it. ──
+  it('corner drag KEEPS aspect ratio by default (no distortion)', () => {
+    // drag mostly horizontally; height must follow width to keep the ratio
+    const { width, height, locked } = ImageResizeManager.computeResize(baseDrag, 300, 110, false);
+    expect(Math.abs(width / height - baseDrag.aspect)).toBeLessThan(0.05);
+    expect(locked).toBe(true);   // default corner drag reports ratio-locked
+  });
+
+  it('Shift on a corner FREES the aspect ratio (deliberate stretch)', () => {
+    // pull width far, height little — free-form lets them diverge from aspect
+    const { width, height, locked } = ImageResizeManager.computeResize(baseDrag, 400, 105, true);
+    expect(width).toBeGreaterThan(250);
+    expect(height).toBeLessThan(200);
+    expect(Math.abs(width / height - baseDrag.aspect)).toBeGreaterThan(0.1);
+    expect(locked).toBe(false);
+  });
+
+  // ── edge handles: one axis; the OTHER becomes auto (height === null). ──
+  it('east (e) edge drag changes width only and sets height to auto (null)', () => {
+    const drag = { ...baseDrag, pos: 'e' };
+    const { width, height } = ImageResizeManager.computeResize(drag, 260, 100, false);
+    expect(width).toBeGreaterThan(200);
+    expect(height).toBeNull();   // auto → browser preserves aspect
+  });
+
+  it('south (s) edge drag changes height only and sets width to auto (null)', () => {
+    const drag = { ...baseDrag, pos: 's' };
+    const { width, height, derivedWidth } = ImageResizeManager.computeResize(drag, 100, 300, false);
+    expect(height).toBeGreaterThan(150);
+    expect(width).toBeNull();               // width → auto (browser keeps ratio)
+    // the aspect-derived width is provided for the badge / commit (no reflow)
+    expect(Math.abs(derivedWidth / height - baseDrag.aspect)).toBeLessThan(0.05);
+  });
+
+  it('east (e) edge drag provides an aspect-derived height (no DOM measurement)', () => {
+    const drag = { ...baseDrag, pos: 'e' };
+    const { width, derivedHeight } = ImageResizeManager.computeResize(drag, 320, 100, false);
+    // derivedHeight follows the aspect so the badge/commit needs no reflow (#2)
+    expect(Math.abs(width / derivedHeight - baseDrag.aspect)).toBeLessThan(0.05);
+  });
+
+  // #1: the drag captures aspect from the image's INTRINSIC ratio, so a prior
+  // free-stretch doesn't poison a later proportional drag.
+  it('drag aspect comes from naturalWidth/naturalHeight, not the stretched box', () => {
+    const mgr = new ImageResizeManager();
+    const fig = document.createElement('figure');
+    const img = document.createElement('img');
+    // simulate a STRETCHED render (400×80 = ratio 5) but NATURAL 200×100 (ratio 2)
+    Object.defineProperty(img, 'naturalWidth', { value: 200, configurable: true });
+    Object.defineProperty(img, 'naturalHeight', { value: 100, configurable: true });
+    img.style.width = '400px'; img.style.height = '80px';
+    fig.appendChild(img);
+    mgr._figure = fig;
+    // drive the drag-start capture
+    mgr._onHandleMouseDown({ preventDefault() {}, stopPropagation() {}, clientX: 0, clientY: 0, touches: null }, 'se');
+    expect(Math.abs(mgr._drag.aspect - 2)).toBeLessThan(0.001);  // intrinsic 2, NOT 5
+    mgr._cancelDrag();
   });
 });
 

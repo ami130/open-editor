@@ -1,9 +1,9 @@
-# Open Editor — `@open-editor-hq/core`
+# Open Editor — `openeditor-text`
 
 **Open Editor** — a modern, zero-dependency rich text editor in pure JavaScript.
 No framework required, no license key, no telemetry. MIT-licensed.
 
-> **Stable.** Fully gated in CI: 2,055 unit + 782 e2e tests across
+> **Stable.** Fully gated in CI: 2,060 unit + cross-browser e2e tests across
 > Chromium/Firefox/WebKit, XSS-, size-, accessibility- (axe, WCAG 2.1 AA),
 > and API-contract-gated. Ships with a WCAG conformance statement, a plugin
 > authoring guide, and four UI locale packs (es/fr/de/ar incl. RTL).
@@ -29,13 +29,13 @@ No framework required, no license key, no telemetry. MIT-licensed.
 ## Install
 
 ```bash
-npm install @open-editor-hq/core
+npm install openeditor-text
 ```
 
 ## Use
 
 ```js
-import { OpenEditor } from '@open-editor-hq/core';
+import { OpenEditor } from 'openeditor-text';
 
 const editor = new OpenEditor('#app', {
   placeholder: 'Start typing…',
@@ -50,7 +50,7 @@ All chrome and styling are injected by the editor (CSP-safe). For SSR or
 strict-CSP setups a static stylesheet ships too:
 
 ```js
-import '@open-editor-hq/core/styles';
+import 'openeditor-text/styles';
 ```
 
 ### Plugins (opt-in, tree-shakeable)
@@ -62,7 +62,7 @@ import {
   createLinkPlugin,
   createTablePlugin,
   createTodoListPlugin,
-} from '@open-editor-hq/core';
+} from 'openeditor-text';
 
 const editor = new OpenEditor('#app');
 editor.plugins.install(createImagePlugin());
@@ -80,7 +80,7 @@ drag-reorder, to-do lists.
 ### Script tag (UMD)
 
 ```html
-<script src="https://unpkg.com/@open-editor-hq/core"></script>
+<script src="https://unpkg.com/openeditor-text"></script>
 <script>
   const { OpenEditor } = window.OpenEditor;
   new OpenEditor('#app');
@@ -103,5 +103,5 @@ MIT-licensed.
 
 MIT — no license key, no usage metering, no paid tiers for anything in this
 package. Premium extensions (collaboration, track changes, exports…) will ship
-later as separate, clearly-scoped `@open-editor-hq-premium/*` packages and
-never inside this one.
+later as separate, clearly-scoped premium packages in the `openeditors` family
+and never inside this one.

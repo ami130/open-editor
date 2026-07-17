@@ -72,6 +72,20 @@ describe('17.5.11 — legitimate extension works (the CMS-adoption path)', () =>
     expect(out).toContain('keep');
   });
 
+  it('19.12 — footnote markup survives the DEFAULT allowlist (premium footnotes round-trip)', () => {
+    // No custom opts: the built-in allowlist must preserve the footnote ref
+    // marker attrs and the notes-section data attrs, or saved footnotes break.
+    const ref = '<p>Text<sup class="oe-footnote-ref" contenteditable="false" data-oe-footnote-ref="1" id="fnref-1">1</sup>.</p>';
+    const notes = '<ol class="oe-footnotes" data-oe-footnotes><li id="fn-1" data-oe-footnote="1">A note.</li></ol>';
+    const out = s(ref + notes);
+    expect(out).toContain('data-oe-footnote-ref="1"');
+    expect(out).toContain('contenteditable="false"');
+    expect(out).toContain('id="fnref-1"');
+    expect(out).toContain('data-oe-footnotes');
+    expect(out).toContain('data-oe-footnote="1"');
+    expect(out).toContain('id="fn-1"');
+  });
+
   it('the whole path works THROUGH the editor config (not just sanitize())', () => {
     const target = document.createElement('div');
     document.body.appendChild(target);

@@ -1,5 +1,5 @@
 {
-  "name": "@open-editor-hq/core",
+  "name": "openeditor-text",
   "version": "1.1.0",
   "private": false,
   "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
@@ -46,7 +46,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "jsdom": "29.1.1",
     "rollup": "4.62.0",
-    "typescript": "^7.0.2",
+    "typescript": "~5.6.3",
     "vitest": "1.6.1"
   }
 }

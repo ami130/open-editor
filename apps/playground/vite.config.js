@@ -8,7 +8,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@open-editor-hq/core': fileURLToPath(new URL('../../packages/core/src/index.js', import.meta.url)),
+      'openeditor-text': fileURLToPath(new URL('../../packages/core/src/index.js', import.meta.url)),
     },
   },
 });

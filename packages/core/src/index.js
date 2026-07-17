@@ -37,7 +37,7 @@ export { todoListPlugin, createTodoListPlugin } from './plugins/todo-list/todo-l
 export { bookmarkPlugin, createBookmarkPlugin } from './plugins/bookmark/bookmark-plugin.js';
 // 17.11 — UI locale packs. Named exports so bundlers tree-shake unused
 // languages via the ESM module tree (a core-only import drops all of them);
-// also reachable as subpaths: '@open-editor-hq/core/locales/es'.
+// also reachable as subpaths: 'openeditor-text/locales/es'.
 export { es as localeEs } from './locales/es.js';
 export { fr as localeFr } from './locales/fr.js';
 export { de as localeDe } from './locales/de.js';
