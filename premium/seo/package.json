@@ -7,16 +7,20 @@
   "type": "module",
   "main": "./src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./analyze": "./src/analyze.js"
   },
   "files": [
-    "src"
+    "dist"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs",
+    "build": "node ../../scripts/build-premium.mjs",
+    "prepack": "node ../../scripts/build-premium.mjs"
   },
   "dependencies": {
     "@openeditor-premium/runtime": "workspace:*"
@@ -24,5 +28,13 @@
   "devDependencies": {
     "jsdom": "29.1.1",
     "vitest": "1.6.1"
+  },
+  "publishConfig": {
+    "main": "./dist/index.min.js",
+    "module": "./dist/index.min.js",
+    "exports": {
+      ".": "./dist/index.min.js",
+      "./analyze": "./dist/analyze.min.js"
+    }
   }
 }

@@ -16,14 +16,7 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   ['s',          ['class', 'style']],
   ['del',        ['class', 'style']],
   ['ins',        ['class', 'style']],
-  // 19.12 (premium footnotes) — a footnote reference marker is
-  // <sup class="oe-footnote-ref" contenteditable="false" data-oe-footnote-ref id>.
-  // `id` + `contenteditable` are already trusted on <a> (bookmarks) with the
-  // same reasoning: a contenteditable VALUE locks nothing an author doesn't own,
-  // and `data-oe-footnote-ref` is an inert numbering marker (no URL/script/CSS
-  // sink). Allowlisting them lets footnote markers survive getHTML()/setHTML();
-  // without this they'd be stripped to a bare <sup> and the links would break.
-  ['sup',        ['class', 'style', 'id', 'contenteditable', 'data-oe-footnote-ref']],
+  ['sup',        ['class', 'style']],
   ['sub',        ['class', 'style']],
   // 17.5.7 — `id` + `contenteditable` on <a> for named bookmarks
   // (<a id class="oe-bookmark" contenteditable="false">). `id` was already
@@ -45,14 +38,10 @@ export const DEFAULT_TAG_WHITELIST = new Map([
   // 17.5.12-found: to-do attrs were MISSING here — saved checklists degraded
   // to plain bullets on reload (setHTML stripped them). Data-loss bug in 1.0.0.
   ['ul',         ['class', 'style', 'id', 'dir', 'data-todo-list']],
-  // 19.12 (premium footnotes) — the notes section is
-  // <ol class="oe-footnotes" data-oe-footnotes> of <li id="fn-N" data-oe-footnote="N">.
-  // `data-oe-footnotes`/`data-oe-footnote` are inert markers (no sink); `id`
-  // was already allowed on ol/li. Lets the footnotes section round-trip.
-  ['ol',         ['class', 'style', 'id', 'start', 'type', 'dir', 'data-oe-footnotes']],
+  ['ol',         ['class', 'style', 'id', 'start', 'type', 'dir']],
   // (role/aria-checked deliberately NOT on li — checkbox semantics live on
   // the inner .oe-todo-check span so the li keeps its listitem role.)
-  ['li',         ['class', 'style', 'id', 'dir', 'data-todo', 'data-checked', 'data-oe-footnote']],
+  ['li',         ['class', 'style', 'id', 'dir', 'data-todo', 'data-checked']],
   ['dl',         ['class', 'style']],
   ['dt',         ['class', 'style']],
   ['dd',         ['class', 'style']],

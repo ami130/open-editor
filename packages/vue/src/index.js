@@ -45,8 +45,12 @@ export const OpenEditor = defineComponent({
     direction: { type: String, default: undefined },
     plugins: { type: Array, default: undefined },
     config: { type: Object, default: undefined },
+    // Phase 2 — first-class licensing. licenseKey is REACTIVE (re-verifies in
+    // place on change); licenseKeys is the integrator's published public key(s).
+    licenseKey: { type: String, default: undefined },
+    licenseKeys: { type: Array, default: undefined },
   },
-  emits: ['update:modelValue', 'change', 'ready', 'focus', 'blur', 'error'],
+  emits: ['update:modelValue', 'change', 'ready', 'focus', 'blur', 'error', 'license-error', 'premium-ready'],
   setup(props, { emit, expose }) {
     const host = ref(null);
     const editorRef = shallowRef(null);
@@ -61,6 +65,9 @@ export const OpenEditor = defineComponent({
         ...(props.direction !== undefined ? { direction: props.direction } : {}),
         ...(props.readOnly !== undefined ? { readonly: props.readOnly } : {}),
         ...(props.modelValue !== undefined ? { defaultContent: props.modelValue } : {}),
+        // Phase 2 — present at construct so premium verifies + unlocks on mount.
+        ...(props.licenseKey !== undefined ? { licenseKey: props.licenseKey } : {}),
+        ...(props.licenseKeys !== undefined ? { licenseKeys: props.licenseKeys } : {}),
       });
       editorRef.value = editor;
       lastEmitted = editor.getHTML();
@@ -75,6 +82,8 @@ export const OpenEditor = defineComponent({
       editor.on('focus', (e) => emit('focus', e));
       editor.on('blur', (e) => emit('blur', e));
       editor.on('error', (p) => emit('error', p));
+      editor.on('licenseError', (p) => emit('license-error', p));
+      editor.on('premiumReady', (p) => emit('premium-ready', p));
       emit('ready', editor);
     });
 
@@ -100,6 +109,14 @@ export const OpenEditor = defineComponent({
     });
     watch(() => props.direction, (v) => {
       if (editorRef.value && v !== undefined) editorRef.value.setDirection(v);
+    });
+    // Phase 2 — reactive licensing: on a change to EITHER licenseKey OR
+    // licenseKeys, re-verify in place (unlocks newly-granted premium, no
+    // remount). Watching both keeps parity with the React wrapper (which lists
+    // both in its effect deps) so a keyring-only rotation also re-verifies.
+    // Vue's watch is not immediate → fires only on a genuine post-mount change.
+    watch(() => [props.licenseKey, props.licenseKeys], () => {
+      if (editorRef.value) editorRef.value.setLicenseKey(props.licenseKey ?? null, props.licenseKeys);
     });
 
     // Exposed as a shallowRef — Vue's expose proxy auto-unwraps refs, so

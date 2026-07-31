@@ -73,9 +73,13 @@ describe('buildDocx — real package round-trip', () => {
     }
   });
 
-  it('document.xml carries the title, content, table, and list numbering', () => {
+  it('document.xml carries the content, table, and list numbering (NO auto-injected title heading)', () => {
     const doc = new TextDecoder().decode(files['word/document.xml']);
-    expect(doc).toContain('My Document');       // title paragraph
+    // The document's own <h1> ("Report") is present, but no separate title
+    // paragraph is ever injected — a bare-config title (like "My Document")
+    // must not appear as body content (it's still used for the filename only).
+    expect(doc).toContain('Report');
+    expect(doc).not.toContain('My Document');
     expect(doc).toContain('bold');
     expect(doc).toContain('Alice &amp; Bob');    // escaped table cell
     expect(doc).toContain('<w:tbl>');
@@ -105,5 +109,40 @@ describe('buildDocx — real package round-trip', () => {
     const num = new TextDecoder().decode(files['word/numbering.xml']);
     expect(num).toContain('<w:num w:numId="1">');
     expect(num).toContain('<w:num w:numId="2">');
+  });
+
+  it('REAL BUG FIX: heading styles carry the markers Word needs to treat them as REAL headings', () => {
+    // The "H1 exports as plain text" bug: Word only renders a paragraph as a
+    // built-in heading if its style declares the canonical name + basedOn +
+    // next + qFormat (+ a linked char style). Without these Word falls the
+    // paragraph back to Normal. Guard all six heading levels.
+    const styles = new TextDecoder().decode(files['word/styles.xml']);
+    for (let n = 1; n <= 6; n++) {
+      const block = styles.match(new RegExp(`<w:style [^>]*w:styleId="Heading${n}">[\\s\\S]*?</w:style>`));
+      expect(block, `Heading${n} style must exist`).toBeTruthy();
+      const s = block[0];
+      expect(s, `Heading${n} canonical name`).toContain(`<w:name w:val="heading ${n}"/>`);
+      expect(s, `Heading${n} basedOn Normal`).toContain('<w:basedOn w:val="Normal"/>');
+      expect(s, `Heading${n} next Normal`).toContain('<w:next w:val="Normal"/>');
+      expect(s, `Heading${n} qFormat (shows in gallery / recognized as heading)`).toContain('<w:qFormat/>');
+      expect(s, `Heading${n} linked char style`).toContain(`<w:link w:val="Heading${n}Char"/>`);
+      expect(s, `Heading${n} explicit bold (looks like a heading regardless)`).toContain('<w:b/>');
+    }
+    // The linked character styles must also be defined.
+    for (let n = 1; n <= 6; n++) {
+      expect(styles, `Heading${n}Char defined`).toContain(`w:styleId="Heading${n}Char"`);
+    }
+  });
+});
+
+describe('REAL BUG FIX: no auto-injected "Document" text when no title is configured', () => {
+  it('a plain export with no title option never inserts the literal word "Document" as content', () => {
+    const html = '<p>Just some plain text, nothing fancy.</p>';
+    const docx = buildDocx(bodyXml(html, document), {}); // no title passed at all
+    const files = unzipStore(docx);
+    const doc = new TextDecoder().decode(files['word/document.xml']);
+    expect(doc).not.toContain('>Document<');
+    expect(doc).not.toContain('Heading1'); // no spurious heading style used
+    expect(doc).toContain('Just some plain text');
   });
 });

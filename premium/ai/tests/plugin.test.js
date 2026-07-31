@@ -72,6 +72,15 @@ describe('Quick Actions — granted', () => {
     expect(editor.getHTML()).not.toContain('bad text');
   });
 
+  it('FAILURE-SAFE: a failed rewrite leaves the selection intact (no content loss)', async () => {
+    editor.setHTML('<p>precious content</p>');
+    editor.plugins.install(createAiQuickActionsPlugin(ALLOW));
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    selectAll();
+    await editor.aiQuickAction('rewrite');
+    expect(editor.getHTML()).toContain('precious content');
+  });
+
   it('sends the right prompt for the chosen action', async () => {
     editor.setHTML('<p>hello world</p>');
     editor.plugins.install(createAiQuickActionsPlugin(ALLOW));
@@ -128,6 +137,48 @@ describe('Translate — granted', () => {
     expect(editor.getHTML()).toContain('hola');
     const body = JSON.parse(f.mock.calls[0][1].body);
     expect(body.prompt).toMatch(/Spanish/);
+  });
+
+  it('FAILURE-SAFE: an HTTP error leaves the selection intact (does NOT delete the text)', async () => {
+    editor.setHTML('<p>keep this text</p>');
+    editor.plugins.install(createAiTranslatePlugin(ALLOW));
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    selectAll();
+    await editor.aiTranslate('Spanish');
+    // the original content must survive a failed translation
+    expect(editor.getHTML()).toContain('keep this text');
+  });
+
+  it('FAILURE-SAFE: no endpoint → selection intact, no content loss', async () => {
+    editor.destroy();
+    editor = new OpenEditor(target, {}); // NO aiEndpoint
+    editor.setHTML('<p>do not delete me</p>');
+    editor.plugins.install(createAiTranslatePlugin(ALLOW));
+    selectAll();
+    await editor.aiTranslate('French');
+    expect(editor.getHTML()).toContain('do not delete me');
+  });
+
+  it('FAILURE-SAFE: an empty AI reply leaves the selection intact', async () => {
+    editor.setHTML('<p>unchanged</p>');
+    editor.plugins.install(createAiTranslatePlugin(ALLOW));
+    globalThis.fetch = mockStream(['data: [DONE]\n']); // stream ends with no delta
+    selectAll();
+    await editor.aiTranslate('German');
+    expect(editor.getHTML()).toContain('unchanged');
+  });
+
+  it('ERROR SURFACED: a no-endpoint failure shows a visible, actionable status bar', async () => {
+    editor.destroy();
+    editor = new OpenEditor(target, {}); // no aiEndpoint
+    editor.setHTML('<p>text to translate</p>');
+    editor.plugins.install(createAiTranslatePlugin(ALLOW));
+    selectAll();
+    await editor.aiTranslate('Korean');
+    const bar = editor._wrapper.querySelector('[data-oe-ai-status="error"]');
+    expect(bar).not.toBeNull();
+    // message is actionable (mentions configuring an endpoint), not a raw code
+    expect(bar.textContent.toLowerCase()).toContain('endpoint');
   });
 });
 

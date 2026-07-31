@@ -193,14 +193,28 @@ export const editorDomMixin = {
     if (cfg.height !== null) {
       wrapper.style.height = `${cfg.height}px`;
     }
-    el.style.minHeight = 'inherit';
-    el.style.maxHeight = 'inherit';
+    // With a "Powered by" footer the editable is a flex item that fills the
+    // wrapper and scrolls WITHIN it, so it must NOT pin its own min/max-height to
+    // the wrapper's (that would defeat the flex sizing and let content push the
+    // footer out). Without a footer, keep the original inherit contract.
+    const hasFooter = cfg.poweredBy !== false;
+    el.style.minHeight = hasFooter ? '' : 'inherit';
+    el.style.maxHeight = hasFooter ? '' : 'inherit';
 
     el.setAttribute('spellcheck', String(cfg.spellcheck));
 
     if (cfg.placeholder) {
       el.setAttribute('data-placeholder', cfg.placeholder);
     }
+
+    // "Powered by" attribution footer (bottom-right, faint, NOT saved content).
+    // Shown by default; set poweredBy:false to remove it, or pass a custom string.
+    // It is a SEPARATE strip appended to the wrapper BELOW the editable — NOT an
+    // overlay inside the editable — so it can never overlap the text you type
+    // (the previous absolute ::after overlay collided with the last line while
+    // writing). getHTML() reads only the editable's innerHTML, so the strip is
+    // never part of saved content.
+    this._applyPoweredBy(cfg.poweredBy);
 
     el.setAttribute('role', 'textbox');
     el.setAttribute('aria-multiline', 'true');
@@ -230,6 +244,41 @@ export const editorDomMixin = {
     } catch (e) {
       this.logger.warn('defaultParagraphSeparator failed — Enter key may create <div> instead of <p>:', e.message);
     }
+  },
+
+  /** Render (or remove) the "Powered by" strip as a wrapper child below the
+   *  editable. poweredBy:false → no strip; a string → custom text; true/default
+   *  → "Powered by Open Editor". Idempotent: reuses the existing node. Lives in
+   *  the wrapper (a sibling of the editable/iframe), never in the editable, so it
+   *  never overlaps typed text and never appears in getHTML(). */
+  _applyPoweredBy(poweredBy) {
+    const wrapper = this._wrapper;
+    if (!wrapper) return;
+    if (poweredBy === false) {
+      if (this._poweredByEl && this._poweredByEl.parentNode) this._poweredByEl.parentNode.removeChild(this._poweredByEl);
+      this._poweredByEl = null;
+      wrapper.classList.remove('oe-has-footer');
+      return;
+    }
+    const text = typeof poweredBy === 'string' ? poweredBy : 'Powered by Open Editor';
+    if (!this._poweredByEl) {
+      this._poweredByEl = document.createElement('div');
+      this._poweredByEl.className = 'oe-powered-by';
+      this._poweredByEl.setAttribute('aria-hidden', 'true'); // decorative attribution
+    }
+    this._poweredByEl.textContent = text;
+    // Insert DIRECTLY AFTER the in-flow content element (the <iframe> in iframe
+    // mode, else the editable) so the strip always sits beneath it in flow —
+    // independent of other wrapper children (e.g. the absolutely-positioned
+    // type-around affordance, which is out of flow and whose DOM order is
+    // irrelevant to layout).
+    const content = this._iframeEl || this._editorEl;
+    if (content && content.parentNode === wrapper) {
+      wrapper.insertBefore(this._poweredByEl, content.nextSibling);
+    } else {
+      wrapper.appendChild(this._poweredByEl);
+    }
+    wrapper.classList.add('oe-has-footer');
   },
 
 };

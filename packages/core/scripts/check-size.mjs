@@ -45,8 +45,23 @@ const BUDGETS = {
   // streaming hook (19.7 tier-split — editor.aiComplete(), the funnel for the
   // premium AI product). Measured 134,047 gz full, 47B over the old ceiling;
   // +1K restores headroom. Core budget unchanged (67.6K, well under 69K).
-  full: 135_000,  // bytes, gz
-  core: 69_000,   // bytes, gz
+  // 2026-07-28 — Phase 1 ONE-PACKAGE (1a-3b/1b): premium is now bundled INTO
+  //   openeditor-text and unlocked by a pasted license key. TWO deliberate
+  //   raises, both measured:
+  //   • full 135→172K: the single-file esm.min/cjs/umd builds have no chunk
+  //     loader, so `inlineDynamicImports` inlines ALL premium (ai/seo/export)
+  //     into the one file — CDN/UMD/<script>/Node consumers get premium eagerly
+  //     (unavoidable for a single file). Measured 166,884 gz. This is the cost
+  //     of one-package for the non-bundler formats; a bundler consumer of the
+  //     ESM tree does NOT pay it (see core, below).
+  //   • core 69→75K: the licensing RUNTIME (offline ES256 verifier + gate +
+  //     _initLicense + the premium manifest's dynamic-import specifiers) now
+  //     ships in core — it must, to verify a key. Measured 73,026 gz. Verified:
+  //     the heavy premium BODIES (seo-analyze, docx ooxml, ai) are tree-shaken
+  //     OUT of a keyless bundler consumer via dynamic import() — only the ~4K
+  //     licensing runtime is added, NOT premium plugin code. That is the 1b win.
+  full: 172_000,  // bytes, gz
+  core: 75_000,   // bytes, gz
 };
 
 const gz = (buf) => gzipSync(buf, { level: 9 }).length;

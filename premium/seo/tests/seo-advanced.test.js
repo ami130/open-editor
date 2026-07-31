@@ -72,10 +72,24 @@ describe('linkImageSeo', () => {
     expect(r.links.empty).toBe(1);
     expect(r.links.nofollow).toBe(1);
   });
-  it('counts images missing alt text', () => {
+  it('I8 — distinguishes MISSING alt from decorative alt="" (only missing is flagged)', () => {
     const r = linkImageSeo(root('<img src="a" alt="cat"><img src="b"><img src="c" alt="">'));
     expect(r.images.total).toBe(3);
-    expect(r.images.missingAlt).toBe(2);
+    expect(r.images.missingAlt).toBe(1);    // only <img src="b"> has NO alt attr
+    expect(r.images.decorative).toBe(1);    // alt="" is decorative, not a problem
+  });
+  it('I9 — mailto/tel/#anchor classify as "other", not internal', () => {
+    const r = linkImageSeo(root(
+      '<a href="mailto:a@b.com">mail</a><a href="tel:+1">call</a><a href="#top">top</a><a href="/page">int</a>'));
+    expect(r.links.other).toBe(3);
+    expect(r.links.internal).toBe(1);
+    expect(r.links.external).toBe(0);
+  });
+  it('flags generic anchor text and naked-URL anchors', () => {
+    const r = linkImageSeo(root(
+      '<a href="/a">click here</a><a href="https://x.com">https://x.com</a><a href="/c">Good descriptive text</a>'));
+    expect(r.links.generic).toBe(1);   // "click here"
+    expect(r.links.naked).toBe(1);     // anchor === href
   });
 });
 
@@ -134,21 +148,67 @@ describe('snippetPreview', () => {
 });
 
 describe('advancedChecks', () => {
-  it('pushes rows and only includes keyword rows when hasKeyword', () => {
+  const capture = (ctx) => {
     const rows = [];
-    const pass = (ok, label, hint) => rows.push({ ok, label, hint });
-    const metrics = {
-      depth: { avgWordsPerSentence: 15, longSentencePct: 10, passivePct: 5, transitionPct: 30 },
-      linkImage: { images: { total: 2, missingAlt: 0 }, links: { total: 3, internal: 2, external: 1, empty: 0 } },
-      keywordIntel: { inH1: true, inFirstParagraph: true, inSubheadings: true, inMeta: true },
-      snippet: { titleLength: 45, titleStatus: 'ok' },
-      hasKeyword: true,
-    };
-    advancedChecks(pass, metrics);
-    expect(rows.some((r) => r.label.includes('H1'))).toBe(true);
-    // Without a keyword, keyword rows are omitted.
-    const rows2 = [];
-    advancedChecks((ok, label) => rows2.push({ label }), { ...metrics, hasKeyword: false });
-    expect(rows2.some((r) => r.label.includes('H1'))).toBe(false);
+    const add = (group, ok, label, hint, weight = 1, opts = {}) => rows.push({ group, ok, label, hint, weight, na: !!opts.na });
+    advancedChecks(add, ctx);
+    return rows;
+  };
+  const baseCtx = (over = {}) => ({
+    depth: { avgWordsPerSentence: 15, longSentencePct: 10, passivePct: 5, transitionPct: 30 },
+    linkImage: { images: { total: 2, missingAlt: 0, decorative: 0 }, links: { total: 3, internal: 2, external: 1, other: 0, empty: 0, nofollow: 0, generic: 0, naked: 0 } },
+    snippet: { titleLength: 45, titleStatus: 'ok' },
+    readingApplicable: true,
+    hasTitle: true,
+    ...over,
+  });
+
+  it('emits content-depth rows as readability guidance (weight 0)', () => {
+    const rows = capture(baseCtx());
+    const depthRow = rows.find((r) => r.label.startsWith('Avg sentence length'));
+    expect(depthRow).toBeTruthy();
+    expect(depthRow.group).toBe('readability');
+    expect(depthRow.weight).toBe(0);
+  });
+
+  it('content-depth rows are N/A when readability is not applicable (short/non-English)', () => {
+    const rows = capture(baseCtx({ readingApplicable: false }));
+    const avg = rows.find((r) => r.label.startsWith('Avg sentence length'));
+    expect(avg.na).toBe(true);
+    expect(avg.label).toContain('n/a');
+  });
+
+  it('drives thresholds to FAILING: long sentences, passive, transitions, alt, empty links, title', () => {
+    const rows = capture(baseCtx({
+      depth: { avgWordsPerSentence: 30, longSentencePct: 40, passivePct: 25, transitionPct: 5 },
+      linkImage: { images: { total: 3, missingAlt: 2, decorative: 0 }, links: { total: 2, internal: 1, external: 0, other: 0, empty: 1, nofollow: 0, generic: 0, naked: 0 } },
+      snippet: { titleLength: 20, titleStatus: 'warn' },
+      hasTitle: true,
+    }));
+    const fail = (frag) => { const r = rows.find((x) => x.label.startsWith(frag)); return r && !r.ok && !r.na; };
+    expect(fail('Avg sentence length')).toBe(true);
+    expect(fail('Long sentences')).toBe(true);
+    expect(fail('Passive voice')).toBe(true);
+    expect(fail('Transition words')).toBe(true);
+    expect(fail('Images')).toBe(true);
+    expect(fail('Links')).toBe(true);
+    expect(fail('Title')).toBe(true);
+  });
+
+  it('an absent title is N/A (not a scored failure)', () => {
+    const rows = capture(baseCtx({ snippet: { titleLength: 0, titleStatus: 'warn' }, hasTitle: false }));
+    const title = rows.find((r) => r.label.startsWith('Title'));
+    expect(title.na).toBe(true);
+  });
+
+  it('surfaces generic/naked/nofollow link rows only when present', () => {
+    const none = capture(baseCtx());
+    expect(none.some((r) => r.label.startsWith('Generic anchor'))).toBe(false);
+    const flagged = capture(baseCtx({
+      linkImage: { images: { total: 0, missingAlt: 0, decorative: 0 }, links: { total: 3, internal: 3, external: 0, other: 0, empty: 0, nofollow: 1, generic: 1, naked: 1 } },
+    }));
+    expect(flagged.some((r) => r.label.startsWith('Generic anchor'))).toBe(true);
+    expect(flagged.some((r) => r.label.startsWith('Raw URL'))).toBe(true);
+    expect(flagged.some((r) => r.label.startsWith('Nofollow'))).toBe(true);
   });
 });

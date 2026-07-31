@@ -288,6 +288,24 @@ open-editor/
 
 ## Status
 
+> **CURRENT REALITY (updated 2026-07-31) — read this first.** The phase-by-phase
+> log below is historical and parts were written *before* the commercial platform
+> was built. Where an item still reads "planned/`[ ]`" but is actually shipped, the
+> status has been corrected inline. Today's true state:
+> - **Free editor** — complete; **speech dictation** added (free, browser Web Speech API).
+> - **Premium (Phase 19)** — **Export PDF + Export DOCX** are built and the only
+>   features sold. **SEO and AI were built, then deliberately DEPRECATED + made
+>   un-sellable** (product decision — no-SEO/no-AI launch; code retained, not deleted).
+>   Comments / Track-Changes / Collaboration / Version-History etc. remain **unbuilt**.
+> - **Commercial platform (Phases 22–24)** — **built and working**: ES256 licensing
+>   engine, admin panel (sidebar + overview + package/customer/license/order/roles/users),
+>   RBAC, Stripe one-time checkout with domain-bound auto-issuance, magic-link customer
+>   portal, silent-refresh renewal, anti-sharing soft-flag, lifecycle emails.
+> - **Genuinely NOT built:** self-serve **trials** (24.3), admin **2FA** + append-only
+>   **audit log** (23.4), Phase-20 "moats" (perf benchmarks, crop/rotate, file manager…).
+> - **Operational (not code):** rotate the backend `.env` secrets, put the backend
+>   under git, and add Terms/Privacy/Refund pages before taking real customers.
+
 **Phases 0–16.7 (incl. 4.5 and 7.5) are implemented and verified** — the editor is feature-complete through Accessibility & Mobile (14), the Theme System (15), the frozen Public API (16, `1.0.0-rc.1`), Production Hardening (16.5), Modern Editing UX (16.6), and the Competitive Parity Pass (16.7). Phase 13 (Content Plugins) adds 11 plugins — Source Code view (zero-dep, XSS-verified round-trip), Find & Replace (CSS Custom Highlight API), Special Characters, Emoji, Media Embed (sandboxed provider iframes, 72-probe XSS-verified), Horizontal Rule, Code Block, Resizable Editor, Format Painter, Spellcheck, and Preview — with Emoji, dedicated Code Block, and sandboxed Media Embed going **beyond standard Jodit**. Phase 12 (Paste Engine) is complete — staged cleanup pipeline, ask-on-paste dialog, Ctrl+Shift+V, context-aware insertion — also beyond Jodit in several respects. Phase 11 (Table) is complete on a formal-matrix model. The core package has **2060 passing unit tests** (Vitest + jsdom, 166 files) and the playground has **e2e tests passing across Chromium, Firefox, and WebKit**, including a public-API freeze contract test, a 100-cycle memory-leak test, and performance-budget gates. The React (7), Vue (5), Angular (9), CLI (14), and entitlements (39) packages have their own suites, now **all run in CI** (previously core-only — fixed 2026-07-16). Every `.js` source file is within the 300-line limit (the one 305-line file, `image-styles.js`, is CSS-in-JS, which the limit exempts). **Known cross-browser coverage gap:** clipboard/paste e2e is skipped on Firefox (13 tests) — synthetic paste events are unreachable in headless Firefox; the paths are covered on Chromium + WebKit.
 
 Phase 4.5 (block editing semantics) is fully shipped: Enter-split, Backspace/Delete-merge, structural conversions, multi-block delete, `contenteditable="false"` island handling, editor floor, and block indent/outdent.
@@ -334,12 +352,12 @@ Phase 10 (Link Plugin) is fully shipped: Ctrl/Cmd+K dialog, toolbar button, wrap
 | **npm Publishing** (ships as `@open-editor-hq/core` — rc.1 LIVE on `next`; minified-only distribution; ESM/CJS/UMD, `types` export, size-gated, WCAG conformance statement, plugin guide, 4 locale packs) | 17 | ✅ **done — 1.0.0 LIVE on npm (2026-07-14)** |
 | **Free-Tier Competitive Sweep** (autocorrect, change case, bookmarks, page break, show blocks, a11y help dialog, `:` emoji autocomplete, styles dropdown, sanitizer allowlist config, type-around, text-part language, Markdown export) | 17.5 | ✅ **12/12 core done (2026-07-14) — ships as 1.1.0; 2 stretch items deferred** |
 | **Framework wrappers** (React / Vue / Angular — all three live-proven caret-stable from packed tarballs) | 18 | ✅ **done (2026-07-14)** |
-| **Premium layer** (license, SEO/Export/AI/Collaboration/Comments/**Track-Changes**/Version-History + document-app plugins — amended per 2026-07 competitive analysis) | 19 | planned |
+| **Premium layer** (license + **Export PDF/DOCX shipped & sold**; SEO/AI built then **deprecated + un-sellable** by product decision 2026-07-31; Collaboration/Comments/Track-Changes/Version-History + document-app plugins remain unbuilt) | 19 | 🟡 **partial** — PDF/DOCX export live & sold; SEO/AI intentionally disabled; the rest unbuilt |
 | **Engineering Moats** (large-doc perf benchmarks, Android IME hardening, offline-first autosave, Excel paste cleanup, image crop/rotate, file manager) | 20 | planned (parallel, non-blocking) |
 | **Web Platform 1: Public Site + Playground** (fresh `open-editor-web` project — Next.js; landing, live demo with config reflector, docs, comparison) | 21 | ✅ **built (2026-07-15)** — deploy/hosting/domain deliberately deferred to project completion |
-| **Entitlements Foundation** (feature registry, offline ES256 licenses, FeatureManager, dev issuer + adversarial sweep) | 22 | 🔨 22.1–22.4 built (isolated pkg); 22.5 with Phase 23 |
-| **Web Platform 2: Admin Panel + License Service** (same repo, behind auth: two-pipe package matrix — config profiles for core features + signed licenses for premium; roles, audit, full admin control) | 23 | planned |
-| **Web Platform 3: Commerce & Customer Portal** (same repo: self-serve buy/renew, billing, trials) | 24 | planned |
+| **Entitlements Foundation** (feature registry, offline ES256 licenses, FeatureManager, dev issuer + adversarial sweep) | 22 | ✅ **done** — incl. 22.5 anti-sharing (persisted fetch-log → soft-flag → human-confirmed revoke) |
+| **Web Platform 2: Admin Panel + License Service** (same repo, behind auth: two-pipe package matrix — config profiles for core features + signed licenses for premium; roles, audit, full admin control) | 23 | ✅ **built** — full admin panel (sidebar + overview + 6 panels), license engine (ES256 signer), RBAC roles/users, order admin |
+| **Web Platform 3: Commerce & Customer Portal** (same repo: self-serve buy/renew, billing, trials) | 24 | 🟡 **mostly built** — Stripe checkout + auto license issuance + magic-link portal + silent-refresh renewal + lifecycle emails all live; **trials (24.3) NOT built**; portal-side invoices deferred (Stripe sends receipts) |
 
 Serial execution order (revised 2026-07-14 with the commercial-platform proposal):
 **18 (wrappers, React first) → 21 (website + playground) → 22 (entitlements foundation)
@@ -1687,9 +1705,11 @@ Milestones:
   deliberately: the 12 core milestones + the five shipped-1.0.0 bug fixes they
   uncovered make 1.1.0 release-worthy NOW; the two stretch items follow as 1.2.0
   material rather than delaying the fixes.
-- [ ] 17.5.14 — *(stretch — DEFERRED to post-1.1.0, 2026-07-14)* **Speech dictation**:
-  Web Speech API voice-to-text (feature-detected). *Jodit free.* Same deferral
-  rationale as 17.5.13.
+- [x] 17.5.14 — **Speech dictation** — **built (2026-07-31)** as a FREE plugin
+  (`tools.speech`, `createSpeechPlugin`). Web Speech API voice-to-text, feature-
+  detected: the mic button only renders where the API exists (Chromium/Safari) — no
+  dead button on Firefox. Continuous, final-only, inserts at the cursor; releases the
+  mic on stop/destroy. No server / no AI / no cost. *Jodit free — matched.*
 
 **Clean output:** Every feature CKEditor's GPL package ships is either present or
 consciously N/A — and change case, format painter, line height, slash commands, source
@@ -1810,7 +1830,7 @@ Milestones:
 - [x] 19.4 — Premium plugin: **SEO Analyzer** — keyword density, heading structure, readability score, meta description editor. ✅ **done 2026-07-17** (`@openeditor-premium/seo`, gated on `seo`). READ-ONLY content analysis: overall 0–100 score, word count, heading-outline warnings (no/multiple H1, skipped levels), whole-word/phrase keyword density with a healthy-range check, Flesch Reading Ease + label, meta-description length assessment, top-words. Toolbar button opens a live panel (keyword + meta inputs re-analyze the current content on each keystroke) + headless `editor.analyzeSeo()`. Pure engine (readability + analyze) with 47 unit + 7 e2e (×3 engines), including a byte-identical before/after test proving it never mutates the document. Grep-verified absent from the free bundle. **Advanced upgrade (2026-07-17):** content-depth (avg sentence length, long-sentence %, passive-voice + transition-word estimates), link/image SEO (internal/external/empty/nofollow links, images missing alt), keyword intelligence (keyword in H1/first-paragraph/subheadings/meta + n-gram related phrases), and a Google-style search-snippet preview with a title-length check.
 - [x] 19.5 — Premium plugin: **Export** — HTML to PDF (print API) ✅ **done 2026-07-17**, HTML to DOCX (raw XML generation, no deps) ✅ **done 2026-07-17**.
   **PDF (`@openeditor-premium/export-pdf`, gated on `export.pdf`):** styled, page-configured PDF via the browser's native print-to-PDF (zero rendering deps). Distinct from the FREE `editor.print()` (raw unstyled dump): a real `@page` setup (A4/Letter/Legal, orientation, margin), a typographic print stylesheet (headings, tables, code blocks, blockquotes, images), optional header/footer, injection-safe option strings. Toolbar button + `editor.exportPdf(opts)`. 21 unit + 6 e2e (×3 engines).
-  **DOCX (`@openeditor-premium/export-docx`, gated on `export.docx`):** real Word `.docx` from **hand-generated OOXML** in a **zero-dependency** STORE-method ZIP (own CRC-32 + local/central-directory/EOCD writer — no JSZip, no docx lib). Converts headings, emphasis/underline/strike/code, nested bullet+ordered lists, blockquotes, code blocks, tables, HR; title paragraph; toolbar button + `editor.exportDocx()`/`editor.buildDocxBytes()`. **Links + images (2026-07-17):** real clickable `w:hyperlink` relationships (http/mailto/tel/anchor; unsafe schemes fall back to text), and `data:` images embedded as real `word/media/` parts + `w:drawing` (remote images → labeled placeholder, captions always preserved). Validated: real `unzip -t` integrity + `xmllint` well-formedness on every part + style/relationship-reference lockstep + embedded-image/hyperlink round-trip; 76 unit + 4 e2e (×3 engines). Only remaining gap: remote image *bytes* aren't fetched (needs async/CORS). Both exporters grep-verified absent from the free bundle.
+  **DOCX (`@openeditor-premium/export-docx`, gated on `export.docx`):** real Word `.docx` from **hand-generated OOXML** in a **zero-dependency** STORE-method ZIP (own CRC-32 + local/central-directory/EOCD writer — no JSZip, no docx lib). Converts headings, emphasis/underline/strike/code, nested bullet+ordered lists, blockquotes, code blocks, tables, HR; title paragraph; toolbar button + `editor.exportDocx()`/`editor.buildDocxBytes()`. **Links + images:** real clickable `w:hyperlink` relationships (http/mailto/tel/anchor; unsafe schemes fall back to text). **Full image embedding (2026-07-18):** both `data:` URIs AND remote `http(s)` images (the common case — normal editor uploads are hosted URLs, not `data:`) are fetched and embedded as real `word/media/` parts + `w:drawing`; a fetch failure degrades only that one image to a labeled placeholder, never aborts the export. This made `exportDocx()`/`buildDocxBytes()` **async** (`image-fetch.js` runs a concurrent pre-fetch pass before the synchronous OOXML walk). Validated: real `unzip -t` integrity + `xmllint` well-formedness on every part + style/relationship-reference lockstep + a real fetched-image round-trip; 90 unit + 5 e2e (×3 engines, incl. a real-browser fetch-and-embed proof). Both exporters grep-verified absent from the free bundle.
   **Full visual fidelity (amended 2026-07-17):** both exporters now carry over ALL editor styling — table style presets (bordered/striped/dotted/borderless), per-cell background/text/border colors, header fill, `--oe-table-stripe`, column widths, and captions, plus inline text color/highlight/font-size. PDF replicates the editor's classes with literal token values (inline styles win by specificity); DOCX emits `w:shd`/`w:tcBorders`/`w:gridCol`/`w:color` via a zero-dep CSS-color→OOXML-hex parser. A colored table was real-file validated. (Fixed the reported "table color not showing".)
 - [~] 19.6 — Premium plugin: **Markdown Export** — converts editor content to clean Markdown string. **Basic export shipped FREE in 1.1.0** (`editor.getMarkdown()`, Phase 17.5.12 — the plan predated it; decision 2026-07-17: keep the basic GFM string free, it's public + advertised). Premium extras (download-as-`.md`, YAML front-matter, CommonMark/GFM flavor toggle, lossless MD⇄HTML round-trip) remain to build under this line.
 - [ ] 19.6b — Premium plugin: **Word Import** — full-fidelity DOCX → editor HTML (styles, lists, tables, layout preserved), distinct from the free Phase-12 "paste from Word" cleanup, which only sanitizes/promotes pasted markup rather than parsing a `.docx` file directly. Tier-1 competitive gap: CKEditor gates this behind Professional+.
@@ -1840,18 +1860,16 @@ Milestones:
 
 **Document-app pack (added 2026-07 competitive analysis — all verified paid-only at
 CKEditor, none previously in this plan):**
-- [x] 19.12 — Premium plugin: **Footnotes** — auto-numbered footnote references with a
-  managed notes section. ✅ **done 2026-07-17** (`@openeditor-premium/footnotes`, gated on `footnotes`).
-  Inserts a `contenteditable="false"` `<sup>` reference marker at the caret and keeps an
-  `<ol data-oe-footnotes>` notes section in sync — **renumbers 1..N in document order** on
-  every insert, note text follows its footnote across insertions, click-to-scroll both ways.
-  **One undo step** (single `insertFootnote` command returning `SKIP_RESTORE`); **survives
-  `getHTML()`/`setHTML()`** via a small additive core-sanitizer allowlist extension (`sup`
-  gets `id`/`contenteditable`/`data-oe-footnote-ref`; `ol`/`li` get `data-oe-footnotes`/
-  `data-oe-footnote` — inert markers, no new attack surface, same reasoning as bookmark/to-do).
-  8 core + 9 plugin unit (against a real editor) + 5 e2e (×3 engines), incl. undo-is-one-step
-  and round-trip. Premium logic grep-verified absent from the free bundle (only the sanitizer
-  allowlist strings live in core, as required). Multi-block bodies / roman numbering: future.
+- [x] 19.12 — Premium plugin: **Footnotes** — **removed 2026-07-17.** Built, then torn down
+  after real-world testing: a footnote note's `<li>` could not be made to reliably coexist
+  with native contenteditable list-editing (Enter/Backspace kept forking or merging the note
+  in ways that broke the one-`<li>`-per-marker invariant, even after two dedicated fix passes).
+  Combined with no confirmed demand for it (users wanted a plain numbered list, which core
+  already provides), it wasn't worth the ongoing fragility. `@openeditor-premium/footnotes`
+  and its e2e were deleted; the `footnotes` feature id stays registered but `deprecated: true`
+  per the entitlements additive-only rule (never remove/rename a shipped id); the
+  footnote-only sanitizer allowlist entries (`sup` id/contenteditable/data-oe-footnote-ref,
+  `ol`/`li` data-oe-footnotes/data-oe-footnote) were reverted since nothing uses them now.
 - [ ] 19.13 — Premium plugin: **Multi-level legal lists** — 1 / 1.1 / 1.1.1 numbered
   lists with Word round-trip fidelity (pairs with 19.5/19.6b converters). CKEditor premium.
 - [ ] 19.14 — Premium plugin: **Document outline + Table of contents** — sidebar heading
@@ -2027,8 +2045,11 @@ Milestones:
   (`none`/HS256), malformed tokens, broken payload shape: **all verified to
   fail closed.** Real issuer-signed tokens round-trip through the WebCrypto
   verifier.
-- [ ] 22.5 — **Anti-sharing enforcement (one payment = one customer, decided
-  2026-07-14).** Layered, engineering-honest design — any client-side key can be
+- [x] 22.5 — **Anti-sharing enforcement (one payment = one customer)** — **built**:
+  domain-bound keys (born bound at purchase) + a persisted refresh-event fetch-log
+  feeding a soft-flag detector (distinct origins/IPs over a window) → human-confirmed
+  admin review/revoke (never auto-revokes, to avoid false-positives on CDN/multi-PoP
+  customers). Layered, engineering-honest design — any client-side key can be
   COPIED, so enforcement = hard binding + detection + response, the same model every
   serious editor vendor uses:
   **(a) Domain lock (the hard wall):** every license is bound to the customer's
@@ -2070,23 +2091,26 @@ New plans, price changes, feature re-bundling: admin dashboard only — engineer
 never in the loop.
 
 Milestones:
-- [ ] 23.1 — **Data model**: FeatureRegistry (synced from editor 22.1: core + premium
-  IDs) → Packages (the admin-composed matrix + limits + price metadata) → Customers/
-  Orgs → Licenses (issued snapshots: domains, seats, expiry, status) → ConfigProfiles
-  (versioned, per package/customer) → AdminUsers + Roles → append-only AuditLog.
-- [ ] 23.2 — **License service**: Ed25519 issuance (22.2 format), renewal (re-issue),
-  revocation list, key rotation (`kid`); signing keys isolated in a server-only module
-  (KMS-ready), never in the web tier.
-- [ ] 23.3 — **Admin panel — the matrix**: package builder UI (per-feature checkboxes
-  spanning core AND premium), live preview (an embedded editor rendering exactly what
-  that package gets), profile publishing, license issue/renew/revoke/extend, customer
-  CRUD, search.
-- [ ] 23.4 — **Full admin control**: Owner/Admin/Support/ReadOnly roles, admin 2FA,
-  every mutation audit-logged, dashboards (licenses issued/active/expiring, package
-  distribution, optional anonymous activation pings), site content controls (announce
-  banners, pricing page copy) so the PUBLIC half is admin-editable too.
-- [ ] 23.5 — Hardening: rate limits, backup/restore drills, staging environment,
-  penetration checklist on the auth + signing paths.
+- [x] 23.1 — **Data model** — **built** (NestJS + TypeORM + MySQL): Features (vendored
+  catalog, drift-tested vs the editor) → Packages (admin-composed feature matrix +
+  price/interval/isFree metadata) → Customers → Licenses (issued snapshots: domains,
+  expiry, status, term boundary) → AdminUsers + dynamic Roles/Permissions. *(Seats +
+  a dedicated append-only AuditLog are NOT built.)*
+- [x] 23.2 — **License service** — **built**, but as **ES256 (ECDSA P-256)** JWS, not
+  Ed25519 (byte-compatible with the editor's WebCrypto verifier). Renewal (re-issue),
+  revocation (status flip + delivery-time check), key rotation (`kid` + retired keys).
+  Signing key is server-only, env-injected, never in the web tier.
+- [x] 23.3 — **Admin panel — the matrix** — **built**: package builder UI (per-feature
+  checkboxes across core + premium, grouped), license issue/renew/revoke/regenerate/
+  rebind, customer CRUD, order admin (incl. force-fulfill a stuck order), search.
+  Sidebar shell + Overview dashboard. *(A live embedded-editor preview is NOT built.)*
+- [x] 23.4 — **Admin control** — **partial**: dynamic RBAC roles + permissions
+  (create roles, assign, escalation guards, last-admin lockout), admin-user CRUD,
+  overview dashboard (licenses/orders/revenue/attention). **NOT built:** admin 2FA,
+  a dedicated append-only audit log, activation pings, admin-editable public-site copy.
+- [ ] 23.5 — Hardening: rate limits (**done** — tiered throttler on auth/checkout/
+  refresh), plus backup/restore drills, staging environment, penetration checklist
+  on the auth + signing paths (**remaining**).
 
 **Clean output:** An admin creates a "Business" package by ticking features, hits
 publish — a customer's editor (config profile + license) reflects exactly that matrix,
@@ -2099,13 +2123,22 @@ offline-capable, revocable, and every admin action is attributable.
 the loop.
 
 Milestones:
-- [ ] 24.1 — Customer accounts + portal (view licenses/keys, domains, seats, invoices)
-- [ ] 24.2 — Billing integration (Stripe-class): checkout **collects the production
+- [x] 24.1 — Customer accounts + portal (view licenses/keys, domains) — **built**:
+  passwordless magic-link auth, "my licenses" page, key reveal/copy, domain rebind.
+  *(Seats + in-portal invoices NOT built — invoices are covered by Stripe's own
+  receipts/hosted invoice history rather than surfaced inside this portal.)*
+- [x] 24.2 — Billing integration (Stripe): checkout **collects the production
   domain(s) as a required field** → automatic license issuance with the key born
-  domain-bound (22.5a); renewals → re-issue; failed payment → grace then expiry
-  (never remote-brick — offline licenses simply expire on their own terms)
-- [ ] 24.3 — Trials: time-boxed full-feature licenses, self-serve
-- [ ] 24.4 — Email lifecycle (receipts, expiry warnings, renewal links)
+  domain-bound (22.5a). Renewals → silent-refresh re-issue (bounded by the paid
+  term). **Billing is ONE-TIME (`mode:'payment'`), not subscription** — so the
+  "failed payment → grace" path does not apply (there is no recurring charge to
+  fail; a term simply lapses and the customer re-purchases). Never remote-bricks —
+  offline licenses expire on their own terms.
+- [ ] 24.3 — Trials: time-boxed full-feature licenses, self-serve — **NOT built**
+  (optional conversion feature; nothing else depends on it).
+- [x] 24.4 — Email lifecycle — **built**: license-delivery email, expiry-reminder
+  email (sent inline on near-expiry refresh, once per term), key-rotated email.
+  *(No dedicated branded receipt email — Stripe emails its own payment receipt.)*
 
 **Clean output:** A stranger goes from the Phase 21 playground's "try premium" button
 to a paid, working license with zero human involvement.
@@ -2281,7 +2314,7 @@ Every known browser-specific problem, which phase it hits, and exactly how it is
 | Async callbacks after destroy | all | Every async path (upload, autosave, AI stream) must guard with `editor.isDestroyed()` before calling any editor method |
 
 ---
-
+                                                                                                                                                                                                                                                                                                                        x 
 ## Testing Strategy
 
 - **Unit tests (Vitest):** every utility function, every command, all state mutations

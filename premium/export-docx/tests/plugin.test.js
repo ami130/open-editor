@@ -69,21 +69,21 @@ describe('export-docx — granted', () => {
       .toMatchObject({ name: 'exportDocx', readOnlyExempt: true });
   });
 
-  it('buildDocxBytes returns a non-trivial ZIP (PK signature)', () => {
+  it('buildDocxBytes returns a non-trivial ZIP (PK signature) — ASYNC (remote-image fetch pre-pass)', async () => {
     const editor = makeEditor();
     createExportDocxPlugin(ALLOW).install(editor);
-    const bytes = editor.buildDocxBytes();
+    const bytes = await editor.buildDocxBytes();
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(bytes[0]).toBe(0x50); // 'P'
     expect(bytes[1]).toBe(0x4b); // 'K'
     expect(bytes.length).toBeGreaterThan(500);
   });
 
-  it('exportDocx triggers a download named from the title, then revokes the URL', () => {
+  it('exportDocx triggers a download named from the title, then revokes the URL — ASYNC', async () => {
     const editor = makeEditor();
     createExportDocxPlugin(ALLOW, { title: 'Quarterly Report' }).install(editor);
     let cmd = null; editor.on('afterCommand', (p) => { cmd = p.command; });
-    expect(editor.exportDocx()).toBe(true);
+    expect(await editor.exportDocx()).toBe(true);
     expect(created.clicks).toBe(1);
     expect(created.download).toBe('Quarterly-Report.docx');
     expect(cmd).toBe('exportDocx');
@@ -91,10 +91,10 @@ describe('export-docx — granted', () => {
     expect(created.revoked).toContain('blob:fake');
   });
 
-  it('per-call title overrides install config', () => {
+  it('per-call title overrides install config — ASYNC', async () => {
     const editor = makeEditor();
     createExportDocxPlugin(ALLOW, { title: 'A' }).install(editor);
-    editor.exportDocx({ title: 'B' });
+    await editor.exportDocx({ title: 'B' });
     expect(created.download).toBe('B.docx');
   });
 
@@ -104,6 +104,42 @@ describe('export-docx — granted', () => {
     p.destroy();
     expect(editor.exportDocx).toBeUndefined();
     expect(editor.buildDocxBytes).toBeUndefined();
+  });
+
+  it('REAL BUG FIX: a REMOTE (http) image is fetched and embedded as a real picture, not a text placeholder', async () => {
+    // This is the reported bug: images inserted via the normal editor image
+    // flow are hosted/remote URLs (not data: URIs), and previously always
+    // degraded to "[Image: alt]" text. Stubbing global fetch proves the full
+    // plugin pipeline (buildBytes → resolveRemoteImages → bodyXml → buildDocx)
+    // now embeds the real bytes end to end.
+    const html = '<h1>Report</h1><figure class="oe-figure"><img src="https://cdn.example.com/photo.png" alt="a photo" width="300" height="200"><figcaption>Caption</figcaption></figure>';
+    const editor = makeEditor(html);
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+    globalThis.fetch = vi.fn(() => Promise.resolve({
+      ok: true,
+      headers: { get: (h) => (h.toLowerCase() === 'content-type' ? 'image/png' : null) },
+      arrayBuffer: () => Promise.resolve(pngBytes.buffer),
+    }));
+    createExportDocxPlugin(ALLOW).install(editor);
+    const bytes = await editor.buildDocxBytes();
+    // Decode the ZIP (STORE method) well enough to read document.xml + media.
+    const text = Array.from(bytes).map((n) => String.fromCharCode(n)).join('');
+    expect(text).toContain('<w:drawing>');           // real embedded picture
+    expect(text).not.toContain('[Image: a photo]');   // NOT the old placeholder
+    expect(text).toContain('word/media/image1.png');  // the media part exists
+    expect(globalThis.fetch).toHaveBeenCalledWith('https://cdn.example.com/photo.png', expect.anything());
+  });
+
+  it('a remote image that FAILS to fetch (404/CORS) falls back to the placeholder, export still succeeds', async () => {
+    const html = '<p><img src="https://cdn.example.com/broken.png" alt="broken"></p>';
+    const editor = makeEditor(html);
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 404 }));
+    createExportDocxPlugin(ALLOW).install(editor);
+    const bytes = await editor.buildDocxBytes();
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    const text = Array.from(bytes).map((n) => String.fromCharCode(n)).join('');
+    expect(text).toContain('[Image: broken]');
+    expect(text).not.toContain('<w:drawing>');
   });
 });
 

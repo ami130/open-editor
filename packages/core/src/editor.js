@@ -14,6 +14,8 @@ import { editorDomMixin } from './editor-dom.js';
 import { editorLifecycleMixin } from './editor-lifecycle.js';
 import { editorMaxLengthMixin } from './editor-maxlength.js';
 import { editorApiMixin } from './editor-api.js';
+import { editorLicenseMixin } from './editor-license.js';
+import { editorLicenseRefreshMixin } from './editor-license-refresh.js'; // Phase 4d silent refresh
 import { editorJsonMixin } from './editor-json.js';
 import { markdownMixin } from './markdown/markdown-export.js';
 import { aiMixin } from './ai/ai-complete.js';
@@ -21,6 +23,7 @@ import { editorViewMixin } from './editor-view.js';
 import { editorMobileMixin } from './editor-mobile.js';
 import { BASE_CSS } from './utils/base-css.js';
 import { A11Y_CHROME_CSS } from './utils/a11y-css.js';
+import { WRAPPER_CHROME_CSS } from './utils/wrapper-chrome-css.js';
 import { injectStyleOnce } from './utils/inject-style.js';
 import { THEME_TOKENS_CSS } from './utils/theme-css.js';
 import { ModalManager } from './ui/modal-manager.js';
@@ -34,6 +37,7 @@ import { BlockquoteToolbar } from './ui/toolbar/blockquote-toolbar.js';
 import { CommandAnnouncer } from './ui/command-announcer.js';
 import { resolveLocale } from './ui/toolbar/locale.js';
 import { DEFAULTS, safeMerge, warnUnknownConfigKeys } from './editor-config.js';
+import { createFeatureGate } from './entitlements/feature-gate.js';
 
 // Module-level counter — controls global <style> tag lifecycle
 let _instanceCount = 0;
@@ -61,6 +65,9 @@ export class OpenEditor extends EventEmitter {
     // 16.C — warn on unknown/misspelled top-level config keys (never throws).
     warnUnknownConfigKeys(userConfig, this.logger);
     this.shortcuts = new ShortcutManager(this.logger);
+    // Feature gating (Phase 0): the predicate every authoring surface consults.
+    // Grants all by default, so behavior is unchanged until a deployment opts in.
+    this._isFeatureGranted = createFeatureGate(this._config);
 
     // 2.1 — EditorState
     this._state = new EditorState();
@@ -164,9 +171,9 @@ export class OpenEditor extends EventEmitter {
     this._buildChrome();
     this.plugins = new PluginManager(this);
 
-    if (this._config.autofocus) {
-      this._editorEl.focus();
-    }
+    this._initLicense(); // Phase 1a — verify a configured license + enable premium (async; no-op if none)
+
+    if (this._config.autofocus) this._editorEl.focus();
 
     this.emit('init', this);
     this.emit('afterInit', this);
@@ -210,20 +217,20 @@ export class OpenEditor extends EventEmitter {
     injectStyleOnce(document, 'oe-theme-tokens', THEME_TOKENS_CSS);
     // F1 fix: chrome a11y rules (forced-colors / reduced-motion) must live in the
     // HOST document, where the toolbar/menus/modals render — even in iframe mode,
-    // where BASE_CSS goes into the iframe (only the editable lives there). Inject
-    // once, unconditionally, before the iframe early-return below. injectStyleOnce
-    // uses constructable stylesheets under CSP (15.9), <style> as fallback.
+    // where BASE_CSS goes into the iframe. Unconditional, before the early-return.
     injectStyleOnce(document, 'oe-a11y-styles', A11Y_CHROME_CSS);
+    // Wrapper + "Powered by" strip layout — HOST doc, BOTH modes (see
+    // wrapper-chrome-css.js). Unconditional, before the iframe early-return.
+    injectStyleOnce(document, 'oe-wrapper-chrome', WRAPPER_CHROME_CSS);
     // Count ONLY instances that actually own the shared global stylesheet.
     // iframe instances inject BASE_CSS into their own document and SSR instances
     // inject nothing, so they must not move this counter.
     if (this._config.iframe) return;
     _instanceCount++;
     injectStyleOnce(document, 'oe-base-styles', BASE_CSS);
-    // _styleEl is only meaningful for the <style>-element fallback path, where the
+    // _styleEl is only meaningful for the <style>-element fallback path, where
     // refcount teardown removes it when the last editor is destroyed. Under the
-    // constructable path there is no removable element (it stays null) and the
-    // adopted sheet is harmlessly deduped/persisted — teardown safely no-ops.
+    // constructable path it stays null and teardown safely no-ops.
     this._styleEl = document.getElementById('oe-base-styles');
   }
 
@@ -289,6 +296,5 @@ Object.assign(OpenEditor.prototype, aiMixin); // 19.7 — editor.aiComplete() (f
 Object.assign(OpenEditor.prototype, editorLifecycleMixin);
 Object.assign(OpenEditor.prototype, editorMaxLengthMixin);
 Object.assign(OpenEditor.prototype, editorApiMixin);
-Object.assign(OpenEditor.prototype, editorJsonMixin);
-Object.assign(OpenEditor.prototype, editorViewMixin);
-Object.assign(OpenEditor.prototype, editorMobileMixin);
+Object.assign(OpenEditor.prototype, editorLicenseMixin, editorLicenseRefreshMixin);
+Object.assign(OpenEditor.prototype, editorJsonMixin, editorViewMixin, editorMobileMixin);

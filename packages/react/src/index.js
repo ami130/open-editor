@@ -29,11 +29,15 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
     onFocus,
     onBlur,
     onError,
+    onLicenseError,   // Phase 2 — invalid/failed license
+    onPremiumReady,   // Phase 2 — premium finished (async) loading
     readOnly,
     theme,
     direction,
     plugins,
     config,
+    licenseKey,       // Phase 2 — first-class; reactive (re-verifies in place)
+    licenseKeys,      // Phase 2 — the integrator's published ES256 public key(s)
     className,
     style,
   } = props;
@@ -47,9 +51,9 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
   // Props read inside the mount effect but deliberately NOT effect deps —
   // they are construct-time by contract (changing them must not recreate).
   const initialRef = useRef(null);
-  initialRef.current = { value, readOnly, theme, direction, plugins, config };
+  initialRef.current = { value, readOnly, theme, direction, plugins, config, licenseKey, licenseKeys };
   const handlersRef = useRef(null);
-  handlersRef.current = { onChange, onReady, onFocus, onBlur, onError };
+  handlersRef.current = { onChange, onReady, onFocus, onBlur, onError, onLicenseError, onPremiumReady };
 
   useEffect(() => {
     const init = initialRef.current;
@@ -59,6 +63,11 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
       ...(init.direction !== undefined ? { direction: init.direction } : {}),
       ...(init.readOnly !== undefined ? { readonly: init.readOnly } : {}),
       ...(init.value !== undefined ? { defaultContent: init.value } : {}),
+      // Phase 2 — first-class licenseKey/licenseKeys (present at construct so
+      // the core verifies + unlocks premium on mount). The top-level props win
+      // over the same keys inside `config` if both are given.
+      ...(init.licenseKey !== undefined ? { licenseKey: init.licenseKey } : {}),
+      ...(init.licenseKeys !== undefined ? { licenseKeys: init.licenseKeys } : {}),
     });
     editorRef.current = editor;
     lastEmittedRef.current = editor.getHTML();
@@ -73,10 +82,14 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
     const emitFocus = (e) => { const fn = handlersRef.current.onFocus; if (fn) fn(e); };
     const emitBlur = (e) => { const fn = handlersRef.current.onBlur; if (fn) fn(e); };
     const emitError = (p) => { const fn = handlersRef.current.onError; if (fn) fn(p); };
+    const emitLicenseError = (p) => { const fn = handlersRef.current.onLicenseError; if (fn) fn(p); };
+    const emitPremiumReady = (p) => { const fn = handlersRef.current.onPremiumReady; if (fn) fn(p); };
     editor.on('onChange', emitChange);
     editor.on('focus', emitFocus);
     editor.on('blur', emitBlur);
     editor.on('error', emitError);
+    editor.on('licenseError', emitLicenseError);
+    editor.on('premiumReady', emitPremiumReady);
 
     const ready = handlersRef.current.onReady;
     if (ready) ready(editor);
@@ -86,6 +99,8 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
       editor.off('focus', emitFocus);
       editor.off('blur', emitBlur);
       editor.off('error', emitError);
+      editor.off('licenseError', emitLicenseError);
+      editor.off('premiumReady', emitPremiumReady);
       if (!editor.isDestroyed()) editor.destroy();
       if (editorRef.current === editor) editorRef.current = null;
     };
@@ -115,6 +130,17 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
     const editor = editorRef.current;
     if (editor && direction !== undefined) editor.setDirection(direction);
   }, [direction]);
+
+  // Phase 2 — reactive licenseKey: when the prop CHANGES after mount, re-verify
+  // in place via setLicenseKey (unlocks newly-granted premium, no remount). The
+  // initial value is already applied at construction, so skip the mount run to
+  // avoid a redundant re-verify.
+  const licenseMountedRef = useRef(false);
+  useEffect(() => {
+    if (!licenseMountedRef.current) { licenseMountedRef.current = true; return; }
+    const editor = editorRef.current;
+    if (editor) editor.setLicenseKey(licenseKey ?? null, licenseKeys);
+  }, [licenseKey, licenseKeys]);
 
   useImperativeHandle(ref, () => ({
     /** The live core editor instance (null before mount / after unmount). */

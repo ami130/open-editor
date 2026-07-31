@@ -98,6 +98,8 @@ export class ModalManager {
       dialog.appendChild(body);
 
       // Footer buttons
+      let primaryBtn = null;      // the button Enter should trigger + initial focus
+      let primaryValue;           // its value (undefined if no primary)
       if (Array.isArray(config.buttons) && config.buttons.length > 0) {
         const footer = doc.createElement('div');
         footer.className = 'oe-modal__footer';
@@ -108,9 +110,26 @@ export class ModalManager {
           if (btn.variant) el.classList.add(`oe-modal__btn--${btn.variant}`);
           el.textContent = btn.label || '';
           el.addEventListener('click', () => this._resolveTop(btn.value));
+          if (btn.variant === 'primary' && !primaryBtn) { primaryBtn = el; primaryValue = btn.value; }
           footer.appendChild(el);
         }
         dialog.appendChild(footer);
+      }
+
+      // Enter confirms the PRIMARY action (fixes: the scrollable body took focus,
+      // so Enter did nothing). Skipped when focus is in a <textarea> (multiline —
+      // Enter must insert a newline there) or on a non-primary button (let it
+      // activate normally). No primary button → no Enter shortcut.
+      if (primaryBtn) {
+        dialog.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter' || e.shiftKey) return;
+          const a = doc.activeElement;
+          const tag = a && a.tagName;
+          if (tag === 'TEXTAREA') return;                       // newline in multiline fields
+          if (tag === 'BUTTON' && a !== primaryBtn) return;     // let a focused non-primary button act
+          e.preventDefault();
+          this._resolveTop(primaryValue);
+        });
       }
 
       // LOW a11y fix: aria-modal isn't reliably honored by older screen readers
@@ -134,6 +153,19 @@ export class ModalManager {
 
       backdrop.appendChild(dialog);
       this._wrapper.appendChild(backdrop);
+
+      // Place initial focus deliberately BEFORE trapFocus (its L3 guard respects
+      // pre-placed focus). Prefer the first real form field the user should fill;
+      // otherwise the primary button — never the scrollable body (which, being
+      // tabindex=0 and first in DOM, would otherwise swallow focus and Enter).
+      const field = dialog.querySelector(
+        '.oe-modal__body input:not([type=hidden]):not([disabled]), '
+        + '.oe-modal__body textarea:not([disabled]), .oe-modal__body select:not([disabled])',
+      );
+      const initial = field || primaryBtn;
+      if (initial && typeof initial.focus === 'function') {
+        try { initial.focus(); } catch { /* focus can throw on detached nodes */ }
+      }
 
       const cleanupFocusTrap = trapFocus(dialog);
 

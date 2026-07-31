@@ -41,6 +41,7 @@ export const fr = {
   media: 'Intégrer une vidéo',
   codeBlock: 'Bloc de code',
   source: 'Code source',
+  speech: 'Dicter (parole vers texte)',
   heading: 'Format',
   paragraph: 'Paragraphe',
   h1: 'Titre 1',

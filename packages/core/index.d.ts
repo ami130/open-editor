@@ -80,6 +80,11 @@ export interface OpenEditorConfig {
   height?: number | string | null;
   defaultContent?: string;
   placeholder?: string;
+  /** A faint "Powered by Open Editor" attribution in the editor's bottom-right
+   *  corner. Rendered via CSS from an attribute — never part of getHTML() and
+   *  never blocks the caret. `true` (default) shows the default text; a string
+   *  shows custom text; `false` removes it. */
+  poweredBy?: boolean | string;
   /** Master sanitizer switch — leave true unless you fully trust all input. */
   sanitize?: boolean;
   /** Extra tags to keep (adds to the built-in safe set). */
@@ -170,6 +175,48 @@ export interface OpenEditorConfig {
   bookmarkIconSize?: number | string;
   /** Show the jump-to-bookmark navigator toolbar button (default false). */
   bookmarkPanel?: boolean;
+  /**
+   * Feature gating: which features this instance is licensed to use. `null`/
+   * absent = grant all (no gating). `['*']` = all. A list of feature ids grants
+   * exactly those (always-on core is never gated). Licensing/crypto lives
+   * outside core — the host resolves the license and passes the result here.
+   */
+  grantedFeatures?: string[] | null;
+  /** Alternative to `grantedFeatures`: an object with `isGranted(id) => boolean`
+   *  (e.g. a resolved FeatureManager). Takes precedence when provided. */
+  entitlements?: { isGranted(featureId: string): boolean } | null;
+  /** Fail-closed gating. When true (the DEFAULT), the free set (all non-premium
+   *  features) is always granted keyless, but premium features require a valid
+   *  entitlement/key. Set false for legacy grant-all (no gating) — e.g. an embed
+   *  that manages entitlements entirely itself. */
+  enforceFreeTier?: boolean;
+  /** Phase 1a: the compact JWS license token the customer pastes to unlock
+   *  premium. Absent → free tier. Verified offline inside the package. */
+  licenseKey?: string | null;
+  /** Phase 1a: the integrator's published ES256 public key(s), embedded at
+   *  build time (offline). Core verifies `licenseKey` against these. */
+  licenseKeys?: Array<{ kid: string; jwk: JsonWebKey }> | null;
+  /** Localhost/dev license exemption. Default TRUE — premium runs on true
+   *  loopback hosts (localhost / 127.0.0.1 / ::1 / *.localhost) without a key so
+   *  dev builds aren't blocked; safe because loopback can't serve production.
+   *  Set false to force strict verification even on localhost. */
+  allowDevHost?: boolean;
+  /** Phase 1a: premium plugin specs; each installs only if the license grants
+   *  its feature (gated + idempotent), including live after applyEntitlements. */
+  premiumPlugins?: EditorPlugin[] | null;
+  /** Print a console warning when a configured license fails to unlock premium
+   *  (wrong domain / expired / bad key) so the reason isn't a mystery. Default
+   *  true; set false to silence. Never logs the key. */
+  licenseWarnings?: boolean;
+  /** Phase 4d: backend refresh endpoint the editor calls in the background near
+   *  expiry to swap in a fresh token ("paste once, forever"). null → no
+   *  scheduling (opt-in; not a per-page-load phone-home). */
+  licenseRefreshUrl?: string | null;
+  /** Phase 4d: seconds before `exp` to refresh (default 24h). Inert unless
+   *  licenseRefreshUrl is set. */
+  licenseRefreshLeadSeconds?: number | null;
+  /** Phase 4d: backoff (seconds) when a refresh yields no new token (default 1h). */
+  licenseRefreshRetrySeconds?: number | null;
 }
 
 // ─── Events (frozen names + payload shapes) ──────────────────────────────────
@@ -216,6 +263,10 @@ export interface OpenEditorEventMap {
   aiStart: unknown;
   aiDone: { text: string };
   aiError: { reason: string; status?: number; error?: Error };
+  /** Licensing lifecycle (Phase 1a/2). */
+  entitlementsApplied: { granted: string[]; revoked: string[] };
+  licenseError: { reason: string; message?: string };
+  premiumReady: { installed: string[] };
 }
 
 export type OpenEditorEventName = keyof OpenEditorEventMap;
@@ -376,6 +427,16 @@ export class OpenEditor {
   disable(): void;
   setReadOnly(readOnly: boolean): void;
   isReadOnly(): boolean;
+  /** True if this instance is licensed to use `featureId` (grants all by default). */
+  isFeatureGranted(featureId: string): boolean;
+  /** Phase 1a — apply a verified entitlement AFTER mount: rebuild the gate and
+   *  enable newly-granted features (toolbar/shortcuts/commands/premium plugins)
+   *  in place. Returns the newly-granted feature ids. */
+  applyEntitlements(entitlements: { isGranted(featureId: string): boolean }): string[];
+  /** Phase 2 — set/replace the license at runtime and re-verify in place
+   *  (unlocks newly-granted premium without a remount). Falsy key clears it.
+   *  Resolves once the async re-verify + apply settle. */
+  setLicenseKey(licenseKey: string | null, licenseKeys?: Array<{ kid: string; jwk: JsonWebKey }>): Promise<void>;
   setTheme(theme: OpenEditorTheme | string): void;
   getTheme(): string;
   setCSSVar(name: string, value: string): void;

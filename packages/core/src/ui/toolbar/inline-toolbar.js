@@ -6,8 +6,9 @@
 
 import { createButton } from './toolbar-button.js';
 import { resolveLocale } from './locale.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
 
-const BUBBLE_ITEMS = [
+export const BUBBLE_ITEMS = [
   { type: 'button', name: 'bold',          command: 'bold',          icon: 'bold',          labelKey: 'bold' },
   { type: 'button', name: 'italic',        command: 'italic',        icon: 'italic',        labelKey: 'italic' },
   { type: 'button', name: 'underline',     command: 'underline',     icon: 'underline',     labelKey: 'underline' },
@@ -43,6 +44,10 @@ export class InlineToolbar {
     bar.setAttribute('aria-label', 'Selection toolbar');
     bar.hidden = true;
     for (const item of BUBBLE_ITEMS) {
+      // Feature gating (Phase 2.4): skip a bubble button whose feature isn't
+      // granted (its own hardcoded list, separate from the main toolbar).
+      const featureId = featureForCommand(item.command);
+      if (featureId && this._editor.isFeatureGranted && !this._editor.isFeatureGranted(featureId)) continue;
       // H-1 fix: each button gets its own hooks so bookmarks don't cross-contaminate.
       const hooks = { savedBookmark: null, afterAction: this._afterAction };
       const c = createButton(this._editor, item, this._locale, doc, hooks);

@@ -29,14 +29,29 @@ export class FeatureManager {
   }
 
   /**
+   * Alias of has(), so a FeatureManager can be handed DIRECTLY to the core
+   * editor as `config.entitlements` (the core gate calls `entitlements.isGranted(id)`).
+   * This is the single-source-of-truth adapter: one verified license → one
+   * FeatureManager → drives BOTH the core feature gate (text/list/font ids) and
+   * the premium plugin gate (ai/export/seo ids). Without this alias the core
+   * gate's entitlements path never fires and silently grants-all.
+   */
+  isGranted(featureId) {
+    return this.has(featureId);
+  }
+
+  /**
    * Gate a premium plugin install. Returns `{ allowed, reason }`. A plugin
    * calls this in its own install() and no-ops (with the host notice) when
    * not allowed — nothing here touches the editor.
    */
   gate(featureId) {
     if (!isRegisteredFeature(featureId)) return { allowed: false, reason: 'unregistered-feature' };
-    if (this.has(featureId)) return { allowed: true, reason: 'granted' };
+    // Dev host FIRST — otherwise has() (which is true on a dev host) would
+    // always short-circuit to reason:'granted' and the 'dev-host' reason could
+    // never be emitted. Checking it here keeps the verdict informative.
     if (this._devHost) return { allowed: true, reason: 'dev-host' };
+    if (this.has(featureId)) return { allowed: true, reason: 'granted' };
     if (!this._valid) return { allowed: false, reason: 'no-license' };
     return { allowed: false, reason: 'not-in-license' };
   }

@@ -47,6 +47,11 @@ export class ShortcutManager {
     return this;
   }
 
+  /** True if a shortcut is registered for `keys` (normalized like register). */
+  has(keys) {
+    return this._shortcuts.has(normalizeKeys(keys));
+  }
+
   unregister(keys) {
     const normalized = normalizeKeys(keys);
     this._shortcuts.delete(normalized);

@@ -23,6 +23,7 @@ export const BASE_CSS = `
     word-break: break-word;
     padding: 12px 16px;
     box-sizing: border-box;
+    position: relative; /* anchor for the placeholder + powered-by overlays */
     cursor: text;
     -webkit-user-select: text;
     user-select: text;
@@ -32,12 +33,17 @@ export const BASE_CSS = `
        alone, which would suppress pinch-zoom. */
     touch-action: pan-x pan-y pinch-zoom;
   }
+  /* Placeholder = absolute OVERLAY (was display:block, which pushed the empty
+     <p><br></p> caret target down so clicks missed it). Now the click passes
+     through (pointer-events:none) to the <p> and typing replaces it. */
   .oe-editor[data-placeholder].oe-empty::before {
-    content: attr(data-placeholder);
-    color: var(--oe-content-placeholder);
-    pointer-events: none;
-    display: block;
+    content: attr(data-placeholder); color: var(--oe-content-placeholder);
+    pointer-events: none; position: absolute; top: 12px; left: 16px; right: 16px;
   }
+  /* The "Powered by" strip (.oe-powered-by) + the wrapper flex/footer rules live
+     in wrapper-chrome-css.js (injected into the HOST document in BOTH modes),
+     because the wrapper + strip render in the host doc — in iframe mode BASE_CSS
+     only reaches the iframe, so styling them here would be dead there. */
   /* 14.3 — the editable had outline:none with NO replacement, so keyboard
      users got no visible focus indicator. Use a soft inset ring (keyboard-only
      via :focus-visible) that doesn't shift layout. */
@@ -47,10 +53,9 @@ export const BASE_CSS = `
     box-shadow: inset 0 0 0 2px var(--oe-focus-ring);
     border-radius: 2px;
   }
-  .oe-wrapper {
-    position: relative;
-    box-sizing: border-box;
-  }
+  /* .oe-wrapper base box + flex/footer layout live in wrapper-chrome-css.js (host
+     doc, both modes). Only editable-state rules that must follow the editable
+     stay here. */
   .oe-wrapper.oe-disabled .oe-editor {
     opacity: 0.5;
     cursor: not-allowed;
@@ -202,7 +207,14 @@ export const BASE_CSS = `
   .oe-editor hr {
     border: none;
     border-top: 2px solid var(--oe-chrome-border);
-    margin: 10px 0;
+    /* Vertical padding enlarges the CLICK TARGET (a 2px border-only <hr> is
+       almost impossible to click to select/restyle) while keeping the visible
+       line as border-top so the restyle plugin's inline border-top just works.
+       content-box so padding adds to the hit area; reduced margin keeps rhythm. */
+    padding: 5px 0;
+    margin: 6px 0;
+    box-sizing: content-box;
+    cursor: pointer;
   }
   /* 17.5.9 — type-around: the insert-paragraph escape line near island edges. */
   .oe-type-around {

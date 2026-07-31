@@ -6,6 +6,18 @@
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ami130/open-editor.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/ami130/open-editor#readme",
+  "bugs": {
+    "url": "https://github.com/ami130/open-editor/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [
     "rich-text-editor",
     "wysiwyg",

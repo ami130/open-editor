@@ -8,10 +8,14 @@
  *   const host = await createPremiumHost({ license, keys });
  *   editor.plugins.install(createExportDocxPlugin(host, { title: 'Report' }));
  *   // → toolbar button + editor.exportDocx() + editor.buildDocxBytes()
+ *   // both are now ASYNC: remote (http/https) images are fetched and
+ *   // embedded for real; only an image that fails to fetch (CORS/404/
+ *   // timeout/unsupported format) falls back to a "[Image: alt]" placeholder.
  *
  * Config (install-time, editor._config.exportDocx, or per-call): title.
- * Known v1 limitations (documented in README): images render as caption
- * placeholders, links render as underlined text (no w:hyperlink parts yet).
+ * Known limitation (documented in README): links render as underlined text
+ * (no w:hyperlink relationship parts) — see export-docx-plugin.js for the
+ * table/color/image fidelity that IS implemented.
  */
 import { gatePremiumPlugin } from '@openeditor-premium/runtime';
 import { rawExportDocxSpec } from './export-docx-plugin.js';
@@ -31,3 +35,4 @@ export function createExportDocxPlugin(host, config = {}) {
 export { bodyXml, escapeXml } from './ooxml-body.js';
 export { buildDocx } from './docx-parts.js';
 export { zipStore } from './zip-store.js';
+export { resolveRemoteImages, collectRemoteImageSrcs } from './image-fetch.js';

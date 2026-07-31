@@ -23,6 +23,7 @@
  * Pure functions of (editor); no plugin state, no UI.
  */
 import { walkUp } from '../../selection/range-utils.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
 
 // tag → command name. Order is the apply order (outer-ish first is irrelevant
 // since each is an independent wrap, but kept stable for deterministic output).
@@ -138,8 +139,14 @@ export function applyFormat(editor, captured) {
   if (!targets.length) return 0;
 
   let applied = 0;
-  for (const { tag } of PAINTABLE) {
+  for (const { tag, command } of PAINTABLE) {
     if (!captured.tags.includes(tag)) continue; // source didn't have it
+    // Feature gating (Phase 2 leak-fix): format-painter wraps tags via direct
+    // DOM (not commands.execute), so it must gate per-tag itself. Skip painting
+    // a format whose command's feature isn't granted (e.g. paint bold when
+    // text.bold is withheld even though the painter plugin is licensed).
+    const featureId = featureForCommand(command);
+    if (featureId && editor.isFeatureGranted && !editor.isFeatureGranted(featureId)) continue;
     let wrappedAny = false;
     for (const textNode of targets) {
       if (insideTagNode(textNode, tag, root)) continue; // already formatted → skip (no nesting)

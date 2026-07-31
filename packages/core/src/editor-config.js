@@ -20,6 +20,12 @@ export const DEFAULTS = {
   height: null,
   defaultContent: '',
   placeholder: 'Start typing…',
+  // poweredBy: a faint "Powered by Open Editor" attribution shown in its OWN
+  //   strip BELOW the editable (bottom-right) — a separate wrapper element, NOT
+  //   inside the editable, so it can never overlap typed text and is never part
+  //   of the saved content (never in getHTML()). true (default) shows the
+  //   default text; a string shows custom text; false removes it.
+  poweredBy: true,
   sanitize: true,
   allowTags: null,
   allowAttributes: null,
@@ -105,21 +111,98 @@ export const DEFAULTS = {
   bookmarkDefaultColor: undefined, // defaults to none
   bookmarkIconSize: undefined,     // number (px) or CSS length ('1.4em'); default 1em = tracks text size
   bookmarkPanel: false,            // true → adds the jump-to-bookmark navigator toolbar button
+  // ── Feature gating (Phase 0) ──────────────────────────────────────────────
+  // Which editor features this instance is licensed to use. The editor gates
+  // its OWN authoring surfaces (toolbar, commands, shortcuts, slash, autoformat)
+  // to only the granted features. Crypto/licensing lives OUTSIDE core — the host
+  // (or the premium runtime) resolves the license and passes the result here.
+  //
+  //   grantedFeatures: null           → grant ALL (default; no gating — today's
+  //                                     behavior, so existing embeds are unchanged)
+  //                    ['*']          → grant all (explicit)
+  //                    ['text.bold',  → grant exactly these feature ids (plus the
+  //                     'list.bullet'] always-on core, which is never gated)
+  // entitlements: optional object with `isGranted(featureId) => boolean` — an
+  //   alternative to a static list (e.g. a FeatureManager). Takes precedence
+  //   over grantedFeatures when provided.
+  grantedFeatures: null,
+  entitlements: null,
+  // enforceFreeTier (Phase 1a-3c): the gate FAILS CLOSED for premium — the free
+  //   set (all non-premium catalog ids) is always granted keyless, but premium
+  //   features require a valid entitlement/key. Default flipped to TRUE now that
+  //   premium code ships bundled in the one package (1a-3b): a keyless install
+  //   must NOT unlock the bundled premium. Set to false only to opt back into
+  //   the legacy grant-all behavior (e.g. an embed with no premium at all).
+  enforceFreeTier: true,
+  // licenseKey (Phase 1a): the compact JWS license token the customer pastes to
+  //   unlock premium. Absent → free tier. Verified OFFLINE, inside this package,
+  //   against licenseKeys below — no separate premium host, no second install.
+  licenseKey: null,
+  // licenseKeys (Phase 1a): the integrator's PUBLISHED ES256 public key(s) as
+  //   [{ kid, jwk }] — embedded at build time (offline, no network/phone-home).
+  //   Core is key-agnostic: YOU provide your key; the license verifies against it.
+  licenseKeys: null,
+  // allowDevHost: the localhost/dev exemption for license verification. Default
+  //   TRUE (DX fix) — a developer building on localhost gets premium without
+  //   hunting for a flag, which is the single most common "I paid but premium is
+  //   locked on my machine" support ticket. SAFE by construction: the exemption
+  //   only ever fires on true loopback hosts (localhost / 127.0.0.1 / ::1 /
+  //   *.localhost — see isDevHost), which can never serve a real production site,
+  //   so nothing sellable is given away. On ANY real domain the normal signature +
+  //   domain check applies unchanged. Set to false to force strict verification
+  //   even on localhost (e.g. to test the exact production gate locally).
+  allowDevHost: true,
+  // licenseWarnings: print a clear console warning when a configured license
+  //   FAILS to unlock premium (wrong domain, expired, bad key) so a developer
+  //   isn't left guessing why premium is in free mode (DX fix). Default true;
+  //   set false to silence (e.g. a noise-averse production embed). Never logs
+  //   the key — only the reason + current host.
+  licenseWarnings: true,
+  // premiumPlugins (Phase 1a): premium plugin specs available to this editor.
+  //   Registered at mount; each is INSTALLED only if the license grants its
+  //   feature (PluginManager.install gates + is idempotent). On applyEntitlements
+  //   the now-granted ones install into the live editor. Absent → none.
+  premiumPlugins: null,
+  // licenseRefreshUrl (Phase 4d): the backend refresh endpoint the editor calls
+  //   in the background near expiry to swap in a fresh token ("paste once,
+  //   forever"). null/absent → NO scheduling (opt-in; existing embeds unchanged).
+  //   Not a per-page-load phone-home — one jittered timer fired only near expiry.
+  licenseRefreshUrl: null,
+  // licenseRefreshLeadSeconds (Phase 4d): how long BEFORE exp to refresh
+  //   (default 24h). licenseRefreshRetrySeconds: backoff when a refresh yields no
+  //   new token (default 1h). Both no-op unless licenseRefreshUrl is set.
+  licenseRefreshLeadSeconds: null,
+  licenseRefreshRetrySeconds: null,
 };
 
 const BANNED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+/** True only for a plain `{}`/`Object.create(null)` object — NOT a class instance. */
+function isPlainObject(val) {
+  if (val === null || typeof val !== 'object' || Array.isArray(val)) return false;
+  const proto = Object.getPrototypeOf(val);
+  return proto === Object.prototype || proto === null;
+}
+
 /**
  * Deep-merge `source` into `target`, skipping prototype-pollution keys and
- * cloning nested plain objects so shared DEFAULTS sub-objects aren't mutated.
+ * cloning nested PLAIN objects so shared DEFAULTS sub-objects aren't mutated.
+ *
+ * Class instances (e.g. a FeatureManager passed as `config.entitlements`) are
+ * assigned by reference, never recursed into: recursing would copy only their
+ * OWN enumerable fields onto a fresh `{}`, discarding every prototype method
+ * (like `isGranted`) — silently turning a real entitlements object into a
+ * bare data blob with no `isGranted`, which makes the core gate fall back to
+ * grant-all with no error. (Found via Phase 5b's live-license proof: a real
+ * FeatureManager from createPremiumHost lost its methods through this path.)
  */
 export function safeMerge(target, source) {
   if (!source || typeof source !== 'object') return target;
   for (const key of Object.keys(source)) {
     if (BANNED_KEYS.has(key)) continue;
     const val = source[key];
-    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
-      if (!target[key] || typeof target[key] !== 'object') target[key] = {};
+    if (isPlainObject(val)) {
+      if (!isPlainObject(target[key])) target[key] = {};
       safeMerge(target[key], val);
     } else {
       target[key] = val;

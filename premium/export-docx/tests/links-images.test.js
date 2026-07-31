@@ -26,6 +26,13 @@ describe('decodeDataUri', () => {
     expect(decodeDataUri('not a uri')).toBe(null);
     expect(decodeDataUri(null)).toBe(null);
   });
+  it('non-base64 (percent-encoded) data decodes to RAW bytes, not UTF-8 re-encoded', () => {
+    // A high byte (0xFF) must stay ONE byte — the old TextEncoder path turned it
+    // into two UTF-8 bytes, corrupting the image. gif magic "GIF" + a 0xFF byte.
+    const d = decodeDataUri('data:image/gif,GIF%FF');
+    expect(d).not.toBe(null);
+    expect(Array.from(d.bytes)).toEqual([0x47, 0x49, 0x46, 0xff]); // G,I,F,0xFF — 4 bytes
+  });
 });
 
 describe('hyperlinks', () => {
@@ -39,12 +46,19 @@ describe('hyperlinks', () => {
     expect(res.hyperlinks[0].target).toBe('https://example.com');
   });
 
-  it('mailto/tel/anchor/relative hrefs are accepted as hyperlinks', () => {
-    for (const href of ['mailto:a@b.com', 'tel:+123', '#sec', '/page']) {
+  it('mailto/tel/relative hrefs are accepted as external hyperlinks', () => {
+    for (const href of ['mailto:a@b.com', 'tel:+123', '/page']) {
       const c = createResourceCollector();
       md(`<p><a href="${href}">x</a></p>`, c);
       expect(c.result().hyperlinks[0].target).toBe(href);
     }
+  });
+
+  it('a #anchor href is an INTERNAL bookmark ref, not an external relationship', () => {
+    const c = createResourceCollector();
+    const xml = md('<p><a href="#sec">x</a></p>', c);
+    expect(xml).toContain('<w:hyperlink w:anchor="sec">');
+    expect(c.result().hyperlinks.length).toBe(0);
   });
 
   it('WITHOUT a collector, a link degrades to underlined text (back-compat)', () => {

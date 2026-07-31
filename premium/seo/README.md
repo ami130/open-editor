@@ -57,6 +57,44 @@ score, checklist, snippet preview, and related-phrase chips.
 - **Related phrases** exclude all-stopword bigrams ("and the").
 - **Title** falls back to the document's H1 when none is configured.
 
+## Configuration (embedded-context aware)
+
+Because this ships **embedded in third-party host pages**, its assumptions are
+configurable. Pass options to `createSeoPlugin(host, config)` (or per-call to
+`analyzeSeo`):
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `contentContext` | `'body-fragment'` | `'body-fragment'`: the editor holds BODY content under a host-owned page title/H1 — an in-body H1 is **not required** and is **flagged if present** (it would duplicate the page H1); the outline may start at H2. `'full-page'`: the editor IS the whole page — require exactly one H1, outline starts at H1, article word floor applies. |
+| `expectH1` | derived from context | Fine override of the H1 rule. |
+| `title` | — | The real page `<title>` (page-level). Used for the snippet + keyword-in-title. In body-fragment context, an in-body H1 is **not** treated as the title. |
+| `url` | — | Real page URL for the SERP preview (else shown as illustrative). |
+| `siteUrl` | — | Site origin so **absolute self-links** classify as internal, not external. |
+| `lang` | `'en'` | Readability/passive/transition checks run only for English; other languages **degrade to N/A with a note**, never a wrong score. |
+| `metaDescription` | — | Page meta description (page-level). |
+| `keyword` | — | Focus keyphrase. |
+| `ruleset` | `DEFAULT_RULESET` | Partial threshold overrides (minWords, densityMin/Max, metaMin/Max, titleMin/Max, avgSentenceMax, passivePctMax, fleschPassing, …). |
+| `customChecks` | — | `(facts) => Array<{group,ok,label,hint?,weight?,na?}>` — append your own checks without forking. A throwing hook is ignored. |
+
+**Why an H1 is not required by default:** in the common embedded case the host
+page already renders its own `<h1>`; a second H1 inside the editor body is an
+SEO defect. Set `contentContext: 'full-page'` for a standalone-document editor.
+
+## Headless / server-side use
+
+Import the **pure analyzer** (no editor UI, no premium gating) from the subpath,
+and pass a DOM `document` (the package does not bundle one):
+
+```js
+import { analyzeSeo } from '@openeditor-premium/seo/analyze';
+import { JSDOM } from 'jsdom';
+const { document } = new JSDOM('<!doctype html><body>').window;
+const report = analyzeSeo(html, { keyword: 'rich text', contentContext: 'body-fragment' }, document);
+```
+
+The report object carries a `version` field (currently `1`) — a stable contract
+you can guard on.
+
 ## Architecture (pure, tested)
 
 - **`readability.js`** — Flesch Reading Ease + heuristic syllable counting.

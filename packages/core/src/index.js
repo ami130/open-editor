@@ -35,6 +35,11 @@ export { mentionsPlugin, createMentionsPlugin } from './plugins/mentions/mention
 export { blockDragPlugin, createBlockDragPlugin } from './plugins/block-drag/block-drag-plugin.js';
 export { todoListPlugin, createTodoListPlugin } from './plugins/todo-list/todo-list-plugin.js';
 export { bookmarkPlugin, createBookmarkPlugin } from './plugins/bookmark/bookmark-plugin.js';
+export { speechPlugin, createSpeechPlugin } from './plugins/speech/speech-plugin.js';
+export { horizontalRulePlugin, createHorizontalRulePlugin } from './plugins/horizontal-rule/hr-plugin.js';
+// Feature-gating contract helper: install the full free-plugin superset and let
+// the license grant trim (Phase 2.8). See install-all-plugins.js.
+export { installAllPlugins, ALL_FREE_PLUGINS } from './plugins/install-all-plugins.js';
 // 17.11 — UI locale packs. Named exports so bundlers tree-shake unused
 // languages via the ESM module tree (a core-only import drops all of them);
 // also reachable as subpaths: 'openeditor-text/locales/es'.

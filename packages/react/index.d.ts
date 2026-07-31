@@ -30,6 +30,10 @@ export interface OpenEditorProps {
   onFocus?: (e: unknown) => void;
   onBlur?: (e: unknown) => void;
   onError?: (payload: { error: Error; context?: string }) => void;
+  /** Phase 2 — an invalid/failed license (bad key, wrong domain, expired). */
+  onLicenseError?: (payload: { reason: string; message?: string }) => void;
+  /** Phase 2 — premium finished (async) loading; `installed` lists the active premium. */
+  onPremiumReady?: (payload: { installed: string[] }) => void;
   /** Reactive (applies live). */
   readOnly?: boolean;
   /** Reactive (applies live). */
@@ -40,6 +44,11 @@ export interface OpenEditorProps {
   plugins?: EditorPlugin[];
   /** Construct-time editor config. Change via `key` remount. */
   config?: OpenEditorConfig;
+  /** Phase 2 — the license token. Reactive: changing it re-verifies in place
+   *  (unlocks newly-granted premium without a remount). */
+  licenseKey?: string | null;
+  /** Phase 2 — the integrator's published ES256 public key(s), embedded at build. */
+  licenseKeys?: Array<{ kid: string; jwk: JsonWebKey }> | null;
   className?: string;
   style?: CSSProperties;
   ref?: Ref<OpenEditorHandle>;

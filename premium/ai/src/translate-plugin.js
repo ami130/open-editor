@@ -5,6 +5,8 @@
  * selection-replace pattern as Quick Actions.
  */
 import { translatePrompt, TRANSLATE_LANGUAGES } from './prompts.js';
+import { replaceSelectionWithAi } from './ai-replace.js';
+import { installAiStatus } from './ai-status.js';
 
 const TR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d="M4 5h7M9 3v2c0 4-2 7-5 8"/><path d="M6 9c0 2 2 4 5 5"/><path d="M13 20l4-9 4 9M14.5 17h5"/>
@@ -31,8 +33,10 @@ export function rawTranslateSpec(config = {}) {
     busy = true;
     editor.emit('aiTranslate', { language, text });
     try {
-      if (info && info.range) info.range.deleteContents();
-      await editor.aiComplete({ prompt, system });
+      // Failure-safe replace: fetch the full translation, then swap it in only
+      // if non-empty — a failed/empty call leaves the original selection intact
+      // (the old order deleted first and lost the text on any error).
+      await replaceSelectionWithAi(editor, info, { prompt, system });
     } finally {
       busy = false;
     }
@@ -52,6 +56,7 @@ export function rawTranslateSpec(config = {}) {
     name: 'ai-translate',
     install(ed) {
       editor = ed;
+      installAiStatus(ed, { busyText: 'Translating…' });
       ed.aiTranslate = (language) => run(language);
     },
     destroy() {

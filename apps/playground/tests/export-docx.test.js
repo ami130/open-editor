@@ -82,4 +82,51 @@ test.describe('Phase 19.5 — Export to DOCX', () => {
     await expect(page.locator(NOTICE)).toBeVisible();
     expect(await page.locator('.oe-toolbar [data-name="exportDocx"]').count()).toBe(0);
   });
+
+  test('REAL BUG FIX: a remote image in the document is fetched and embedded as a real picture (not a text placeholder)', async ({ page }) => {
+    // Reported bug: images inserted via the normal editor flow (remote/hosted
+    // URLs) always degraded to "[Image: alt]" text — never a real picture.
+    // Stub window.fetch in-page (real network deps would be flaky in CI) to
+    // simulate a remote host serving a real PNG, and confirm the FULL browser
+    // pipeline (click → exportDocx → resolveRemoteImages → bodyXml →
+    // buildDocx → download) embeds real image bytes end to end.
+    await page.evaluate(() => {
+      const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const bin = atob(PNG_B64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const realFetch = window.fetch.bind(window);
+      window.fetch = (url, opts) => {
+        if (typeof url === 'string' && url.includes('cdn.example.com')) {
+          return Promise.resolve({
+            ok: true,
+            headers: { get: (h) => (h.toLowerCase() === 'content-type' ? 'image/png' : null) },
+            arrayBuffer: () => Promise.resolve(bytes.buffer),
+          });
+        }
+        return realFetch(url, opts);
+      };
+    });
+    await page.evaluate(() => window.__openEditorInstance.setHTML(
+      '<h1>Report</h1><figure class="oe-figure"><img src="https://cdn.example.com/photo.png" alt="a photo" width="200" height="150"><figcaption>Cap</figcaption></figure>'));
+    await page.evaluate(() => window.__premium.apply(['export.docx']));
+
+    const ok = await page.evaluate(() => window.__openEditorInstance.exportDocx({ title: 'WithImage' }));
+    expect(ok).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.__docx.bytes && window.__docx.bytes.length))
+      .toBeGreaterThan(500);
+
+    const info = await page.evaluate(() => {
+      const b = window.__docx.bytes;
+      const text = b.map((n) => String.fromCharCode(n)).join('');
+      return {
+        hasDrawing: text.includes('<w:drawing>'),
+        hasMediaPart: text.includes('word/media/image1.png'),
+        hasPlaceholder: text.includes('[Image: a photo]'),
+      };
+    });
+    expect(info.hasDrawing).toBe(true);        // real embedded picture
+    expect(info.hasMediaPart).toBe(true);      // media part in the ZIP
+    expect(info.hasPlaceholder).toBe(false);   // NOT the old text placeholder
+  });
 });

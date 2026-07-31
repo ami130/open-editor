@@ -1,4 +1,4 @@
-import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin } from 'openeditor-text';
+import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin, createSpeechPlugin, createHorizontalRulePlugin } from 'openeditor-text';
 import { localeEs, localeFr, localeDe, localeAr } from 'openeditor-text';
 
 // Fixture user list for the @mentions e2e (16.6.5) — a real async source.
@@ -10,11 +10,65 @@ const DEMO_USERS = [
 
 document.querySelector('.pg-version').textContent = `v${VERSION}`;
 
+/**
+ * Wrap window.fetch so requests to the demo AI endpoint return a canned,
+ * streamed SSE reply (no network, no keys). Everything else passes through.
+ * Purely a demo shim — real integrations use a real endpoint, not this.
+ */
+function installDemoAiEndpoint(url) {
+  if (typeof window === 'undefined' || window.__demoAiInstalled) return;
+  window.__demoAiInstalled = true;
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const target = typeof input === 'string' ? input : (input && input.url);
+    if (target !== url) return realFetch(input, init);
+    let prompt = '';
+    try { prompt = JSON.parse((init && init.body) || '{}').prompt || ''; } catch { /* ignore */ }
+    // A believable canned reply: echo a short transformed version of the input.
+    const src = (prompt.split(/\n\n/).pop() || '').trim().slice(0, 400);
+    const langMatch = prompt.match(/into (\w[\w()\s]*?)\./i);
+    const reply = langMatch
+      ? `[${langMatch[1].trim()}] ${src}`      // translate: prefix with target lang
+      : (src ? `${src} (AI-revised)` : 'AI demo response.');
+    const enc = new TextEncoder();
+    // Stream a few word chunks as data: {"delta": "..."} then [DONE].
+    const words = reply.split(/(\s+)/);
+    const lines = words.map((w) => `data: ${JSON.stringify({ delta: w })}\n\n`).concat('data: [DONE]\n\n');
+    let i = 0;
+    const stream = new ReadableStream({
+      pull(controller) {
+        if (i < lines.length) { controller.enqueue(enc.encode(lines[i++])); }
+        else { controller.close(); }
+      },
+    });
+    return Promise.resolve(new Response(stream, {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+  };
+}
+
+// ── DEMO AI endpoint ──────────────────────────────────────────────────────
+// The AI features (Quick Actions / Translate / Chat / Review) are BYO-endpoint:
+// the editor POSTs { prompt, system } to `aiEndpoint` and streams the reply. It
+// ships with NO provider/key by design. For the DEMO we point it at a sentinel
+// URL and intercept it below with a canned streaming reply, so the AI buttons
+// visibly work with zero setup and zero API keys. In a real integration you'd
+// set aiEndpoint to YOUR server/proxy (which holds the API key) in front of an
+// LLM — e.g. Groq's free OpenAI-compatible API. NEVER put an API key here in
+// client code; it would be public. See premium/ai/README.md.
+// AI is DISABLED for this product (no-AI launch). We do NOT wire aiEndpoint, so
+// the editor's AI surface stays inert and no AI buttons appear anywhere in the
+// playground — matching what a real customer sees. (The demo AI shim + endpoint
+// are kept above but intentionally unused; re-enable by passing aiEndpoint below.)
+const DEMO_AI_ENDPOINT = '/__demo_ai__';
+void installDemoAiEndpoint; void DEMO_AI_ENDPOINT; // retained for reference; not installed (no AI)
+
 const editor = new OpenEditor('#editor', {
   debug: true,
   placeholder: 'Start typing…',
-  minHeight: 300,
+  minHeight: 500,
   defaultContent: '',
+  // aiEndpoint intentionally omitted — no AI in this product.
   imageAllowDataUri: true,
   tableAvailableClasses: [
     { value: 'table-bordered', label: 'Bordered' },
@@ -65,11 +119,20 @@ editor.plugins.install(createMentionsPlugin());
 editor.plugins.install(createBlockDragPlugin());
 editor.plugins.install(createTodoListPlugin());
 editor.plugins.install(createBookmarkPlugin());
+editor.plugins.install(createSpeechPlugin()); // dictation (mic) — free, browser Web Speech API; button auto-hides where unsupported
+editor.plugins.install(createHorizontalRulePlugin()); // click an <hr> to restyle it (color/style/thickness)
 
-// Phase 19 foundation — dev license switcher + gated hello-premium plugin.
-// Installs nothing until driven (panel buttons or window.__premium in e2e).
+// Phase 19 foundation — dev license PIPELINE (the visible dev license bar was
+// removed permanently). Headless: auto-applies a full-grant dev license so all
+// premium features show in the toolbar, and exposes window.__premium for e2e.
 import { initPremiumPanel } from './src/premium-panel.js';
 initPremiumPanel(editor);
+
+// Phase 5b — REAL backend-issued license verification PIPELINE (the visible real
+// license bar was removed permanently). Headless: exposes window.__realLicense
+// for manual/console testing against the backend's real published JWKS.
+import { initRealLicensePanel } from './src/real-license-panel.js';
+initRealLicensePanel();
 
 editor.on('ready', () => {
   console.log('[Playground] Editor ready');

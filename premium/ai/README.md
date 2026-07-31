@@ -67,6 +67,61 @@ with an SSE `data:` stream (`{"delta":"…"}` / OpenAI `choices[].delta.content`
 / raw text; `[DONE]` ends it) or a whole JSON `{ text }` / plain body. See
 `packages/core/src/ai/ai-complete.js`.
 
+## Which AI provider? (there is none built in — you bring it)
+
+This package ships **no AI provider, no model, and no API key**. That's the
+point of BYO: you keep full control and no key ever lives in client code. To
+make the AI features actually produce text you point `aiEndpoint` at **your own
+server/proxy**, which holds the key and calls whatever model you like.
+
+Any OpenAI-compatible API works, including free tiers such as **Groq**
+(fast, free tier, OpenAI-compatible). Recommended shape:
+
+```
+Browser (editor.aiComplete)  →  YOUR /api/ai proxy  →  Groq / OpenAI / Anthropic …
+        (no key)                (holds the API key)      (the model)
+```
+
+Minimal proxy (Node/Express, streaming Groq example — keeps the key server-side):
+
+```js
+app.post('/api/ai', async (req, res) => {
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      stream: true,
+      messages: [
+        { role: 'system', content: req.body.system || '' },
+        { role: 'user', content: req.body.prompt },
+      ],
+    }),
+  });
+  res.setHeader('Content-Type', 'text/event-stream');
+  r.body.pipe(res); // Groq streams OpenAI-shaped `data: {choices:[{delta:{content}}]}` — aiComplete reads it directly
+});
+```
+
+Then: `new OpenEditor(el, { aiEndpoint: '/api/ai' })`. **Never** put the key in
+`aiHeaders` in the browser — it would be public. `aiHeaders` is only for headers
+that are safe to expose (e.g. a short-lived signed token your backend issues).
+
+> The demo playground wires a **fake local endpoint** (`apps/playground/main.js`)
+> so the AI buttons visibly work with zero setup — it echoes a canned reply, it
+> is NOT a real model. Swap in your proxy for real output.
+
+## Error + loading feedback
+
+The AI features now surface state in a slim bar under the editor (via
+`ai-status.js`): a **"Translating…/Working…" spinner** while a request is in
+flight, and a **clear, actionable error** if it fails — e.g. *"AI is not
+configured. Set an aiEndpoint…"* for a missing endpoint, or a network/HTTP
+message otherwise. Previously a missing or failing endpoint failed **silently**
+(the button looked dead); now the user always gets feedback. Failures also
+**never delete the selected text** — the translation/action only replaces the
+selection once real text comes back.
+
 ## Architecture (pure where possible)
 
 - **`prompts.js`** — pure prompt builders (rewrite/summarize/tone/length) +

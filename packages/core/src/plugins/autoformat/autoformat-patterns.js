@@ -37,7 +37,7 @@ export function matchBlockPattern(textBeforeCaret) {
 // (the just-typed closing marker); the OPENING instance of the same marker
 // earlier in the text starts the formatted span. `minInner` guards against
 // "****" (empty bold) triggering on nothing.
-const INLINE_MARKERS = [
+export const INLINE_MARKERS = [
   { marker: '**', command: 'bold' },
   { marker: '__', command: 'bold' },
   { marker: '`', command: 'inlineCode' },

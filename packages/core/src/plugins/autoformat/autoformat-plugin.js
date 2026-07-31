@@ -12,6 +12,15 @@
 import { getParentBlock, isInsideTag } from '../../selection/range-utils.js';
 import { matchBlockPattern, matchInlinePattern } from './autoformat-patterns.js';
 import { matchTransformation, transformationGroups } from './text-transformations.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
+
+// Feature gating (Phase 2.6): true if the command's feature is granted. Checked
+// BEFORE any text mutation so a gated pattern (e.g. `# ` when headings aren't
+// licensed) leaves the typed marker intact instead of stripping it then no-op'ing.
+function granted(editor, command) {
+  const featureId = featureForCommand(command);
+  return !featureId || !editor.isFeatureGranted || editor.isFeatureGranted(featureId);
+}
 import { gatherTextBeforeCaret, mergeTextRun } from '../../utils/text-run.js';
 
 const BLOCK_TAGS_ALLOWING_AUTOFORMAT = new Set(['p', 'div']);
@@ -97,6 +106,7 @@ export function createAutoformatPlugin() {
       const text = node.nodeValue.slice(0, info.startOffset);
       const match = matchBlockPattern(text);
       if (!match) return false;
+      if (!granted(editor, match.command)) return false; // gated → leave marker as typed
 
       // Remove the marker text, then apply the block command to the now-clean block.
       node.nodeValue = node.nodeValue.slice(match.matchLength);
@@ -111,6 +121,7 @@ export function createAutoformatPlugin() {
       const text = node.nodeValue.slice(0, info.startOffset);
       const match = matchInlinePattern(text);
       if (!match) return false;
+      if (!granted(editor, match.command)) return false; // gated → leave marker as typed
 
       const tailAfterCaret = node.nodeValue.slice(info.startOffset);
 

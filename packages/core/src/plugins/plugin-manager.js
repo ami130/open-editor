@@ -19,7 +19,14 @@
  *
  * Error isolation: every call into plugin code is wrapped in try/catch.
  * One bad plugin emits editor 'error' and does NOT propagate.
+ *
+ * Feature gating (Phase 2.8): install() skips a plugin whose catalog feature
+ * isn't licensed — so free plugins (image, table, link, …) are gated the same
+ * way core features are, automatically, for every host. Unmapped plugins (no
+ * feature id) install normally.
  */
+import { featureForPlugin } from '../entitlements/feature-catalog.js';
+
 export class PluginManager {
   constructor(editor) {
     this._editor    = editor;
@@ -68,6 +75,18 @@ export class PluginManager {
   install(specOrName) {
     const spec = this._resolve(specOrName);
     if (!spec) return this;
+
+    // Feature gating (Phase 2.8 + 1a): if this plugin maps to a catalog feature
+    // that isn't granted, skip installing it entirely — no toolbar buttons, no
+    // keydown handlers, no behavior. A PREMIUM plugin declares its own
+    // `spec.featureId` (premium ids aren't in the free plugin catalog); free
+    // plugins resolve via featureForPlugin(name). Unmapped plugins install
+    // normally.
+    const featureId = spec.featureId || featureForPlugin(spec.name);
+    if (featureId && this._editor.isFeatureGranted && !this._editor.isFeatureGranted(featureId)) {
+      this._editor.logger && this._editor.logger.info(`plugin "${spec.name}" not licensed (${featureId}) — skipped`);
+      return this;
+    }
 
     // Already installed — idempotent, no double-install.
     if (this._installed.has(spec.name)) {
@@ -142,16 +161,7 @@ export class PluginManager {
       this._installed.set(spec.name, spec);
 
       // Contribute toolbar buttons if toolbar exists.
-      if (typeof spec.getToolbarButtons === 'function' && this._editor.toolbar) {
-        try {
-          const buttons = spec.getToolbarButtons() || [];
-          for (const btn of buttons) this._editor.toolbar.addButton(btn);
-        } catch (err) {
-          this._editor.logger && this._editor.logger.error(
-            `PluginManager: getToolbarButtons() failed for "${spec.name}":`, err
-          );
-        }
-      }
+      this._contributeButtons(spec);
 
       this._editor.emit('pluginInstalled', { name: spec.name, plugin: spec });
       this._editor.logger && this._editor.logger.info(`plugin installed: ${spec.name}`);
@@ -217,6 +227,31 @@ export class PluginManager {
 
   /** Return a read-only copy of all installed plugins as Map<name, instance>. */
   getAll() { return new Map(this._installed); }
+
+  // Contribute one installed plugin's toolbar buttons (if any). `addButton`
+  // dedupes by name, so this is safe to call on an already-contributed plugin.
+  _contributeButtons(instance) {
+    if (typeof instance.getToolbarButtons !== 'function' || !this._editor.toolbar) return;
+    try {
+      for (const btn of (instance.getToolbarButtons() || [])) this._editor.toolbar.addButton(btn);
+    } catch (err) {
+      this._editor.logger && this._editor.logger.error(
+        `PluginManager: getToolbarButtons() failed for "${instance.name}":`, err
+      );
+    }
+  }
+
+  /**
+   * Phase 1a (B1 fix) — re-contribute EVERY installed plugin's toolbar buttons.
+   * Called after `toolbar.rebuild()` (which re-runs `_build()` and only restores
+   * CONFIG-driven items) so plugin-contributed buttons — link/image/table and
+   * premium plugins — are not permanently lost when a post-mount entitlement
+   * change rebuilds the toolbar. Idempotent via addButton's name dedupe.
+   */
+  contributeAllToolbarButtons() {
+    if (!this._editor || !this._editor.toolbar) return;
+    for (const instance of this._installed.values()) this._contributeButtons(instance);
+  }
 
   // ─── Destroy ───────────────────────────────────────────────────────────────
 

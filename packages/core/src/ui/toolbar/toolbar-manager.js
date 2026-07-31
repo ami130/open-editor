@@ -14,6 +14,7 @@ import { createColorControl } from './color-picker.js';
 import { createListStyleControl } from './list-style-picker.js';
 import { createAlignmentControl } from './alignment-picker.js';
 import { DEFAULT_TOOLBAR } from './toolbar-config.js';
+import { featureForToolbarItem } from '../../entitlements/feature-catalog.js';
 import { injectStyleOnce } from '../../utils/inject-style.js';
 import { resolveLocale } from './locale.js';
 import { TOOLBAR_CSS } from './toolbar-styles.js';
@@ -65,26 +66,36 @@ export class ToolbarManager {
     bar.setAttribute('role', 'toolbar');
     bar.setAttribute('aria-label', 'Editor toolbar');
 
-    this._config.forEach((group, gi) => {
-      if (gi > 0) {
+    // Build each group's controls first; a group whose items are all gated away
+    // renders NOTHING — and we add its leading separator only if it actually has
+    // visible controls, so gating never leaves a dangling/double separator.
+    let renderedAnyGroup = false;
+    this._config.forEach((group) => {
+      const groupControls = [];
+      for (const item of group) {
+        const control = this._buildControl(item);
+        if (control) groupControls.push(control);
+      }
+      if (groupControls.length === 0) return; // whole group gated away → skip it
+
+      if (renderedAnyGroup) {
         const sep = doc.createElement('span');
         sep.className = 'oe-toolbar__sep';
         sep.setAttribute('role', 'separator');
         bar.appendChild(sep);
       }
-      for (const item of group) {
-        const control = this._buildControl(item);
-        if (control) {
-          this._controls.push(control);
-          // Dropdowns and color controls wrap their trigger inside a <div>.
-          // Push the actual trigger button (not the wrapper) so roving-tabindex
-          // focuses the real interactive element (F3).
-          const focusTarget = typeof control.getTrigger === 'function'
-            ? control.getTrigger()
-            : control.el;
-          this._focusables.push(focusTarget);
-          bar.appendChild(control.el);
-        }
+      renderedAnyGroup = true;
+
+      for (const control of groupControls) {
+        this._controls.push(control);
+        // Dropdowns and color controls wrap their trigger inside a <div>.
+        // Push the actual trigger button (not the wrapper) so roving-tabindex
+        // focuses the real interactive element (F3).
+        const focusTarget = typeof control.getTrigger === 'function'
+          ? control.getTrigger()
+          : control.el;
+        this._focusables.push(focusTarget);
+        bar.appendChild(control.el);
       }
     });
 
@@ -103,6 +114,11 @@ export class ToolbarManager {
     // longer clobber each other's pre-click selection bookmark.
     const hooks = { savedBookmark: null, afterAction: this._afterAction };
     if (item.type === 'separator')  return null;
+    // Feature gating (Phase 2.1): hide a toolbar item ONLY when it maps to a
+    // catalog feature that isn't granted. Unmapped items (undo/redo/removeFormat/
+    // print/fullscreen — chrome + always-on) have no feature → never hidden.
+    const featureId = item.name ? featureForToolbarItem(item.name) : null;
+    if (featureId && editor.isFeatureGranted && !editor.isFeatureGranted(featureId)) return null;
     // 17.5.8 — the styles dropdown only exists when presets are configured.
     if (item.kind === 'styles' && !(Array.isArray(editor._config.styles) && editor._config.styles.length)) return null;
     if (item.kind === 'textPartLanguage' && !(Array.isArray(editor._config.textPartLanguages) && editor._config.textPartLanguages.length)) return null;
@@ -235,21 +251,13 @@ export class ToolbarManager {
     if (control.el && control.el.parentNode) control.el.parentNode.removeChild(control.el);
   }
 
-  // ─── Destroy ────────────────────────────────────────────────────────────────
-
-  destroy() {
-    const ed = this._editor;
+  // Tear down toolbar DOM + controls (shared by rebuild + destroy). Editor-level
+  // events + _editor are the caller's responsibility, not touched here.
+  _teardownDOM() {
     if (this._rafId != null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(this._rafId);
     }
     this._rafId = null;
-    if (ed) {
-      ed.off('selectionChange', this._onSync);
-      ed.off('afterCommand', this._onSync);
-      ed.off('focus', this._onSync);
-      ed.off('input', this._onSync);
-      ed.off('readOnlyChange', this._onReadOnly);
-    }
     if (this._el) {
       this._el.removeEventListener('keydown', this._onKeyNav);
       if (this._el.parentNode) this._el.parentNode.removeChild(this._el);
@@ -258,6 +266,35 @@ export class ToolbarManager {
     this._controls = [];
     this._focusables = [];
     this._el = null;
+  }
+
+  /**
+   * Phase 1a — rebuild the toolbar in place after a post-mount entitlement
+   * change so newly-granted items appear. Re-runs the tested `_build()` (order/
+   * separators/tabindex correct; one repaint). Leaves editor content/caret +
+   * editor-level events untouched; re-attaches only `_el`'s keydown. Idempotent.
+   */
+  rebuild() {
+    if (!this._doc || !this._editor || !this._editor._wrapper) return;
+    this._teardownDOM();
+    this._build(); // re-reads the CURRENT (now-broader) gate
+    if (this._el) this._el.addEventListener('keydown', this._onKeyNav);
+    this._applyReadOnly(!!(this._editor.isReadOnly && this._editor.isReadOnly()));
+    this._scheduleSync();
+  }
+
+  // ─── Destroy ────────────────────────────────────────────────────────────────
+
+  destroy() {
+    const ed = this._editor;
+    if (ed) {
+      ed.off('selectionChange', this._onSync);
+      ed.off('afterCommand', this._onSync);
+      ed.off('focus', this._onSync);
+      ed.off('input', this._onSync);
+      ed.off('readOnlyChange', this._onReadOnly);
+    }
+    this._teardownDOM();
     this._editor = null;
   }
 }

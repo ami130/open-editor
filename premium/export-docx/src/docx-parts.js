@@ -40,35 +40,83 @@ const DOC_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 
+// Heading paragraph styles. These MUST carry the markers Word uses to treat a
+// style as a REAL built-in heading, or Word silently falls the paragraph back
+// to Normal (the "H1 exports as plain text" bug): the canonical name
+// "heading N", w:basedOn Normal, w:next Normal, a w:link to a matching heading
+// CHARACTER style, w:uiPriority, and w:qFormat (so it shows in the gallery).
+// We ALSO set explicit color/size/bold on the run props so the heading looks
+// right even in readers that don't fully resolve the built-in mapping —
+// belt-and-suspenders, since the whole point is it must never look like body
+// text. Word's own default heading color is 2E74B5 (accent blue); H1/H2 use it.
 function headingStyle(n) {
   const sizes = { 1: 32, 2: 28, 3: 26, 4: 24, 5: 22, 6: 20 }; // half-points
-  return `<w:style w:type="paragraph" w:styleId="Heading${n}"><w:name w:val="heading ${n}"/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="60"/></w:pPr><w:rPr><w:b/><w:sz w:val="${sizes[n]}"/></w:rPr></w:style>`;
+  const color = n <= 2 ? '2E74B5' : (n <= 4 ? '2E74B5' : '1F4E79');
+  return `<w:style w:type="paragraph" w:styleId="Heading${n}">`
+    + `<w:name w:val="heading ${n}"/>`
+    + '<w:basedOn w:val="Normal"/>'
+    + '<w:next w:val="Normal"/>'
+    + `<w:link w:val="Heading${n}Char"/>`
+    + `<w:uiPriority w:val="${n === 1 ? 9 : n}"/>`
+    + '<w:qFormat/>'
+    + '<w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="240" w:after="60"/><w:outlineLvl w:val="' + (n - 1) + '"/></w:pPr>'
+    + `<w:rPr><w:b/><w:color w:val="${color}"/><w:sz w:val="${sizes[n]}"/></w:rPr>`
+    + '</w:style>'
+    // The linked character style Word expects for a heading (w:link above).
+    + `<w:style w:type="character" w:customStyle="1" w:styleId="Heading${n}Char">`
+    + `<w:name w:val="Heading ${n} Char"/>`
+    + `<w:link w:val="Heading${n}"/>`
+    + '<w:uiPriority w:val="9"/>'
+    + `<w:rPr><w:b/><w:color w:val="${color}"/><w:sz w:val="${sizes[n]}"/></w:rPr>`
+    + '</w:style>';
 }
 
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles ${W_NS}>
-<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>
-<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
 ${[1, 2, 3, 4, 5, 6].map(headingStyle).join('')}
-<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:pPr><w:ind w:left="480"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>
-<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:pPr><w:shd w:val="clear" w:fill="F5F6F8"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/></w:rPr></w:style>
-<w:style w:type="paragraph" w:styleId="Caption"><w:name w:val="Caption"/><w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="18"/></w:rPr></w:style>
-<w:style w:type="paragraph" w:styleId="TableHeader"><w:name w:val="Table Header"/><w:rPr><w:b/></w:rPr></w:style>
-<w:style w:type="character" w:styleId="Code"><w:name w:val="Code Char"/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/></w:rPr></w:style>
-<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="29"/><w:qFormat/><w:pPr><w:ind w:left="480"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:shd w:val="clear" w:fill="F5F6F8"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Caption"><w:name w:val="caption"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="35"/><w:qFormat/><w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="18"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="TableHeader"><w:name w:val="Table Header"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:rPr><w:b/></w:rPr></w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="Code"><w:name w:val="Code Char"/><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/></w:rPr></w:style>
+<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:uiPriority w:val="99"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>
 </w:styles>`;
 
-const NUMBERING = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:numbering ${W_NS}>
-<w:abstractNum w:abstractNumId="0">${
+const BULLET_ABSTRACT = `<w:abstractNum w:abstractNumId="0">${
   [0, 1, 2, 3].map((lvl) => `<w:lvl w:ilvl="${lvl}"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:pPr><w:ind w:left="${(lvl + 1) * 480}" w:hanging="360"/></w:pPr></w:lvl>`).join('')
-}</w:abstractNum>
-<w:abstractNum w:abstractNumId="1">${
+}</w:abstractNum>`;
+const DECIMAL_ABSTRACT = `<w:abstractNum w:abstractNumId="1">${
   [0, 1, 2, 3].map((lvl) => `<w:lvl w:ilvl="${lvl}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${lvl + 1}."/><w:pPr><w:ind w:left="${(lvl + 1) * 480}" w:hanging="360"/></w:pPr></w:lvl>`).join('')
-}</w:abstractNum>
-<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
-<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
-</w:numbering>`;
+}</w:abstractNum>`;
+
+/**
+ * numbering.xml. numId 1 = shared bullet, numId 2 = legacy shared decimal.
+ * Each entry in `orderedLists` (from the collector) gets its OWN <w:num>
+ * referencing the decimal abstract, with lvlOverride to (a) restart at its
+ * `start` and (b) apply its `fmt` (a/A/i/I). Distinct numIds are what make
+ * separate ordered lists restart instead of continuing each other.
+ */
+function numbering(orderedLists) {
+  const dynamic = (orderedLists || []).map((ol) => {
+    // Override at the level this list's items actually render at (nested lists
+    // are > 0), so a nested <ol type="a"> keeps its letter format and restart —
+    // previously the override was hard-pinned to ilvl 0 and nested lists lost
+    // their type/start. (I11)
+    const lvl = Number.isFinite(ol.ilvl) ? ol.ilvl : 0;
+    const ind = (lvl + 1) * 480;
+    const overrides = [];
+    if (ol.fmt && ol.fmt !== 'decimal') {
+      overrides.push(`<w:lvlOverride w:ilvl="${lvl}"><w:lvl w:ilvl="${lvl}"><w:start w:val="${ol.start}"/><w:numFmt w:val="${ol.fmt}"/><w:lvlText w:val="%${lvl + 1}."/><w:pPr><w:ind w:left="${ind}" w:hanging="360"/></w:pPr></w:lvl></w:lvlOverride>`);
+    } else if (ol.start !== 1) {
+      overrides.push(`<w:lvlOverride w:ilvl="${lvl}"><w:startOverride w:val="${ol.start}"/></w:lvlOverride>`);
+    }
+    return `<w:num w:numId="${ol.numId}"><w:abstractNumId w:val="1"/>${overrides.join('')}</w:num>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering ${W_NS}>${BULLET_ABSTRACT}${DECIMAL_ABSTRACT}<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>${dynamic}</w:numbering>`;
+}
 
 /** page size + margins for the section (twips: 1 inch = 1440). */
 function sectPr() {
@@ -83,12 +131,14 @@ const DOC_NS = `${W_NS} `
   + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
   + 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 
-function documentXml(bodyInner, title) {
-  const titlePara = title
-    ? `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t xml:space="preserve">${escapeXml(title)}</w:t></w:r></w:p>`
-    : '';
+function documentXml(bodyInner) {
+  // No auto-injected title heading: the document's title is already the
+  // downloaded FILENAME (Report.docx), and duplicating it as a bold heading
+  // above the user's own content was unwanted — especially since the user's
+  // content usually already starts with its own <h1>. If a title was never
+  // set, this used to literally inject the word "Document" as a heading.
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document ${DOC_NS}><w:body>${titlePara}${bodyInner}${sectPr()}</w:body></w:document>`;
+<w:document ${DOC_NS}><w:body>${bodyInner}${sectPr()}</w:body></w:document>`;
 }
 
 /** document.xml.rels: styles + numbering, plus any hyperlink/image rels. */
@@ -131,14 +181,14 @@ function contentTypes(resources) {
  * @returns {Uint8Array} the .docx (ZIP) bytes
  */
 export function buildDocx(bodyInner, opts = {}) {
-  const resources = opts.resources || { hyperlinks: [], images: [], exts: [] };
+  const resources = opts.resources || { hyperlinks: [], images: [], exts: [], orderedLists: [] };
   const parts = [
     { name: '[Content_Types].xml', data: resources.images.length ? contentTypes(resources) : CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
-    { name: 'word/document.xml', data: documentXml(bodyInner, opts.title || '') },
+    { name: 'word/document.xml', data: documentXml(bodyInner) },
     { name: 'word/_rels/document.xml.rels', data: (resources.hyperlinks.length || resources.images.length) ? docRels(resources) : DOC_RELS },
     { name: 'word/styles.xml', data: STYLES },
-    { name: 'word/numbering.xml', data: NUMBERING },
+    { name: 'word/numbering.xml', data: numbering(resources.orderedLists) },
   ];
   // Embedded image media parts (bytes are Uint8Array; zip-store handles them).
   for (const img of resources.images) {

@@ -53,10 +53,20 @@ describe('seo — granted', () => {
     expect(r.score).toBeGreaterThanOrEqual(0);
   });
 
-  it('SEO-8 — title falls back to the document H1 when none configured', () => {
+  it('SEO-8 — in full-page context the title falls back to the document H1', () => {
     const editor = makeEditor('<h1>Doc Title From H1</h1><p>body text here</p>');
-    createSeoPlugin(ALLOW).install(editor);
+    createSeoPlugin(ALLOW, { contentContext: 'full-page' }).install(editor);
     expect(editor.analyzeSeo().snippet.title).toBe('Doc Title From H1');
+  });
+  it('SEO-8b — in the default body-fragment context an in-body H1 is NOT the page title', () => {
+    const editor = makeEditor('<h1>In-body H1</h1><p>body text here</p>');
+    createSeoPlugin(ALLOW).install(editor);
+    // no host title configured → title is unset (not the in-body H1)
+    expect(editor.analyzeSeo().snippet.title).toBe('Untitled document');
+    // a host-configured title is always honored
+    const editor2 = makeEditor('<h1>In-body H1</h1><p>body</p>');
+    createSeoPlugin(ALLOW, { title: 'Real Page Title' }).install(editor2);
+    expect(editor2.analyzeSeo().snippet.title).toBe('Real Page Title');
   });
 
   it('SEO-1 — keyword + meta persist across calls (survive panel reopen)', () => {
@@ -91,7 +101,7 @@ describe('seo — granted', () => {
     expect(cmd).toBe('seoAnalyze');
   });
 
-  it('panel inputs re-run analysis live (typing a keyword updates the checks)', () => {
+  it('panel inputs re-run analysis live (typing a keyword updates the checks, debounced)', async () => {
     const editor = makeEditor('<h1>T</h1><p>alpha beta gamma delta</p>');
     const spec = createSeoPlugin(ALLOW); spec.install(editor);
     spec.getToolbarButtons()[0].onClick();
@@ -101,7 +111,46 @@ describe('seo — granted', () => {
     expect(panel.textContent).not.toContain('Keyword');
     kw.value = 'alpha';
     kw.dispatchEvent(new window.Event('input'));
+    // Re-analysis is debounced (~180ms); wait past it, then assert.
+    await new Promise((r) => setTimeout(r, 250));
     expect(panel.textContent).toContain('Keyword');
+  });
+
+  it('panel exposes dual SEO + Readability scores and groups findings', () => {
+    const editor = makeEditor('<h1>T</h1><p>' + 'word '.repeat(320) + '</p>');
+    const spec = createSeoPlugin(ALLOW); spec.install(editor);
+    spec.getToolbarButtons()[0].onClick();
+    const panel = editor.ui.modal.opened.body;
+    // two score gauges, each with an aria-label
+    const gauges = panel.querySelectorAll('.oe-seo__gauge');
+    expect(gauges.length).toBe(2);
+    expect(gauges[0].getAttribute('aria-label')).toMatch(/SEO score \d+ out of 100/);
+    expect(gauges[1].getAttribute('aria-label')).toMatch(/Readability score \d+ out of 100/);
+    // findings live region + grouped section labels
+    expect(panel.querySelector('[aria-live="polite"]')).not.toBeNull();
+    expect(panel.textContent).toMatch(/Good \(\d+\)/);
+  });
+
+  it('inputs are programmatically labelled (for/id) for screen readers', () => {
+    const editor = makeEditor('<p>hi</p>');
+    const spec = createSeoPlugin(ALLOW); spec.install(editor);
+    spec.getToolbarButtons()[0].onClick();
+    const panel = editor.ui.modal.opened.body;
+    const kw = panel.querySelector('.oe-seo__input');
+    const label = panel.querySelector(`label[for="${kw.id}"]`);
+    expect(kw.id).toBeTruthy();
+    expect(label).not.toBeNull();
+    expect(label.textContent).toContain('Focus keyword');
+  });
+
+  it('shows an empty state and hides findings for a blank document', () => {
+    const editor = makeEditor('<p></p>');
+    const spec = createSeoPlugin(ALLOW); spec.install(editor);
+    spec.getToolbarButtons()[0].onClick();
+    const panel = editor.ui.modal.opened.body;
+    expect(panel.querySelector('.oe-seo__empty').style.display).toBe('');
+    // no findings groups rendered when empty
+    expect(panel.textContent).not.toMatch(/Problems \(/);
   });
 
   it('panel renders the search-snippet preview and related-phrase chips', () => {

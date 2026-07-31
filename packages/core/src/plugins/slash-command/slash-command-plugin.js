@@ -16,6 +16,7 @@ import { injectCaretPopupStyles } from '../../ui/caret-popup-styles.js';
 import { getParentBlock } from '../../selection/range-utils.js';
 import { detectSlashTrigger } from './slash-detect.js';
 import { filterSlashCommands } from './slash-command-data.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
 
 export function createSlashCommandPlugin() {
   return {
@@ -81,9 +82,14 @@ export function createSlashCommandPlugin() {
 
       this._triggerNode = info.startNode;
       this._triggerLen = 1 + trigger.query.length;
-      const items = filterSlashCommands(trigger.query).filter((entry) =>
-        editor.commands && typeof editor.commands.get === 'function' && editor.commands.get(entry.command)
-      );
+      const items = filterSlashCommands(trigger.query).filter((entry) => {
+        if (!(editor.commands && typeof editor.commands.get === 'function' && editor.commands.get(entry.command))) return false;
+        // Feature gating (Phase 2.5): drop slash entries whose feature isn't
+        // granted (execute would refuse them anyway; don't advertise them).
+        const featureId = featureForCommand(entry.command);
+        if (featureId && editor.isFeatureGranted && !editor.isFeatureGranted(featureId)) return false;
+        return true;
+      });
       if (!this._popup.isOpen()) {
         const range = document.createRange();
         range.setStart(info.startNode, info.startOffset);

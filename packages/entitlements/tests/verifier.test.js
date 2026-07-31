@@ -92,9 +92,11 @@ describe('adversarial sweep (22.4) — ALL must fail closed', () => {
     expect(r).toMatchObject({ valid: false, reason: REASON.DOMAIN });
   });
 
-  it('apex host against a wildcard-only license', async () => {
+  it('apex host against a wildcard-only license — NOW VALID (Phase 5: *.base covers the apex)', async () => {
+    // Reconciled with the server refresh matcher: `*.customer.com` also allows the
+    // apex `customer.com`, so a license that refreshes at the apex also verifies there.
     const r = await verify(signDevLicense({ ...base, domains: ['*.customer.com'] }), { hostname: 'customer.com' });
-    expect(r).toMatchObject({ valid: false, reason: REASON.DOMAIN });
+    expect(r).toMatchObject({ valid: true });
   });
 
   it('unknown kid (key not in ring)', async () => {
@@ -128,9 +130,12 @@ describe('adversarial sweep (22.4) — ALL must fail closed', () => {
     }
   });
 
-  it('empty domains → genuine signature but no host can match (fails closed)', async () => {
-    const r = await verify(signDevLicense({ ...base, domains: [] }));
-    expect(r).toMatchObject({ valid: false, reason: REASON.DOMAIN });
+  it('empty domains → NON-domain-bound license, valid on ANY host (audit F2)', async () => {
+    // The backend issues domains:[] deliberately for a non-bound plan (a bound
+    // plan is guaranteed >=1 domain — issue throws on bound+empty). So empty means
+    // "unbound / any host", NOT "no host". Verifies on an arbitrary hostname.
+    const r = await verify(signDevLicense({ ...base, domains: [] }), { hostname: 'anything.example.com' });
+    expect(r).toMatchObject({ valid: true });
   });
 
   it('SHAPE path is unit-tested directly (isPayloadShapeValid)', () => {

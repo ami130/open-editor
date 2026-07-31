@@ -63,16 +63,10 @@ describe('buildPrintDocument', () => {
     expect(d).toContain('<th>A</th>');
   });
 
-  it('ESCAPES option strings that land in markup (title/header/footer) — injection guard', () => {
-    const d = buildPrintDocument('<p>ok</p>', {
-      title: '</title><script>evil()</script>',
-      header: '<img src=x onerror=hack>',
-      footer: 'foo</div><b>bar',
-    });
+  it('title that lands in HTML markup is HTML-escaped (injection guard)', () => {
+    const d = buildPrintDocument('<p>ok</p>', { title: '</title><script>evil()</script>' });
     expect(d).not.toContain('<script>evil()');
     expect(d).toContain('&lt;script&gt;evil()');
-    expect(d).not.toContain('<img src=x onerror');
-    expect(d).toContain('&lt;img src=x onerror=hack&gt;');
   });
 
   it('escapes a font-family so it cannot break out of the CSS rule', () => {
@@ -85,14 +79,31 @@ describe('buildPrintDocument', () => {
     expect(d).toContain('<main class="oe-pdf__content"><p></p></main>');
   });
 
-  it('renders header and footer bars only when provided', () => {
+  it('I9 — header/footer are position:fixed running bars (repeat on EVERY page in Chrome AND Firefox)', () => {
     const withBars = buildPrintDocument('<p>x</p>', { header: 'Acme', footer: 'Confidential' });
-    expect(withBars).toContain('oe-pdf__header');
-    expect(withBars).toContain('Acme');
-    expect(withBars).toContain('Confidential');
-    const without = buildPrintDocument('<p>x</p>', {});
-    expect(without).not.toContain('oe-pdf__header');
-    expect(without).not.toContain('oe-pdf__footer');
+    // Fixed running <div>s, NOT @page margin boxes — Firefox ignores margin
+    // boxes, so these guarantee the header/footer appear on every page.
+    expect(withBars).toContain('<div class="oe-pdf__running oe-pdf__running--header">Acme</div>');
+    expect(withBars).toContain('<div class="oe-pdf__running oe-pdf__running--footer">Confidential</div>');
+    expect(withBars).toMatch(/\.oe-pdf__running\s*\{[^}]*position:\s*fixed/);
+    // with no header/footer, the running DIVs are absent from the body (the CSS
+    // rule may still be defined, but nothing uses it).
+    const without = buildPrintDocument('<p>x</p>', { pageNumbers: false });
+    expect(without).not.toContain('<div class="oe-pdf__running oe-pdf__running--header">');
+    expect(without).not.toContain('<div class="oe-pdf__running oe-pdf__running--footer">');
+  });
+
+  it('C3 — page numbers render via counter(page)/counter(pages) in a margin box', () => {
+    const d = buildPrintDocument('<p>x</p>', { pageNumbers: true });
+    expect(d).toMatch(/@bottom-right\s*\{[^}]*counter\(page\)[^}]*counter\(pages\)/);
+    const off = buildPrintDocument('<p>x</p>', { pageNumbers: false });
+    expect(off).not.toContain('counter(page)');
+  });
+
+  it('a header string is HTML-escaped in its running div (injection guard)', () => {
+    const d = buildPrintDocument('<p>x</p>', { header: '<img src=x onerror=hack>' });
+    expect(d).not.toContain('<img src=x onerror');
+    expect(d).toContain('&lt;img src=x onerror=hack&gt;');
   });
 
   it('carries the page-break rule so oe-page-break HRs actually break', () => {
@@ -142,6 +153,95 @@ describe('buildPrintDocument', () => {
       const out = buildPrintDocument(table);
       expect(out).toContain('width: 50.0000%');
       expect(out).toContain('<caption>Cap</caption>');
+    });
+  });
+
+  describe('image / figure alignment fidelity', () => {
+    it('replicates ALL four editor figure-alignment classes in the print CSS', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/figure\.oe-figure--left\s*\{[^}]*float:\s*left/);
+      expect(d).toMatch(/figure\.oe-figure--right\s*\{[^}]*float:\s*right/);
+      expect(d).toMatch(/figure\.oe-figure--center\s*\{[^}]*margin-left:\s*auto/);
+      expect(d).toMatch(/figure\.oe-figure--inline\s*\{[^}]*display:\s*inline-block/);
+    });
+
+    it('a right-aligned figure keeps its class + image in the output', () => {
+      const fig = '<figure class="oe-figure oe-figure--right"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="x"></figure>';
+      const d = buildPrintDocument(fig);
+      expect(d).toContain('oe-figure--right');
+      expect(d).toContain('<img');
+    });
+
+    it('floated figures clear so following content does not wrap oddly', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/oe-figure--(left|right)::after[^{]*\{[^}]*clear:\s*both/);
+    });
+  });
+
+  describe('content fidelity (I1/I2/I3)', () => {
+    it('I1 — code blocks wrap instead of clipping at the page edge', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/pre[^{]*\{[^}]*white-space:\s*pre-wrap/);
+    });
+
+    it('I2 — callout styles key on the EDITOR\'s real data-bq-style values (callout-info/-warning/-success/-danger), never a bare "callout"', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      // The editor never emits data-bq-style="callout" — only the four variants.
+      expect(d).not.toContain('data-bq-style="callout"]');
+      expect(d).toContain('blockquote[data-bq-style="callout-info"]');
+      expect(d).toContain('blockquote[data-bq-style="callout-warning"]');
+      expect(d).toContain('blockquote[data-bq-style="callout-success"]');
+      expect(d).toContain('blockquote[data-bq-style="callout-danger"]');
+      // card / pull too
+      expect(d).toContain('blockquote[data-bq-style="card"]');
+      expect(d).toContain('blockquote[data-bq-style="pull"]');
+    });
+
+    it('I2 — callout accent colors match the editor tokens exactly', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toContain('#1e88e5'); // info
+      expect(d).toContain('#f5c518'); // warning
+      expect(d).toContain('#43a047'); // success
+      expect(d).toContain('#e53935'); // danger
+    });
+
+    it('I2 — a per-quote custom --bq-accent inline var is honored (border+fill read var())', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/border-left:\s*4px solid var\(--bq-accent\)/);
+      expect(d).toMatch(/color-mix\(in srgb, var\(--bq-accent\)/);
+    });
+
+    it('I10 — headings match the editor scale/weight (h1/h2 700, h2 1.5em, h3 1.25em) and link color', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/h1\s*\{\s*font-size:\s*2em;\s*font-weight:\s*700/);
+      expect(d).toMatch(/h2\s*\{\s*font-size:\s*1\.5em;\s*font-weight:\s*700/);
+      expect(d).toMatch(/h3\s*\{\s*font-size:\s*1\.25em;\s*font-weight:\s*600/);
+      expect(d).toContain('a { color: #3547b8;'); // editor --oe-link
+    });
+
+    it('I3 — to-do lists get a real checkbox glyph reflecting checked state', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      // unchecked box + checked box glyphs via ::before content
+      expect(d).toMatch(/li\[data-todo\]::before\s*\{[^}]*content:\s*"\\2610"/);
+      expect(d).toMatch(/data-checked="true"\]::before\s*\{\s*content:\s*"\\2611"/);
+      // the CSS-only carrier span is hidden so it adds no stray marks
+      expect(d).toContain('.oe-todo-check { display: none;');
+    });
+
+    it('I5 — a media embed renders a bordered placeholder with a STATIC label (data-provider is stripped by the sanitizer, so attr() would be blank)', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toContain('figure.oe-embed');
+      // must NOT rely on the stripped attribute — that produced "Embedded  video"
+      expect(d).not.toMatch(/content:[^;]*attr\(data-provider\)/);
+      expect(d).toMatch(/oe-embed::before\s*\{[^}]*content:\s*"Embedded video"/);
+      expect(d).toContain('.oe-embed__shield { display: none;');
+      // 16/9 aspect mirrors the editor rather than a fixed height
+      expect(d).toMatch(/oe-embed__frame\s*\{[^}]*aspect-ratio:\s*16 \/ 9/);
+    });
+
+    it('I7 — bookmark anchors lose their editing chrome but keep text + id', () => {
+      const d = buildPrintDocument('<p>x</p>');
+      expect(d).toMatch(/a\.oe-bookmark\s*\{[^}]*text-decoration:\s*none/);
     });
   });
 });

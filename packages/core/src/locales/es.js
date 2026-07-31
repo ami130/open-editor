@@ -41,6 +41,7 @@ export const es = {
   media: 'Insertar vídeo',
   codeBlock: 'Bloque de código',
   source: 'Código fuente',
+  speech: 'Dictar (voz a texto)',
   heading: 'Formato',
   paragraph: 'Párrafo',
   h1: 'Título 1',

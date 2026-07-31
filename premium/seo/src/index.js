@@ -9,8 +9,12 @@
  *   editor.plugins.install(createSeoPlugin(host, { keyword: 'rich text editor' }));
  *   // → toolbar button (opens the panel) + editor.analyzeSeo(opts) (headless)
  *
- * Config (install-time, editor._config.seo, or per-call): keyword,
- * metaDescription.
+ * Config (install-time or per-call): keyword, metaDescription, title, url,
+ * siteUrl, contentContext ('body-fragment' default | 'full-page'), expectH1,
+ * lang, ruleset (threshold overrides). See normalizeOptions in seo-config.js.
+ *
+ * For HEADLESS/server use without the editor UI, import the pure analyzer from
+ * the subpath instead: `import { analyzeSeo } from '@openeditor-premium/seo/analyze'`.
  */
 import { gatePremiumPlugin } from '@openeditor-premium/runtime';
 import { rawSeoSpec } from './seo-plugin.js';
@@ -27,5 +31,6 @@ export function createSeoPlugin(host, config = {}) {
   return gatePremiumPlugin(host, FEATURE_ID, rawSeoSpec(config));
 }
 
-export { analyzeSeo } from './seo-analyze.js';
+export { analyzeSeo, normalizeOptions } from './seo-analyze.js';
 export { fleschReadingEase } from './readability.js';
+export { DEFAULT_RULESET } from './seo-config.js';

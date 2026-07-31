@@ -7,6 +7,7 @@
 
 import { nearestLi, nearestList, placeCursor } from './list-dom.js';
 import { indentLi, outdentLi } from './list-dom-indent.js';
+import { featureForCommand } from '../entitlements/feature-catalog.js';
 
 function editorEl(editor)   { return editor.getEditorElement(); }
 function getDoc(editor)     { return editor._iframeDoc || document; }
@@ -55,6 +56,12 @@ function isAtLiStart(li, info) {
 
 export function handleListTab(editor, shiftKey) {
   if (editor._config && editor._config.readonly) return false;
+  // Feature gating (Phase 2 leak-fix): Tab/Shift+Tab list nesting runs straight
+  // from keydown — it does NOT go through commands.execute, so it must gate
+  // itself or it bypasses list.indent gating. When list.indent isn't granted,
+  // return false so the key passes through normally (no structural nesting).
+  const indentFeature = featureForCommand('indent'); // → 'list.indent'
+  if (indentFeature && editor.isFeatureGranted && !editor.isFeatureGranted(indentFeature)) return false;
   const info = getSelInfo(editor);
   if (!info) return false;
   const root = editorEl(editor);
@@ -91,6 +98,10 @@ function isEmptyLi(li) {
     li.firstChild.nodeType === 1 && li.firstChild.tagName.toLowerCase() === 'br');
 }
 
+// NOTE (feature gating): handleListEnter is intentionally NOT gated. Enter on an
+// empty <li> EXITS the list (a cleanup/escape action, like Backspace) — it never
+// CREATES list structure, so it belongs with the always-on core. Gating it would
+// trap a user inside a list they can't leave. (Tab-nesting IS gated above.)
 export function handleListEnter(editor) {
   if (editor._config && editor._config.readonly) return false;
   const info = getSelInfo(editor);

@@ -48,6 +48,7 @@ import { registerLangCommands } from './lang-commands.js';
 import { openA11yHelpDialog } from '../ui/a11y-help-dialog.js';
 import { resolveLocale } from '../ui/toolbar/locale.js';
 import { CommandManager } from './command-manager.js';
+import { featureForCommand } from '../entitlements/feature-catalog.js';
 
 export function setupCommands(editor) {
   editor.commands = new CommandManager(editor);
@@ -144,27 +145,49 @@ export function setupCommands(editor) {
     isEnabled: (ed) => !!ed.history && ed.history.canRedo(),
   });
 
-  // ── Keyboard shortcuts ──
-  editor.shortcuts.register('alt+0',        'accessibilityHelp', 'Keyboard shortcuts');
-  editor.shortcuts.register('ctrl+b',       'bold',           'Bold');
-  editor.shortcuts.register('meta+b',       'bold',           'Bold');
-  editor.shortcuts.register('ctrl+i',       'italic',         'Italic');
-  editor.shortcuts.register('meta+i',       'italic',         'Italic');
-  editor.shortcuts.register('ctrl+u',       'underline',      'Underline');
-  editor.shortcuts.register('meta+u',       'underline',      'Underline');
-  editor.shortcuts.register('ctrl+shift+x', 'strikethrough',  'Strikethrough');
-  editor.shortcuts.register('meta+shift+x', 'strikethrough',  'Strikethrough');
-  editor.shortcuts.register('ctrl+a',       'selectAll',      'Select all');
-  editor.shortcuts.register('meta+a',       'selectAll',      'Select all');
-  editor.shortcuts.register('ctrl+z',       'undo',           'Undo');
-  editor.shortcuts.register('meta+z',       'undo',           'Undo');
-  editor.shortcuts.register('ctrl+y',       'redo',           'Redo');
-  editor.shortcuts.register('meta+y',       'redo',           'Redo');
-  editor.shortcuts.register('ctrl+shift+z', 'redo',           'Redo');
-  editor.shortcuts.register('meta+shift+z', 'redo',           'Redo');
+  // ── Keyboard shortcuts ── (Phase 2.3 gating; Phase 1a re-registerable)
+  registerGrantedShortcuts(editor);
 
   // Route shortcut events → command execution
   editor.on('shortcut', (descriptor) => {
     if (editor.commands) editor.commands.execute(descriptor.command);
   });
+}
+
+/**
+ * The built-in keyboard shortcut table: [combo, command, label]. A single
+ * source of truth so both the initial setup and the Phase-1a post-mount
+ * re-registration (after a license grants more features) use the same list.
+ */
+export const BUILTIN_SHORTCUTS = [
+  ['alt+0',        'accessibilityHelp', 'Keyboard shortcuts'],
+  ['ctrl+b',       'bold',           'Bold'],       ['meta+b',       'bold',           'Bold'],
+  ['ctrl+i',       'italic',         'Italic'],     ['meta+i',       'italic',         'Italic'],
+  ['ctrl+u',       'underline',      'Underline'],  ['meta+u',       'underline',      'Underline'],
+  ['ctrl+shift+x', 'strikethrough',  'Strikethrough'], ['meta+shift+x', 'strikethrough',  'Strikethrough'],
+  ['ctrl+a',       'selectAll',      'Select all'], ['meta+a',       'selectAll',      'Select all'],
+  ['ctrl+z',       'undo',           'Undo'],       ['meta+z',       'undo',           'Undo'],
+  ['ctrl+y',       'redo',           'Redo'],       ['meta+y',       'redo',           'Redo'],
+  ['ctrl+shift+z', 'redo',           'Redo'],       ['meta+shift+z', 'redo',           'Redo'],
+];
+
+/**
+ * Register the built-in shortcuts whose command's feature is GRANTED and that
+ * are not ALREADY registered. Idempotent — safe to call at initial setup and
+ * again post-mount (Phase 1a) after `applyEntitlements` widens the grant, with
+ * no duplicate-registration warnings for combos already present.
+ *
+ * Gating rationale (Phase 2.3): a shortcut for an ungranted feature is NOT
+ * registered, so its key isn't captured/`preventDefault`ed only to no-op at
+ * execute. Always-on/unmapped commands (featureForCommand → null) always pass.
+ * @param {object} editor the OpenEditor instance
+ */
+export function registerGrantedShortcuts(editor) {
+  if (!editor || !editor.shortcuts) return;
+  for (const [combo, command, label] of BUILTIN_SHORTCUTS) {
+    const featureId = featureForCommand(command);
+    if (featureId && editor.isFeatureGranted && !editor.isFeatureGranted(featureId)) continue;
+    if (editor.shortcuts.has(combo)) continue; // already registered → skip (no dup warning)
+    editor.shortcuts.register(combo, command, label);
+  }
 }

@@ -2,11 +2,12 @@
   "name": "openeditor-text-toolbar",
   "version": "1.1.0",
   "private": true,
-  "description": "Open Editor toolbar \u2014 placeholder; toolbar currently ships inside the core package (openeditor-text)",
+  "description": "Open Editor toolbar — placeholder; toolbar currently ships inside the core package (openeditor-text)",
   "type": "module",
   "main": "./src/index.js",
   "scripts": {
-    "test": "echo 'stub package - implementation lives in core/src; no tests here' && exit 0"
+    "test": "echo 'stub package - implementation lives in core/src; no tests here' && exit 0",
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs"
   },
   "dependencies": {
     "openeditor-text": "workspace:*"

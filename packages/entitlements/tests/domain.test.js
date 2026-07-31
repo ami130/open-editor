@@ -25,9 +25,10 @@ describe('hostMatchesPattern (22.5a)', () => {
     expect(hostMatchesPattern('CUSTOMER.com', 'customer.COM')).toBe(true);
     expect(hostMatchesPattern('app.customer.com', 'customer.com')).toBe(false);
   });
-  it('single-level wildcard, not apex, not multi-level', () => {
+  it('single-level wildcard: one sub-level AND the apex (Phase 5 reconciliation), not multi-level', () => {
     expect(hostMatchesPattern('app.customer.com', '*.customer.com')).toBe(true);
-    expect(hostMatchesPattern('customer.com', '*.customer.com')).toBe(false);
+    // apex is now COVERED by its own wildcard (matches the server refresh matcher).
+    expect(hostMatchesPattern('customer.com', '*.customer.com')).toBe(true);
     expect(hostMatchesPattern('a.b.customer.com', '*.customer.com')).toBe(false);
   });
   it('malformed patterns fail closed', () => {
@@ -46,5 +47,13 @@ describe('hostAllowed', () => {
     expect(hostAllowed('app.customer.com', ['other.com', '*.customer.com'])).toBe(true);
     expect(hostAllowed('app.customer.com', ['other.com'])).toBe(false);
     expect(hostAllowed('app.customer.com', 'not-an-array')).toBe(false);
+  });
+  it('EMPTY array → non-domain-bound → allowed on ANY host (audit F2)', () => {
+    expect(hostAllowed('any.host.com', [])).toBe(true);
+    expect(hostAllowed('localhost', [])).toBe(true);
+  });
+  it('non-array (malformed/absent) stays DENIED — fail closed', () => {
+    expect(hostAllowed('any.host.com', undefined)).toBe(false);
+    expect(hostAllowed('any.host.com', null)).toBe(false);
   });
 });

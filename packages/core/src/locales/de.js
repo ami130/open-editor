@@ -41,6 +41,7 @@ export const de = {
   media: 'Video einbetten',
   codeBlock: 'Codeblock',
   source: 'Quelltext',
+  speech: 'Diktieren (Sprache zu Text)',
   heading: 'Format',
   paragraph: 'Absatz',
   h1: 'Überschrift 1',

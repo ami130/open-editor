@@ -86,14 +86,14 @@ test.describe('Phase 19 — premium gate', () => {
     await expect(page.locator('.oe-editor')).toContainText('after dismiss');
   });
 
-  test('panel UI drives the same pipeline: check the flag, click Apply, feature activates', async ({ page }) => {
-    await page.locator('.pg-premium-panel summary').click();
-    await page.locator('.pg-premium-panel input[value="dev.smoke"]').check();
-    await page.locator('[data-pg-premium="apply"]').click();
+  test('apply→activate→clear round-trip: grant the flag, feature activates, clear deactivates', async ({ page }) => {
+    // The visible dev license bar was removed permanently; this drives the SAME
+    // mint→verify→gate→install pipeline headlessly via window.__premium (the same
+    // path the bar used to call). Grant dev.smoke → hello-premium activates.
+    await page.evaluate(() => window.__premium.apply(['dev.smoke']));
     await expect(page.locator(ATTR)).toHaveCount(1);
-    await expect(page.locator('[data-pg-premium-status]')).toContainText('ACTIVE');
-    // Clear returns to a clean free editor
-    await page.locator('[data-pg-premium="clear"]').click();
+    // Clear returns to a clean free editor.
+    await page.evaluate(() => window.__premium.clear());
     await expect(page.locator(ATTR)).toHaveCount(0);
   });
 });

@@ -42,6 +42,7 @@ export const EN_LOCALE = {
   media: 'Embed video',
   codeBlock: 'Code block',
   source: 'Source code',
+  speech: 'Dictate (speech to text)',
   // 17.11 — plugin-button keys that previously hardcoded their tooltips
   // (exact same strings, so EN rendering is unchanged).
   // 17.5.1 — change case dropdown

@@ -84,23 +84,36 @@ export function createMediaPlugin() {
       const note = doc.createElement('div');
       note.className = 'oe-embed-dialog__note';
       note.textContent = 'Only YouTube and Vimeo links are supported.';
-      wrap.append(input, note);
+      // An error line, hidden until a bad URL is entered — so an unsupported URL
+      // shows a VISIBLE reason IN the dialog instead of silently closing it.
+      const err = doc.createElement('div');
+      err.className = 'oe-embed-dialog__error';
+      err.setAttribute('role', 'alert');
+      err.style.cssText = 'display:none;margin-top:6px;color:#c5221f;font-size:13px';
+      wrap.append(input, note, err);
 
       const bookmark = editor.selection ? editor.selection.save() : null;
-      const ok = await editor.ui.modal.open({
-        title: 'Embed video',
-        body: wrap,
-        buttons: [
-          { label: 'Embed', value: 'ok', variant: 'primary' },
-          { label: 'Cancel', value: null },
-        ],
-      });
-      if (ok !== 'ok') return;
 
-      const spec = parseMediaUrl(input.value);
-      if (!spec) {
-        editor.emit('error', { error: new Error('Unsupported or invalid video URL'), context: 'plugin:media:parse' });
-        return;
+      // Re-open on an invalid URL (keeping what the user typed + showing why)
+      // rather than closing silently. Cancel/close still exits cleanly.
+      let spec = null;
+      for (;;) {
+        const ok = await editor.ui.modal.open({
+          title: 'Embed video',
+          body: wrap,
+          buttons: [
+            { label: 'Embed', value: 'ok', variant: 'primary' },
+            { label: 'Cancel', value: null },
+          ],
+        });
+        if (ok !== 'ok') return; // cancelled / closed — no error into the void
+        spec = parseMediaUrl(input.value);
+        if (spec) break;
+        // Invalid → show the reason and loop; the input keeps its value.
+        err.textContent = input.value.trim()
+          ? 'That link isn’t a supported YouTube or Vimeo video. Check the URL and try again.'
+          : 'Please paste a YouTube or Vimeo video URL.';
+        err.style.display = 'block';
       }
 
       if (bookmark && editor.selection) editor.selection.restore(bookmark);

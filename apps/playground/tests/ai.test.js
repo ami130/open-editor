@@ -113,6 +113,76 @@ test.describe('Phase 19.7 — AI Writing', () => {
       .toContain('hola mundo');
   });
 
+  test('REAL FLOW: translate via the toolbar button + language menu replaces the selection', async ({ page }) => {
+    // The path a real user takes — click the button, pick a language from the
+    // menu. (The imperative aiTranslate() test above bypassed the UI entirely.)
+    await page.evaluate(() => window.__premium.apply(['ai.translate']));
+    await stubAi(page, 'texto traducido');
+    await page.evaluate(() => {
+      const ed = window.__openEditorInstance; ed.getEditorElement().focus();
+      const r = document.createRange(); r.selectNodeContents(ed.getEditorElement());
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    await page.locator('.oe-toolbar [data-name="aiTranslate"]').click();
+    await page.locator('.oe-menu__item').first().click();
+    await expect.poll(() => page.evaluate(() => window.__openEditorInstance.getHTML()))
+      .toContain('texto traducido');
+    await expect.poll(() => page.evaluate(() => window.__openEditorInstance.getHTML()))
+      .not.toContain('original text');
+  });
+
+  test('FAILURE-SAFE: a failed translation must NOT delete the selected text', async ({ page }) => {
+    // The reported "not working at all": on an endpoint error the plugin used to
+    // delete the selection first, so the user's text vanished with nothing back.
+    await page.evaluate(() => window.__premium.apply(['ai.translate']));
+    await page.evaluate(() => {
+      window.__openEditorInstance._config.aiEndpoint = 'https://ai.test/complete';
+      window.fetch = () => Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve('err') });
+    });
+    await page.evaluate(() => {
+      const ed = window.__openEditorInstance; ed.getEditorElement().focus();
+      const r = document.createRange(); r.selectNodeContents(ed.getEditorElement());
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    await page.evaluate(() => window.__openEditorInstance.aiTranslate('Spanish'));
+    await page.waitForTimeout(200);
+    // the original content survives the failure
+    await expect.poll(() => page.evaluate(() => window.__openEditorInstance.getHTML()))
+      .toContain('original text');
+  });
+
+  test('OUT OF THE BOX: the demo endpoint makes translate produce output with NO stub/setup', async ({ page }) => {
+    // No stubAi(), no fetch override — relies on the playground's built-in demo
+    // AI endpoint, so a first-time user sees translate actually work.
+    await page.evaluate(() => window.__premium.apply(['ai.translate']));
+    await page.evaluate(() => {
+      const ed = window.__openEditorInstance; ed.getEditorElement().focus();
+      const r = document.createRange(); r.selectNodeContents(ed.getEditorElement());
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    await page.locator('.oe-toolbar [data-name="aiTranslate"]').click();
+    await page.locator('.oe-menu__item', { hasText: 'Korean' }).first().click();
+    // the demo endpoint prefixes with the target language, so content changes
+    await expect.poll(() => page.evaluate(() => window.__openEditorInstance.getHTML()))
+      .toContain('Korean');
+  });
+
+  test('ERROR SURFACED: a failed AI request shows a visible, actionable message', async ({ page }) => {
+    await page.evaluate(() => window.__premium.apply(['ai.translate']));
+    await page.evaluate(() => {
+      window.__openEditorInstance._config.aiEndpoint = 'https://ai.test/complete';
+      window.fetch = () => Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve('err') });
+    });
+    await page.evaluate(() => {
+      const ed = window.__openEditorInstance; ed.getEditorElement().focus();
+      const r = document.createRange(); r.selectNodeContents(ed.getEditorElement());
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    await page.evaluate(() => window.__openEditorInstance.aiTranslate('Spanish'));
+    // a visible error bar appears (was completely silent before)
+    await expect(page.locator('[data-oe-ai-status="error"]')).toBeVisible();
+  });
+
   test('ai.review → reviews selection, shows accept/reject suggestions, applies them', async ({ page }) => {
     await page.evaluate(() => window.__openEditorInstance.setHTML('<p>teh cat sat</p>'));
     await page.evaluate(() => window.__premium.apply(['ai.review']));

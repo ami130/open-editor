@@ -7,6 +7,7 @@
 import { bodyXml } from './ooxml-body.js';
 import { buildDocx } from './docx-parts.js';
 import { createResourceCollector } from './docx-resources.js';
+import { resolveRemoteImages } from './image-fetch.js';
 
 const DOCX_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -30,23 +31,34 @@ export function rawExportDocxSpec(config = {}) {
     return { ...config, ...base, ...(override || {}) };
   }
 
-  /** Build the .docx bytes for the current content (pure-ish: no download). */
-  function buildBytes(override) {
+  /**
+   * Build the .docx bytes for the current content. ASYNC: remote (http/https)
+   * images must be fetched before the (synchronous) OOXML walk can embed them
+   * — see image-fetch.js for why this is a pre-pass rather than an inline
+   * await. data: URI images and everything else stay unaffected either way.
+   */
+  async function buildBytes(override) {
     const opts = resolveOptions(override);
     const title = opts.title || (editor._config && editor._config.documentTitle) || 'Document';
     const doc = editor._iframeDoc || (typeof document !== 'undefined' ? document : null);
     if (!doc) return null;
     const html = editor.getHTML ? editor.getHTML() : '';
+    const tmp = doc.createElement('div');
+    tmp.innerHTML = html;
+    // Fetch every remote <img> concurrently BEFORE walking (fails soft per
+    // image — a blocked/broken fetch degrades that one image to a placeholder,
+    // never aborts the export).
+    const resolvedImages = await resolveRemoteImages(tmp);
     // A collector gathers hyperlink + embedded-image relationships during the
     // walk; buildDocx turns them into rels + media parts + content-types.
     const collector = createResourceCollector();
-    const body = bodyXml(html, doc, collector);
+    const body = bodyXml(html, doc, collector, resolvedImages);
     return { bytes: buildDocx(body, { title, resources: collector.result() }), title };
   }
 
-  function exportDocx(override) {
+  async function exportDocx(override) {
     if (!editor || editor._destroyed || typeof document === 'undefined') return false;
-    const built = buildBytes(override);
+    const built = await buildBytes(override);
     if (!built) return false;
     try {
       const blob = new Blob([built.bytes], { type: DOCX_MIME });
@@ -73,8 +85,9 @@ export function rawExportDocxSpec(config = {}) {
     install(ed) {
       editor = ed;
       ed.exportDocx = exportDocx;
-      // Expose the pure byte builder too (useful for server-side / tests).
-      ed.buildDocxBytes = (o) => { const b = buildBytes(o); return b ? b.bytes : null; };
+      // Expose the byte builder too (useful for server-side / tests). ASYNC
+      // now — remote images are fetched before the bytes are ready.
+      ed.buildDocxBytes = async (o) => { const b = await buildBytes(o); return b ? b.bytes : null; };
     },
     destroy() {
       if (editor) {

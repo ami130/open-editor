@@ -17,7 +17,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs"
   },
   "devDependencies": {
     "vitest": "1.6.1"

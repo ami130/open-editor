@@ -33,10 +33,14 @@ export default [
     },
   },
   // Single-file minified ESM — for direct <script type="module"> / CDN use.
+  // inlineDynamicImports: a single `file` output can't emit separate chunks, so
+  // the Phase-1b lazy premium import()s are INLINED here (CDN/script consumers
+  // have no chunk loader — premium stays eager for this format; that's the
+  // honest, unavoidable outcome). Only the ESM-tree output (above) truly splits.
   {
     input: 'src/index.js',
     output: [
-      { file: 'dist/open-editor.esm.min.js', format: 'es', banner, sourcemap: false, ...min },
+      { file: 'dist/open-editor.esm.min.js', format: 'es', banner, sourcemap: false, inlineDynamicImports: true, ...min },
     ],
   },
   // CJS build — for Node.js and older bundlers.
@@ -46,14 +50,14 @@ export default [
   {
     input: 'src/index.js',
     output: [
-      { file: 'dist/open-editor.min.cjs', format: 'cjs', banner, sourcemap: false, exports: 'named', ...min },
+      { file: 'dist/open-editor.min.cjs', format: 'cjs', banner, sourcemap: false, exports: 'named', inlineDynamicImports: true, ...min },
     ],
   },
   // UMD build — for direct <script> tag usage in browser.
   {
     input: 'src/index.js',
     output: [
-      { file: 'dist/open-editor.umd.min.js', format: 'umd', name: 'OpenEditor', banner, sourcemap: false, ...min },
+      { file: 'dist/open-editor.umd.min.js', format: 'umd', name: 'OpenEditor', banner, sourcemap: false, inlineDynamicImports: true, ...min },
     ],
   },
 ];

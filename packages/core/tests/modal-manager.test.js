@@ -141,6 +141,41 @@ describe('ModalManager', () => {
     await p;
   });
 
+  it('Enter confirms the PRIMARY button (not the scrollable body)', async () => {
+    const p = mgr.open({
+      title: 'x',
+      buttons: [{ label: 'Keep', value: 'ok', variant: 'primary' }, { label: 'Cancel', value: null }],
+    });
+    const dialog = wrapper.querySelector('.oe-modal');
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(await p).toBe('ok');
+  });
+
+  it('focuses the first form field on open (not the body), else the primary button', () => {
+    const body = document.createElement('div');
+    const input = document.createElement('input');
+    body.appendChild(input);
+    mgr.open({ title: 'x', body, buttons: [{ label: 'OK', value: 'ok', variant: 'primary' }] });
+    expect(document.activeElement).toBe(input); // the field, not the tabindex=0 body
+    mgr.close();
+  });
+
+  it('Enter is NOT hijacked inside a <textarea> (newline preserved there)', async () => {
+    let resolved = false;
+    const body = document.createElement('div');
+    const ta = document.createElement('textarea');
+    body.appendChild(ta);
+    const p = mgr.open({ title: 'x', body, buttons: [{ label: 'OK', value: 'ok', variant: 'primary' }] });
+    p.then(() => { resolved = true; });
+    ta.focus();
+    const dialog = wrapper.querySelector('.oe-modal');
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await Promise.resolve();
+    expect(resolved).toBe(false); // textarea keeps Enter for a newline
+    mgr.close();
+    await p;
+  });
+
   // 6.8 — scoped to wrapper, not document.body
   it('modal is appended inside wrapper, not document.body', () => {
     mgr.open({ title: 'scoped' });

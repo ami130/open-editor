@@ -5,7 +5,12 @@
  *  - selection is saved before and restored after every command (toolbar-click safety)
  *  - beforeCommand / afterCommand events fire consistently
  *  - batch() groups multiple commands into one undo step
+ *  - feature gating: a command whose feature isn't licensed is refused here,
+ *    which covers EVERY path that runs a command (toolbar, slash, autoformat,
+ *    context menu, keyboard, and the public API) in one choke point.
  */
+import { featureForCommand } from '../entitlements/feature-catalog.js';
+
 export class CommandManager {
   constructor(editor) {
     this._editor = editor;
@@ -55,6 +60,16 @@ export class CommandManager {
       this._editor.logger && this._editor.logger.warn(
         `CommandManager: unknown command "${name}"`
       );
+      return false;
+    }
+
+    // Feature gating (Phase 2.2): refuse a command whose catalog feature isn't
+    // licensed. Unmapped commands (featureForCommand → null) and always-on core
+    // are NOT gated (isFeatureGranted returns true for them). This one check
+    // covers the public API + autoformat + slash + context-menu execution paths.
+    const featureId = featureForCommand(name);
+    if (featureId && this._editor.isFeatureGranted && !this._editor.isFeatureGranted(featureId)) {
+      this._editor.logger && this._editor.logger.info(`CommandManager: "${name}" not licensed (${featureId})`);
       return false;
     }
 

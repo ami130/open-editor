@@ -16,6 +16,7 @@
 
 import { isInsideTag } from '../selection/range-utils.js';
 import { CommandManager } from './command-manager.js';
+import { featureForCommand } from '../entitlements/feature-catalog.js';
 import {
   isList, nearestLi, nearestList, placeCursor, topBlock,
   getSelectionBlocks,
@@ -168,6 +169,14 @@ export const olCommand = {
 // Atomic: create list AND apply style in one step — avoids stale-selection bug.
 
 export function toggleListWithStyle(editor, tag, styleValue) {
+  // Feature gating (Phase 2 leak-fix): this path formats via direct DOM, NOT
+  // through commands.execute(), so it must consult the gate itself or it bypasses
+  // list gating. `tag` is 'ul'/'ol' → list.bullet/list.ordered; the style value
+  // is the list.style feature. If the list feature isn't granted, do nothing; if
+  // list is granted but list.style isn't, create the list without the style.
+  const granted = (feature) => !feature || !editor.isFeatureGranted || editor.isFeatureGranted(feature);
+  if (!granted(featureForCommand(tag))) return;
+
   const info = getSelInfo(editor);
   if (!info) return;
   const root = editorEl(editor);
@@ -179,7 +188,7 @@ export function toggleListWithStyle(editor, tag, styleValue) {
   } else {
     list = toggleList(editor, tag);
   }
-  if (list && styleValue) {
+  if (list && styleValue && granted('list.style')) {
     list.style.listStyleType = styleValue;
   }
 }

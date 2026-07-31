@@ -68,6 +68,45 @@ function cellProps(cell, striped, isEvenRow, merge = {}) {
   return `<w:tcPr>${parts.join('')}</w:tcPr>`;
 }
 
+// Block tags that, inside a cell, must become their OWN paragraph rather than
+// being flattened into the cell's single run stream (I15). Mirrors the block
+// set in ooxml-body.
+const CELL_BLOCK_TAGS = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'dl', 'table']);
+
+/**
+ * Render a table cell's content as one or more <w:p> (I15). A cell with block
+ * children (multiple <p>, a list, a nested table…) emits a paragraph per block
+ * child via ctx.blockXml; the FIRST block carries the cell's paragraph style
+ * (e.g. TableHeader). An inline-only cell is a single styled paragraph, exactly
+ * as before. Always returns at least one paragraph so the <w:tc> is valid.
+ */
+function cellParagraphs(cell, opts, para) {
+  const ctx = opts.ctx;
+  const blockChildren = ctx && ctx.blockXml
+    ? Array.from(cell.children).filter((c) => CELL_BLOCK_TAGS.has(c.tagName.toLowerCase()))
+    : [];
+  if (!blockChildren.length) return para(cell, opts) || '<w:p/>';
+  let out = '';
+  let firstDone = false;
+  let lastTag = '';
+  for (const c of cell.children) {
+    const t = c.tagName.toLowerCase();
+    if (!CELL_BLOCK_TAGS.has(t)) continue;
+    if (!firstDone && (t === 'p' || t === 'div')) {
+      // Reuse the cell's style/baseMarks on the first simple paragraph.
+      out += para(c, opts); firstDone = true;
+    } else {
+      out += ctx.blockXml(c); firstDone = true;
+    }
+    lastTag = t;
+  }
+  if (!out) return para(cell, opts) || '<w:p/>';
+  // OOXML requires a <w:tc> to END with a <w:p>. If the cell's last block is a
+  // nested table (emits <w:tbl>), append an empty paragraph or Word rejects it.
+  if (lastTag === 'table') out += '<w:p/>';
+  return out;
+}
+
 /** An empty continuation cell for a vertical (rowspan) merge. */
 function vMergeContinuationCell(gridSpan) {
   const gs = gridSpan > 1 ? `<w:gridSpan w:val="${gridSpan}"/>` : '';
@@ -92,7 +131,13 @@ function tableGrid(table, colCount) {
  * @returns {string} the <w:tbl> XML (with a preceding caption paragraph if any)
  */
 export function tableXml(table, { para, escapeXml, ctx }) {
-  const rows = Array.from(table.querySelectorAll('tr'));
+  // Only the rows OWNED by this table — NOT rows of a nested <table> inside a
+  // cell (querySelectorAll('tr') is unscoped and would pull those in, then the
+  // same nested table also renders on its own via the cell walk → duplicated,
+  // grid-corrupting rows and a "repair" prompt in Word). A row belongs to this
+  // table iff its closest ancestor <table> is this one.
+  const rows = Array.from(table.querySelectorAll('tr'))
+    .filter((tr) => tr.closest('table') === table);
   if (!rows.length) return '';
   const striped = /\boe-table--striped\b/.test(table.getAttribute('class') || '');
   const stripe = stripeFill(table);
@@ -116,36 +161,45 @@ export function tableXml(table, { para, escapeXml, ctx }) {
     ? `<w:p><w:pPr><w:pStyle w:val="Caption"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(captionEl.textContent.trim())}</w:t></w:r></w:p>`
     : '';
 
-  // Track active vertical (rowspan) merges so we can insert <w:vMerge continue>
-  // continuation cells in the rows they span.
+  // Track active vertical (rowspan) merges BY COLUMN so a continuation lands in
+  // the SAME column its origin cell occupied — not always at the front of the
+  // row (the old bug: a rowspan starting in column 2+ pushed every following
+  // cell out of place and could overflow the grid). `openSpans` maps a column
+  // index → { rowsLeft, gridSpan } for rowspans still open below that column.
   let trs = '';
-  const pending = []; // [{ colsLeft, gridSpan }] — rowspans still open below
+  const openSpans = new Map(); // colIndex → { rowsLeft, gridSpan }
   rows.forEach((tr, rowIdx) => {
     const cells = Array.from(tr.children).filter((c) => /^t[hd]$/i.test(c.tagName));
-    const nextPending = [];
     let tcs = '';
-    // Emit continuations from rowspans opened in earlier rows first.
-    for (const p of pending) {
-      tcs += vMergeContinuationCell(p.gridSpan);
-      if (p.colsLeft > 1) nextPending.push({ colsLeft: p.colsLeft - 1, gridSpan: p.gridSpan });
-    }
-    for (const cell of cells) {
+    let col = 0;          // current grid column
+    let cellIdx = 0;      // index into this row's real cells
+    // Walk columns left→right; at each column either emit a pending
+    // continuation (this column is mid-rowspan) or consume the next real cell.
+    while (cellIdx < cells.length || openSpans.size) {
+      const open = openSpans.get(col);
+      if (open) {
+        tcs += vMergeContinuationCell(open.gridSpan);
+        if (open.rowsLeft > 1) openSpans.set(col, { rowsLeft: open.rowsLeft - 1, gridSpan: open.gridSpan });
+        else openSpans.delete(col);
+        col += open.gridSpan;
+        continue;
+      }
+      if (cellIdx >= cells.length) break; // no more real cells and no span here
+      const cell = cells[cellIdx++];
       cell._stripe = stripe;
       const isHead = cell.tagName.toLowerCase() === 'th';
       const gridSpan = spanOf(cell, 'colspan');
       const rowSpan = spanOf(cell, 'rowspan');
-      // Seed run marks with the cell's OWN text color (inline `color` on td/th).
       const cs = parseStyle(cell.getAttribute('style'));
       const baseMarks = {};
       const cc = cssColorToHex(cs.color);
       if (cc) baseMarks.color = cc;
-      const p = para(cell, { style: isHead ? 'TableHeader' : undefined, baseMarks, ctx });
+      const p = cellParagraphs(cell, { style: isHead ? 'TableHeader' : undefined, baseMarks, ctx }, para);
       const merge = { gridSpan, vMerge: rowSpan > 1 ? 'restart' : null };
       tcs += `<w:tc>${cellProps(cell, striped, rowIdx % 2 === 1, merge)}${p || '<w:p/>'}</w:tc>`;
-      if (rowSpan > 1) nextPending.push({ colsLeft: rowSpan - 1, gridSpan });
+      if (rowSpan > 1) openSpans.set(col, { rowsLeft: rowSpan - 1, gridSpan });
+      col += gridSpan;
     }
-    pending.length = 0;
-    for (const np of nextPending) pending.push(np);
     trs += `<w:tr>${tcs}</w:tr>`;
   });
   return `${caption}<w:tbl>${tblPr}${tableGrid(table, colCount)}${trs}</w:tbl>`;

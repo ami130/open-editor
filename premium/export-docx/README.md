@@ -15,8 +15,10 @@ editor.plugins.install(createExportDocxPlugin(host, { title: 'Quarterly Report' 
 ```
 
 Granted → a **"Export to Word"** toolbar button, plus:
-- `editor.exportDocx(opts?)` — build + trigger a browser download (`<title>.docx`)
-- `editor.buildDocxBytes(opts?)` — the raw `Uint8Array` (server-side / tests)
+- `editor.exportDocx(opts?)` — **async**: fetches remote images, builds the
+  `.docx`, and triggers a browser download (`<title>.docx`). Resolves `true`/`false`.
+- `editor.buildDocxBytes(opts?)` — **async**: resolves the raw `Uint8Array`
+  (server-side / tests)
 
 Denied → graceful degrade (no button, no handles, one dismissible notice).
 Config precedence: per-call → `editor._config.exportDocx` → install → default.
@@ -39,26 +41,38 @@ twips), vertical alignment, and **captions** (a Caption-styled paragraph before
 the table). CSS colors (`#rgb`, `#rrggbb`, `rgb()/rgba()`, named) are parsed to
 OOXML hex; a colored table is real-file validated (`unzip -t` + `xmllint`).
 
-## Links & images (2026-07-17)
+## Links & images
 
-- **Links** are now real clickable **`w:hyperlink`** relationships (external
+- **Links** are real clickable **`w:hyperlink`** relationships (external
   target, Hyperlink char style). `http(s)`/`mailto`/`tel`/anchor/relative hrefs
   are honored; unsafe schemes (e.g. `javascript:`) fall back to plain text.
-- **Images**: `data:` URIs are **embedded** as real `word/media/` parts with a
-  `w:drawing` (dimensions from width/height attrs or style). Remote `http(s)`
-  images can't be fetched synchronously, so they render a labeled placeholder
-  (`[Image: alt]`) rather than being silently dropped — figure captions are
-  always preserved as their own paragraph.
+- **Images — full embedding, including remote URLs (2026-07-18):** BOTH
+  `data:` URIs (decoded in-process) AND remote `http(s)` images (fetched
+  concurrently before the export runs) are embedded as real `word/media/`
+  parts with a `w:drawing` (dimensions from width/height attrs or style).
+  This is the common case — images inserted via the editor's normal upload
+  flow are hosted/remote URLs, not `data:` URIs, so this fetch step is what
+  makes "export to Word" actually show the pictures. A fetch failure for a
+  SPECIFIC image (CORS block, 404, timeout, unsupported format) degrades only
+  that image to a labeled placeholder (`[Image: alt]`) — it never aborts the
+  whole export. Figure captions are always preserved as their own paragraph
+  regardless of whether the image embedded.
 
 Resource wiring (hyperlink/image relationships, media parts, content-types) is
-collected during the DOM walk by `docx-resources.js` and assembled in
-`docx-parts.js`. A `.docx` with an embedded image + hyperlinks is real-file
-validated (`unzip -t` + `xmllint`, media part + rels present).
+collected by `docx-resources.js` + `image-fetch.js` and assembled in
+`docx-parts.js`. `image-fetch.js` is the ONE place in the export path that
+touches the network — it runs as a pre-pass (fetch every unique image URL
+concurrently) BEFORE the (synchronous) OOXML tree-walk, so `bodyXml()` itself
+stays pure; `exportDocx()`/`buildDocxBytes()` are therefore async. A `.docx`
+with a real fetched remote image + hyperlinks + colored table is real-file
+validated (`unzip -t` + `xmllint`, media part + rels present, confirmed no
+`[Image: …]` placeholder text where an image successfully embedded).
 
 ## Remaining limitation
 
-- Remote image **bytes** are not fetched (would require an async pipeline +
-  CORS); only `data:` images embed. Placeholder keeps content visible.
+- None for image embedding (data: and remote http(s) both embed). The one
+  documented gap is elsewhere: links carry their text/style but not (yet) a
+  richer relationship-level metadata beyond the URL target itself.
 
 ## Architecture (three pure, independently-tested layers)
 

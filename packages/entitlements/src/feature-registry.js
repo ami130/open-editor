@@ -24,16 +24,28 @@ export const FEATURES = {
   'export.docx': { title: 'Export to Word (DOCX)', since: '0.1.0' },
   'export.markdown': { title: 'Markdown Export', since: '0.1.0' },
   'import.word': { title: 'Word Import (DOCX → editor)', since: '0.1.0' },
-  'seo': { title: 'SEO Analyzer', since: '0.1.0' },
-  'footnotes': { title: 'Footnotes', since: '0.1.0' },
+  // SEO: DEPRECATED — product decision not to ship SEO (same as AI). Plugin code
+  // retained in premium/seo; marked deprecated to match the backend catalog.
+  // `deprecated` is pure metadata (no gate/verify effect). Re-enable = drop the flag here + in the backend.
+  'seo': { title: 'SEO Analyzer', since: '0.1.0', deprecated: true },
+  // Deprecated 2026-07-17: the premium footnotes plugin was removed (the note
+  // area could not be made to reliably coexist with native contenteditable
+  // list-editing behavior; not worth the fragility for the demand it saw).
+  // Kept here per the additive-only rule above — never delete/rename an id.
+  'footnotes': { title: 'Footnotes', since: '0.1.0', deprecated: true },
   'versionHistory': { title: 'Version History', since: '0.1.0' },
   'comments': { title: 'Comments', since: '0.1.0' },
   'track.changes': { title: 'Track Changes / Suggestion Mode', since: '0.1.0' },
   'collab.rt': { title: 'Real-time Collaboration', since: '0.1.0' },
-  'ai.panel': { title: 'AI Writing Panel (Chat)', since: '0.1.0' },
-  'ai.quickActions': { title: 'AI Quick Actions (rewrite/summarize/tone)', since: '0.1.0' },
-  'ai.review': { title: 'AI Review (suggestions)', since: '0.1.0' },
-  'ai.translate': { title: 'AI Translate', since: '0.1.0' },
+  // AI: DEPRECATED — product decision not to ship AI. Plugin code is retained in
+  // premium/ai (additive-only rule: never delete an id), but these are marked
+  // deprecated to match the backend catalog (never sold, never offered). `deprecated`
+  // is pure metadata — it changes no gate/verify behavior. Re-enable = drop these
+  // flags here AND in the backend feature-catalog.
+  'ai.panel': { title: 'AI Writing Panel (Chat)', since: '0.1.0', deprecated: true },
+  'ai.quickActions': { title: 'AI Quick Actions (rewrite/summarize/tone)', since: '0.1.0', deprecated: true },
+  'ai.review': { title: 'AI Review (suggestions)', since: '0.1.0', deprecated: true },
+  'ai.translate': { title: 'AI Translate', since: '0.1.0', deprecated: true },
   'restrictedEditing.roles': { title: 'Restricted Editing — role-based zones', since: '0.1.0' },
   'lists.legal': { title: 'Multi-level Legal Lists', since: '0.1.0' },
   'outline.toc': { title: 'Document Outline + Table of Contents', since: '0.1.0' },

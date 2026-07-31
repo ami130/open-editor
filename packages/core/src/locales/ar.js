@@ -42,6 +42,7 @@ export const ar = {
   media: 'تضمين فيديو',
   codeBlock: 'كتلة شيفرة',
   source: 'الشيفرة المصدرية',
+  speech: 'إملاء (تحويل الكلام إلى نص)',
   heading: 'تنسيق',
   paragraph: 'فقرة',
   h1: 'عنوان 1',

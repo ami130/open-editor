@@ -32,9 +32,16 @@ export function isDevHost(hostname) {
  * Match a hostname against one licensed domain pattern. Supports an exact
  * host and a SINGLE-level leading wildcard:
  *   `customer.com`    matches only `customer.com`
- *   `*.customer.com`  matches `app.customer.com`, NOT `a.b.customer.com`,
- *                     and NOT the apex `customer.com`
+ *   `*.customer.com`  matches `app.customer.com` AND the apex `customer.com`,
+ *                     but NOT `a.b.customer.com` (single sub-level only)
  * Case-insensitive. Anything malformed returns false (fail closed).
+ *
+ * NOTE (Phase 5): `*.base` ALSO matches the apex `base`. This reconciles the two
+ * wildcard semantics that had drifted apart — the server-side refresh matcher
+ * (RefreshService.originMatches) already treated `*.base` as apex-inclusive, so a
+ * license that refreshed from the apex must also VERIFY there. One rule, both sides.
+ * (apex↔www auto-pairing is done at ISSUE time on the backend; this matcher only
+ * needs the wildcard-apex rule.)
  */
 export function hostMatchesPattern(hostname, pattern) {
   if (typeof hostname !== 'string' || typeof pattern !== 'string') return false;
@@ -43,13 +50,25 @@ export function hostMatchesPattern(hostname, pattern) {
   if (!pat.startsWith('*.')) return host === pat;
   const base = pat.slice(2);
   if (base === '' || base.includes('*')) return false;
+  if (host === base) return true; // apex is covered by its own wildcard
   if (!host.endsWith(`.${base}`)) return false;
   // exactly one extra label to the left of `.base`
   const label = host.slice(0, host.length - base.length - 1);
   return label.length > 0 && !label.includes('.');
 }
 
-/** True if `hostname` matches ANY pattern in the license's domain list. */
+/**
+ * True if `hostname` is allowed by the license's domain list.
+ *
+ * An EMPTY array means a NON-DOMAIN-BOUND license → allowed on ANY host (audit
+ * F2). The backend deliberately issues `domains: []` for a non-bound plan, and a
+ * domain-BOUND license is guaranteed to carry ≥1 domain (issue rejects
+ * bound+empty), so `[]` unambiguously means "unbound", not "missing field". A
+ * non-array (malformed/absent) stays DENIED — fail closed. A non-empty list must
+ * match a pattern as before.
+ */
 export function hostAllowed(hostname, domains) {
-  return Array.isArray(domains) && domains.some((d) => hostMatchesPattern(hostname, d));
+  if (!Array.isArray(domains)) return false;        // malformed → fail closed
+  if (domains.length === 0) return true;            // non-domain-bound → any host
+  return domains.some((d) => hostMatchesPattern(hostname, d));
 }

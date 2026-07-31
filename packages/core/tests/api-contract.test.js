@@ -44,6 +44,9 @@ const INSTANCE_METHODS = [
   'on', 'off', 'once', 'emit',
   // introspection
   'getContainer', 'getEditorElement', 'getVersion', 'isDestroyed',
+  // licensing (Phase 1a/2) — additive: apply a verified entitlement (1a) and
+  // set/replace the license at runtime (2). isFeatureGranted is the read side.
+  'isFeatureGranted', 'applyEntitlements', 'setLicenseKey',
 ];
 
 // ── The frozen namespaced methods ──
@@ -66,13 +69,16 @@ const FROZEN_EVENTS = [
   'pluginInstalled', 'pluginUninstalled',
   'error',
   'aiStart', 'aiDone', 'aiError', // 19.7 — free AI hook lifecycle events
+  // Licensing lifecycle (Phase 1a/2): entitlement applied, an invalid/failed
+  // license, and premium finished (async) loading.
+  'entitlementsApplied', 'licenseError', 'premiumReady',
 ];
 
 // ── The frozen config keys (top-level). ──
 const FROZEN_CONFIG_KEYS = [
   'debug', 'logger', 'toolbar', 'statusBar', 'readonly', 'spellcheck', 'autofocus',
   'iframe', 'direction', 'theme', 'minHeight', 'maxHeight', 'height', 'defaultContent',
-  'placeholder', 'sanitize', 'allowTags', 'allowAttributes', 'imageAllowDataUri',
+  'placeholder', 'poweredBy', 'sanitize', 'allowTags', 'allowAttributes', 'imageAllowDataUri',
   'imageDefaultWidth', 'imageAvailableClasses', 'imageOpenOnDblClick', 'imageUploadUrl',
   'imageMaxFileSize', 'imageUploadResponse', 'tableAvailableClasses',
   'tableDefaultClass', 'tableDefaultHeaderRow', 'denyTags', 'askBeforePasteHTML',
@@ -88,6 +94,17 @@ const FROZEN_CONFIG_KEYS = [
   // Additive (1.x, 2026-07-17) — FREE BYO-endpoint AI hook (19.7). null by
   // default → inert; the premium AI product builds on editor.aiComplete().
   'aiEndpoint', 'aiHeaders',
+  // Additive — feature gating (Phase 0). null/absent → grant all (no gating),
+  // so existing embeds are unchanged.
+  'grantedFeatures', 'entitlements',
+  // Additive — Phase 0c fail-closed opt-in. false (default) keeps grant-all.
+  'enforceFreeTier',
+  // Additive — Phase 1a paste-one-key licensing (verified offline inside core).
+  'licenseKey', 'licenseKeys', 'allowDevHost', 'premiumPlugins',
+  // Additive — DX: console warning when a license fails to unlock (default true).
+  'licenseWarnings',
+  // Additive — Phase 4d editor-side silent refresh (opt-in; null → inert).
+  'licenseRefreshUrl', 'licenseRefreshLeadSeconds', 'licenseRefreshRetrySeconds',
 ];
 
 describe('16.D — frozen instance methods', () => {
@@ -292,5 +309,9 @@ describe('16.D — post-destroy safety (frozen surface never throws)', () => {
     expect(() => editor.setCSSVar('--oe-primary', '#fff')).not.toThrow();
     expect(() => editor.setDirection('rtl')).not.toThrow();
     expect(() => editor.reset()).not.toThrow();
+    // Licensing methods after destroy: all guard _destroyed and must not throw.
+    expect(() => editor.isFeatureGranted('seo')).not.toThrow();
+    expect(() => editor.applyEntitlements({ isGranted: () => true })).not.toThrow();
+    expect(() => editor.setLicenseKey('x', [])).not.toThrow();
   });
 });

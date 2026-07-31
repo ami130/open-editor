@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OpenEditor } from '../src/editor.js';
+import { safeMerge } from '../src/editor-config.js';
 
 // jsdom provides document — set up a fresh mount target for every test
 function makeTarget() {
@@ -315,5 +316,160 @@ describe('16.5.3 — beforeunload dirty guard', () => {
     expect(spy.mock.calls.some((c) => c[0] === 'beforeunload')).toBe(true);
     spy.mockRestore();
     target.parentNode && target.parentNode.removeChild(target);
+  });
+});
+
+// ─── Phase 5b regression — safeMerge must not strip class-instance methods ──
+// Found live: a real FeatureManager (from createPremiumHost) passed as
+// config.entitlements lost its `isGranted` method through safeMerge's naive
+// deep-merge (it copied only FeatureManager's OWN fields onto a fresh plain
+// object, discarding the prototype). The core gate's `typeof
+// entitlements.isGranted === 'function'` check then silently failed and fell
+// back to grant-all — with NO error, NO warning. This is exactly the "one
+// license drives both the core gate and the premium gate" contract every
+// earlier phase's docs claim; it was broken until caught by Phase 5b's live
+// license proof.
+describe('5b — safeMerge preserves class-instance entitlements (no silent grant-all)', () => {
+  let target, editor;
+  afterEach(() => cleanup(editor, target));
+
+  class FakeFeatureManager {
+    constructor(granted) { this._granted = new Set(granted); }
+    isGranted(id) { return this._granted.has(id); }
+  }
+
+  it('safeMerge() assigns a class instance by reference, does not deep-copy it into a plain object', () => {
+    const target = { entitlements: null };
+    const fm = new FakeFeatureManager(['text.bold']);
+    safeMerge(target, { entitlements: fm });
+    expect(target.entitlements).toBe(fm); // same reference, not a stripped clone
+    expect(typeof target.entitlements.isGranted).toBe('function');
+    expect(target.entitlements.isGranted('text.bold')).toBe(true);
+    expect(target.entitlements.isGranted('text.italic')).toBe(false);
+  });
+
+  it('a real class-instance entitlements object survives OpenEditor construction and gates correctly', () => {
+    target = makeTarget();
+    const fm = new FakeFeatureManager(['text.bold']);
+    editor = new OpenEditor(target, { entitlements: fm });
+    expect(editor.isFeatureGranted('text.bold')).toBe(true);
+    // Probe with a PREMIUM id the object withholds: must NOT silently grant-all.
+    // (A FREE id like text.italic is always granted under the 1a-3c one-package
+    // default — "free is free" — so it can't prove the object isn't ignored.)
+    expect(editor.isFeatureGranted('seo')).toBe(false);
+    expect(editor.isFeatureGranted('text.italic')).toBe(true); // FREE → always granted (1a-3c)
+    expect(editor.isFeatureGranted('undo')).toBe(true); // always-on core, unaffected
+  });
+
+  it('a plain-object entitlements literal (the pre-existing test pattern) still works unchanged', () => {
+    target = makeTarget();
+    const entitlements = { isGranted: (id) => id === 'text.bold' };
+    editor = new OpenEditor(target, { entitlements });
+    expect(editor.isFeatureGranted('text.bold')).toBe(true);
+    expect(editor.isFeatureGranted('seo')).toBe(false);        // withheld premium → denied
+    expect(editor.isFeatureGranted('text.italic')).toBe(true); // FREE → always granted (1a-3c)
+  });
+
+  // Audit gap (Phase-5 re-audit, M4a): entitlements omitted entirely vs. passed
+  // as `undefined` vs. passed as `null` must all fall back to grant-all
+  // identically — this equivalence held only "by accident" via
+  // feature-gate.js's `cfg.entitlements || null` normalization, and was never
+  // directly asserted.
+  it('entitlements omitted / undefined / null are all equivalent (grant-all fallback)', () => {
+    const omitted = safeMerge({ entitlements: null }, {});
+    const explicitUndefined = safeMerge({ entitlements: null }, { entitlements: undefined });
+    const explicitNull = safeMerge({ entitlements: null }, { entitlements: null });
+    // All three must produce a config createFeatureGate treats identically —
+    // i.e. none of them is a truthy object with isGranted.
+    for (const cfg of [omitted, explicitUndefined, explicitNull]) {
+      expect(!!(cfg.entitlements && typeof cfg.entitlements.isGranted === 'function')).toBe(false);
+    }
+
+    // And end-to-end: all three grant everything (the documented default).
+    target = makeTarget();
+    editor = new OpenEditor(target, {});
+    expect(editor.isFeatureGranted('text.bold')).toBe(true);
+    editor.destroy();
+
+    target = makeTarget();
+    editor = new OpenEditor(target, { entitlements: undefined });
+    expect(editor.isFeatureGranted('text.bold')).toBe(true);
+    editor.destroy();
+
+    target = makeTarget();
+    editor = new OpenEditor(target, { entitlements: null });
+    expect(editor.isFeatureGranted('text.bold')).toBe(true);
+  });
+
+  // Audit gap (Phase-5 re-audit, M4b): the whole point of isPlainObject()
+  // gating recursion is that PLAIN objects still deep-merge (siblings
+  // preserved) — only class instances are assigned by reference. No config
+  // key in DEFAULTS currently has a populated nested-object default to prove
+  // this through OpenEditor end-to-end, so this asserts safeMerge's general
+  // contract directly: merging a partial plain object into an existing plain
+  // object must PRESERVE the untouched sibling keys, not clobber them.
+  it('safeMerge still deep-merges a legitimate nested PLAIN object, preserving untouched siblings', () => {
+    const target = { autosave: { enabled: true, intervalMs: 5000, debounceMs: 500 } };
+    safeMerge(target, { autosave: { intervalMs: 9000 } });
+    expect(target.autosave).toEqual({ enabled: true, intervalMs: 9000, debounceMs: 500 });
+
+    // Contrast: a class instance passed for the SAME kind of key is NOT
+    // merged into the existing plain object — it replaces it wholesale by
+    // reference, exactly like the entitlements case above.
+    class Config { constructor(v) { this.intervalMs = v; } }
+    const target2 = { autosave: { enabled: true, intervalMs: 5000, debounceMs: 500 } };
+    const cfg = new Config(9000);
+    safeMerge(target2, { autosave: cfg });
+    expect(target2.autosave).toBe(cfg); // replaced wholesale, not merged
+    expect(target2.autosave.debounceMs).toBeUndefined(); // siblings NOT preserved for a class instance
+  });
+});
+
+// ─── poweredBy attribution footer (its own strip BELOW the editable) ─────────
+describe('poweredBy attribution footer', () => {
+  let editor, target;
+  afterEach(() => cleanup(editor, target));
+
+  const strip = (ed) => ed.getContainer().querySelector('.oe-powered-by');
+
+  it('renders a "Powered by Open Editor" strip by default', () => {
+    target = makeTarget();
+    editor = new OpenEditor(target);
+    expect(strip(editor)).toBeTruthy();
+    expect(strip(editor).textContent).toBe('Powered by Open Editor');
+  });
+
+  it('the strip lives BELOW the editable (a wrapper child, not inside the editable)', () => {
+    target = makeTarget();
+    editor = new OpenEditor(target);
+    const el = strip(editor);
+    // Never inside the editable — otherwise it would overlap typed text and
+    // pollute getHTML(). It must be a sibling of the editable in the wrapper.
+    expect(editor.getEditorElement().contains(el)).toBe(false);
+    expect(el.parentNode.classList.contains('oe-wrapper')).toBe(true);
+    // It sits DIRECTLY AFTER the editable in flow (an absolutely-positioned
+    // type-around affordance may also be a wrapper child, but it is out of flow).
+    expect(editor.getEditorElement().nextElementSibling).toBe(el);
+  });
+
+  it('poweredBy:false renders no strip (user opt-out)', () => {
+    target = makeTarget();
+    editor = new OpenEditor(target, { poweredBy: false });
+    expect(strip(editor)).toBeNull();
+  });
+
+  it('a custom string is used verbatim', () => {
+    target = makeTarget();
+    editor = new OpenEditor(target, { poweredBy: 'Made with MyEditor' });
+    expect(strip(editor).textContent).toBe('Made with MyEditor');
+  });
+
+  it('the footer is NEVER part of the saved content (getHTML has no attribution)', () => {
+    target = makeTarget();
+    editor = new OpenEditor(target, { poweredBy: true });
+    editor.setHTML('<p>hello</p>');
+    const html = editor.getHTML();
+    expect(html).not.toContain('Powered by');
+    expect(html).not.toContain('oe-powered-by');
   });
 });

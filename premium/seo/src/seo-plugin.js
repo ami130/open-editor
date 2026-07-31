@@ -25,17 +25,18 @@ export function rawSeoSpec(config = {}) {
     return editor._iframeDoc || (typeof document !== 'undefined' ? document : null);
   }
 
-  /** The best available document title: config → documentTitle → the doc's H1. */
-  function docTitle() {
-    const configured = config.title || (editor && editor._config && editor._config.documentTitle);
-    if (configured) return configured;
-    // Fallback: the document's first H1 (what a reader would call the title).
-    const el = editor && editor.getEditorElement && editor.getEditorElement();
-    const h1 = el && el.querySelector && el.querySelector('h1');
-    return (h1 && h1.textContent.trim()) || '';
+  /** The host-provided page title (config → editor.documentTitle). No H1
+   *  fallback here — analyzeSeo applies the context-appropriate fallback (only
+   *  full-page context treats an in-body H1 as the page title). */
+  function hostTitle() {
+    return config.title || (editor && editor._config && editor._config.documentTitle) || '';
   }
 
-  /** Headless analysis of the current content. Uses persisted keyword/meta. */
+  /**
+   * Headless analysis of the current content. Uses persisted keyword/meta and
+   * forwards the host's structural config (contentContext, lang, siteUrl, url,
+   * expectH1, ruleset) so an embedded integrator can tune the analysis.
+   */
   function analyze(opts = {}) {
     const doc = docFor();
     if (!doc || !editor) return null;
@@ -44,7 +45,15 @@ export function rawSeoSpec(config = {}) {
     if (typeof opts.keyword === 'string') state.keyword = opts.keyword;
     if (typeof opts.metaDescription === 'string') state.metaDescription = opts.metaDescription;
     return analyzeSeo(html, {
-      title: docTitle(),
+      // Host structural config (all optional; sensible defaults in normalizeOptions).
+      contentContext: config.contentContext,
+      expectH1: config.expectH1,
+      lang: config.lang,
+      siteUrl: config.siteUrl,
+      url: config.url,
+      ruleset: config.ruleset,
+      customChecks: config.customChecks,
+      title: hostTitle(),
       keyword: state.keyword,
       metaDescription: state.metaDescription,
       ...opts,
@@ -58,9 +67,11 @@ export function rawSeoSpec(config = {}) {
     const panel = buildSeoPanel(doc, {
       analyze, // closes over the LIVE editor — re-reads getHTML() each refresh
       // Seed from persisted state so reopening restores the last keyword/meta.
-      initial: { keyword: state.keyword, metaDescription: state.metaDescription, title: docTitle() },
+      initial: { keyword: state.keyword, metaDescription: state.metaDescription, title: hostTitle() },
     });
     editor.ui.modal.open({ title: 'SEO Analysis', body: panel.node });
+    // Move initial focus into the panel's first input for keyboard/SR users.
+    if (panel.focusInput) { try { panel.focusInput(); } catch { /* ignore */ } }
     editor.emit('afterCommand', { command: 'seoAnalyze', args: [] });
   }
 

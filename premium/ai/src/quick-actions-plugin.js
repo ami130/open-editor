@@ -6,6 +6,8 @@
  * if absent, aiComplete emits aiError:no-endpoint (surfaced, not silent).
  */
 import { QUICK_ACTIONS } from './prompts.js';
+import { replaceSelectionWithAi } from './ai-replace.js';
+import { installAiStatus } from './ai-status.js';
 
 const AI_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.1L5.5 9l4.6-1.4L12 3z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/>
@@ -40,10 +42,11 @@ export function rawQuickActionsSpec(config = {}) {
     busy = true;
     editor.emit('aiQuickAction', { id: action.id, text });
     try {
-      // Replace the selection: delete its contents (caret stays there), then
-      // let aiComplete stream the replacement in at that caret.
-      if (info && info.range) info.range.deleteContents();
-      await editor.aiComplete({ prompt, system });
+      // Failure-safe replace: the previous order deleted the selection BEFORE
+      // the AI call, so any failure wiped the user's text and put nothing back.
+      // Now we swap in the result only when non-empty; a failed/empty call
+      // leaves the original selection intact.
+      await replaceSelectionWithAi(editor, info, { prompt, system });
     } finally {
       busy = false;
     }
@@ -65,6 +68,7 @@ export function rawQuickActionsSpec(config = {}) {
     name: 'ai-quick-actions',
     install(ed) {
       editor = ed;
+      installAiStatus(ed, { busyText: 'Applying AI action…' });
       // Imperative API: run an action by id (used by tests / integrators).
       ed.aiQuickAction = (id) => {
         const a = actions.find((x) => x.id === id);

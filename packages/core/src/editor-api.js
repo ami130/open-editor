@@ -197,6 +197,11 @@ export const editorApiMixin = {
     if (this._destroyed) return false;
     return this._state ? !!this._state.isReadOnly : !!(this._config && this._config.readonly);
   },
+  // Feature gating (Phase 0): true if licensed to use `featureId` (grants all by
+  // default until a deployment passes grantedFeatures/entitlements).
+  isFeatureGranted(featureId) {
+    return this._isFeatureGranted ? this._isFeatureGranted(featureId) : true;
+  },
 
   // ─── Phase 5 Public API — History ────────────────────────────────────────────
 
@@ -214,7 +219,7 @@ export const editorApiMixin = {
 
   destroy() {
     if (this._destroyed) return;
-
+    this._destroyed = true; // Phase 1a: FIRST, so an async license verify resolving mid-teardown bails.
     this.logger.info('destroy start');
     this.emit('beforeDestroy', this);
 
@@ -289,7 +294,7 @@ export const editorApiMixin = {
     this.shortcuts  = null;
     this.logger     = null;
     this._config    = null;
-    this._destroyed = true;
+    // (_destroyed set at the top of destroy() — Phase 1a hardening.)
   },
 
 };
