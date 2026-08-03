@@ -49,18 +49,36 @@ export function rawExportDocxSpec(config = {}) {
     // image — a blocked/broken fetch degrades that one image to a placeholder,
     // never aborts the export).
     const resolvedImages = await resolveRemoteImages(tmp);
+    // Count remote images that couldn't be fetched (CORS/404/timeout) — they
+    // degrade to a placeholder in the docx, so we surface that to the user.
+    let droppedImages = 0;
+    resolvedImages.forEach((v) => { if (v == null) droppedImages += 1; });
     // A collector gathers hyperlink + embedded-image relationships during the
     // walk; buildDocx turns them into rels + media parts + content-types.
     const collector = createResourceCollector();
     const body = bodyXml(html, doc, collector, resolvedImages);
-    return { bytes: buildDocx(body, { title, resources: collector.result() }), title };
+    return { bytes: buildDocx(body, { title, resources: collector.result() }), title, droppedImages };
   }
+
+  /** Safe access to the shared toast surface (absent on very old editors). */
+  function toast() { return editor && editor.ui && editor.ui.toast; }
 
   async function exportDocx(override) {
     if (!editor || editor._destroyed || typeof document === 'undefined') return false;
-    const built = await buildBytes(override);
-    if (!built) return false;
+    // Sticky progress toast the whole time — a Word export can fetch remote
+    // images (seconds), and previously the UI looked frozen with no feedback.
+    const t = toast();
+    const progress = t ? t.progress('Preparing your Word document…') : null;
+    // Guard the ENTIRE flow (build + fetch + download). Previously buildBytes ran
+    // OUTSIDE the try/catch, so a fetch/serialize error became an unhandled
+    // rejection with no user feedback.
     try {
+      const built = await buildBytes(override);
+      if (!built) {
+        if (progress) progress.error('Couldn’t prepare the document.');
+        else editor.emit('exportDocxFailed', { reason: 'build-failed' });
+        return false;
+      }
       const blob = new Blob([built.bytes], { type: DOCX_MIME });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -73,9 +91,20 @@ export function rawExportDocxSpec(config = {}) {
       // Revoke on the next tick so the click's navigation has consumed the URL.
       setTimeout(() => URL.revokeObjectURL(url), 0);
       editor.emit('afterCommand', { command: 'exportDocx', args: [] });
+      // Success — but if some images couldn't be fetched (CORS/404), say so
+      // rather than letting them vanish silently.
+      if (progress) {
+        if (built.droppedImages > 0) {
+          const n = built.droppedImages;
+          progress.error(`Exported — but ${n} image${n > 1 ? 's' : ''} couldn’t be included (blocked by the image host).`);
+        } else {
+          progress.success('Word document downloaded.');
+        }
+      }
       return true;
-    } catch {
-      editor.emit('exportDocxFailed', { reason: 'download-failed' });
+    } catch (err) {
+      editor.emit('exportDocxFailed', { reason: 'export-failed', error: err && err.message });
+      if (progress) progress.error('Word export failed. Please try again.');
       return false;
     }
   }

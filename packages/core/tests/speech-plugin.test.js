@@ -6,7 +6,7 @@
  * exercise the real flow: button appears, toggles listening, inserts recognized
  * text at the cursor, and tears down cleanly (mic released) on stop/destroy.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestEditor } from '../src/testing/test-harness.js';
 import { createSpeechPlugin, speechPlugin } from '../src/plugins/speech/speech-plugin.js';
 

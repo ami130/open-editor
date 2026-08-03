@@ -94,6 +94,7 @@ export interface OpenEditorConfig {
   /** Tags to strip even if otherwise allowed. */
   denyTags?: string[] | null;
   imageAllowDataUri?: boolean;
+  imageRequireAlt?: boolean;
   imageDefaultWidth?: number | null;
   imageAvailableClasses?: ClassOption[] | null;
   imageOpenOnDblClick?: boolean;
@@ -103,6 +104,22 @@ export interface OpenEditorConfig {
    * sizes? }] }` to emit a responsive `<picture>` (every srcset scheme-checked).
    */
   imageUploadUrl?: string | null;
+  /**
+   * Custom request headers for the image upload (authenticated backends):
+   * `{ Authorization: 'Bearer …' }`, an API key, `X-CSRF-Token`, etc. An object,
+   * or a function called with the file. NEVER set `Content-Type` (the browser
+   * must set the multipart boundary — it is ignored if provided).
+   */
+  imageUploadHeaders?: Record<string, string> | ((file: File) => Record<string, string>) | null;
+  /** Send cookies on a cross-origin upload (same-site session auth). Default false. */
+  imageUploadWithCredentials?: boolean;
+  /** Override the multipart field name (default `'file'`) — e.g. `'image'`, `'upload'`. */
+  imageUploadFieldName?: string | null;
+  /**
+   * Extra form fields sent alongside the file (folder id, CSRF token, post id to
+   * associate the upload with in your DB). An object, or a function called with the file.
+   */
+  imageUploadData?: Record<string, string> | ((file: File) => Record<string, string>) | null;
   /**
    * 19.7 — FREE BYO-endpoint AI hook. URL this editor POSTs `{ prompt, system,
    * stream, ... }` to and streams tokens back from (see `aiComplete`). null =

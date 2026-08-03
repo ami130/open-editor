@@ -25,6 +25,9 @@ export function rawExportPdfSpec(config = {}) {
     return { ...config, ...base, ...(override || {}) };
   }
 
+  /** Safe access to the shared toast surface (absent on very old editors). */
+  function toast() { return editor && editor.ui && editor.ui.toast; }
+
   function exportPdf(override) {
     if (!editor || editor._destroyed || typeof window === 'undefined') return false;
     const opts = resolveOptions(override);
@@ -38,6 +41,9 @@ export function rawExportPdfSpec(config = {}) {
     const win = window.open('', '_blank', 'width=820,height=640');
     if (!win) {
       editor.emit('exportPdfBlocked', { reason: 'popup-blocked' });
+      // The single most common silent failure — now visible + actionable.
+      const t = toast();
+      if (t) t.error('Couldn’t open the print window — allow pop-ups for this site, then try again.');
       return false;
     }
     try {
@@ -52,9 +58,15 @@ export function rawExportPdfSpec(config = {}) {
         trigger();
       }
       editor.emit('afterCommand', { command: 'exportPdf', args: [] });
+      // The print dialog is where the user picks "Save as PDF" — tell them so the
+      // OS dialog isn't a surprise (this is browser print-to-PDF, not a download).
+      const t = toast();
+      if (t) t.success('Opening the print dialog — choose “Save as PDF” to download.');
       return true;
     } catch {
       editor.emit('exportPdfBlocked', { reason: 'write-blocked' });
+      const t = toast();
+      if (t) t.error('PDF export was blocked by the browser. Please try again.');
       return false;
     }
   }
@@ -75,7 +87,7 @@ export function rawExportPdfSpec(config = {}) {
         name: 'exportPdf',
         type: 'button',
         icon: PDF_ICON,
-        tooltip: 'Export to PDF',
+        tooltip: 'Export to PDF (opens print → “Save as PDF”)',
         readOnlyExempt: true, // read-only export: safe when the editor is locked
         onClick: () => exportPdf(),
       }];

@@ -102,7 +102,6 @@ export const editorLicenseMixin = {
       'no-webcrypto': 'premium could not be verified because WebCrypto is unavailable (needs a secure context — https or localhost).',
     };
     const detail = messages[reason] || `license could not be verified (${reason}).`;
-    // eslint-disable-next-line no-console
     console.warn(`[OpenEditor] Premium is running in FREE mode: ${detail}`);
   },
 

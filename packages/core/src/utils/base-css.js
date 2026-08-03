@@ -19,6 +19,11 @@ export const BASE_CSS = `
     max-height: inherit;
     height: inherit;
     overflow-y: auto;
+    /* Wide content (many-column tables, long <pre>) can exceed the editable
+       width; let it scroll horizontally instead of crushing/clipping. Normal
+       text still wraps (overflow-wrap/word-break below), so this only kicks in
+       for genuinely over-wide blocks. */
+    overflow-x: auto;
     overflow-wrap: break-word;
     word-break: break-word;
     padding: 12px 16px;
@@ -44,15 +49,13 @@ export const BASE_CSS = `
      in wrapper-chrome-css.js (injected into the HOST document in BOTH modes),
      because the wrapper + strip render in the host doc — in iframe mode BASE_CSS
      only reaches the iframe, so styling them here would be dead there. */
-  /* 14.3 — the editable had outline:none with NO replacement, so keyboard
-     users got no visible focus indicator. Use a soft inset ring (keyboard-only
-     via :focus-visible) that doesn't shift layout. */
+  /* The editable shows no focus ring: clicking into it triggered :focus-visible
+     in most browsers, drawing a blue 2px inset border around the whole body on
+     every click — jarring and unlike Google Docs/Notion, which use the text
+     caret as the focus indicator. The blinking caret is the indicator here; the
+     surrounding app chrome/container still provides visible boundaries. */
   .oe-editor:focus { outline: none; }
-  .oe-editor:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 2px var(--oe-focus-ring);
-    border-radius: 2px;
-  }
+  .oe-editor:focus-visible { outline: none; }
   /* .oe-wrapper base box + flex/footer layout live in wrapper-chrome-css.js (host
      doc, both modes). Only editable-state rules that must follow the editable
      stay here. */

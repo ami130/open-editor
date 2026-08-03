@@ -74,7 +74,12 @@ export class HistoryManager {
   }
 
   canUndo() {
-    return this._index > 0;
+    // A pending idle snapshot means the user has typed but the 1500ms coalesce
+    // timer hasn't committed it yet. That IS undoable work: undo() flushes it to
+    // the stack first, then steps back. Without this, the command layer's
+    // isEnabled gate (command-manager.js) refuses `undo` during the first typing
+    // burst and it never flushes — so typing-then-immediate-Ctrl+Z did nothing.
+    return this._index > 0 || this._idleTimer !== null;
   }
 
   canRedo() {

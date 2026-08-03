@@ -42,6 +42,30 @@ export function buildProgressBar(doc) {
   return { progressWrap, progressBar, progressPct, abortBtn };
 }
 
+/**
+ * Wire the upload drop zone: drag-over highlight, drop, and — the fix — make the
+ * WHOLE box open the file picker (not only the "browse" word), with Enter/Space
+ * keyboard parity. The native <label for>/input clicks are skipped so the picker
+ * opens exactly once. `onFile(file)` handles a chosen/dropped file.
+ */
+export function wireDropzone(dropZone, chooseLbl, fileInput, onFile) {
+  const OVER = 'oe-img-dialog__dropzone--over';
+  dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add(OVER); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove(OVER));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove(OVER);
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) onFile(file);
+  });
+  dropZone.addEventListener('click', (e) => {
+    if (!chooseLbl.contains(e.target) && e.target !== fileInput) fileInput.click();
+  });
+  dropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+}
+
 // Alignment icon button SVGs (inline — no external resource)
 export const ALIGN_ICONS = {
   '':       '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><rect x="1" y="3" width="14" height="2"/><rect x="1" y="7" width="10" height="2"/><rect x="1" y="11" width="12" height="2"/></svg>',

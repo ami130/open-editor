@@ -30,7 +30,12 @@ async function stubAi(page, replyText) {
   }, replyText);
 }
 
-test.describe('Phase 19.7 — AI Writing', () => {
+// SKIPPED: AI was removed from the product (no-AI launch). The AI plugins are no
+// longer registered in the playground (premium-panel FEATURE_PLUGINS) and no
+// aiEndpoint is wired (main.js), so these tests — which grant ai.* and expect AI
+// buttons/flows — can't pass. The plugin code is retained under premium/ai; to
+// re-enable, re-register the AI plugins + wire aiEndpoint, then remove .skip.
+test.describe.skip('Phase 19.7 — AI Writing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?nopremium');
     await page.waitForSelector('.oe-toolbar');

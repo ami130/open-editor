@@ -1,14 +1,16 @@
 /**
  * slash-command-data.js — Phase 16.6.1: the curated slash-menu entry list.
  *
- * Deliberately scoped to CORE commands only (always registered, never plugin-
- * dependent) — headings, lists, blockquote, code block (`pre`), horizontal
- * rule. Table/image/media/link insertion trigger their own dialogs via a
- * direct onClick on their toolbar button (not the command registry), so they
- * are out of scope for this milestone; see README Phase 16.6.1.
- *
- * Each entry: { id, label, keywords, command, arg? } — `command`/`arg` are
- * passed straight to `editor.commands.execute(command, arg)`.
+ * Two kinds of entry:
+ *  - COMMAND entries { id, label, keywords, command, arg? } run straight through
+ *    `editor.commands.execute(command, arg)` (headings, lists, quote, code, hr).
+ *  - ACTION entries { id, label, keywords, action } trigger a plugin's INSERT
+ *    flow (image/table/link) by activating that plugin's toolbar button — those
+ *    insertions open their own dialog and aren't in the command registry, so the
+ *    slash plugin clicks the button by its data-name (see _applyPick). `action`
+ *    is the toolbar button's `name` (e.g. 'insertImage'). Availability is gated
+ *    on the button actually existing, so these only show when the plugin is
+ *    installed and its feature granted.
  */
 export const SLASH_COMMANDS = [
   { id: 'paragraph', label: 'Text', keywords: ['paragraph', 'p', 'plain'], command: 'paragraph' },
@@ -20,6 +22,9 @@ export const SLASH_COMMANDS = [
   { id: 'blockquote', label: 'Quote', keywords: ['quote', 'blockquote', 'citation'], command: 'blockquote' },
   { id: 'pre', label: 'Code block', keywords: ['code', 'pre', 'snippet'], command: 'pre' },
   { id: 'hr', label: 'Divider', keywords: ['hr', 'divider', 'rule', 'line'], command: 'insertHorizontalRule' },
+  { id: 'image', label: 'Image', keywords: ['image', 'img', 'picture', 'photo', 'upload'], action: 'insertImage' },
+  { id: 'table', label: 'Table', keywords: ['table', 'grid', 'rows', 'columns'], action: 'insertTable' },
+  { id: 'link', label: 'Link', keywords: ['link', 'url', 'anchor', 'href'], action: 'insertLink' },
 ];
 
 /** Filter entries whose label/keywords match the (lowercased) query. */

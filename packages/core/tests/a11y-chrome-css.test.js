@@ -62,7 +62,10 @@ describe('F9 — forced-colors targets REAL class names', () => {
 });
 
 describe('editable-only a11y rules stay in BASE_CSS', () => {
-  it('BASE_CSS keeps the editable focus ring + forced-colors border', () => {
+  it('BASE_CSS keeps the editable focus-visible selector + forced-colors border', () => {
+    // The everyday blue full-body focus ring was removed (jarring on click; the
+    // caret is the indicator) — but the selector stays and forced-colors mode
+    // still gives the editable an outline for high-contrast users.
     expect(BASE_CSS).toContain('.oe-editor:focus-visible');
     expect(BASE_CSS).toContain('forced-colors');
   });

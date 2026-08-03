@@ -98,7 +98,20 @@ export async function uploadFile(file, uploadUrl, onProgress, signal, doc = docu
   if (!file || !uploadUrl) return null;
 
   const formData = new FormData();
-  formData.append('file', file);
+  // Field name defaults to 'file' but backends vary (image/upload/…) — override
+  // with imageUploadFieldName.
+  formData.append(config.imageUploadFieldName || 'file', file);
+  // Extra form fields sent alongside the file (e.g. a folder id, CSRF token, or
+  // a post id to associate the upload with in the DB). Object or a function that
+  // returns one (called with the file so it can vary per upload).
+  const extra = typeof config.imageUploadData === 'function'
+    ? config.imageUploadData(file)
+    : config.imageUploadData;
+  if (extra && typeof extra === 'object') {
+    for (const [k, v] of Object.entries(extra)) {
+      if (v != null) formData.append(k, v);
+    }
+  }
 
   let json;
   try {
@@ -134,6 +147,22 @@ export async function uploadFile(file, uploadUrl, onProgress, signal, doc = docu
       }
 
       xhr.open('POST', uploadUrl);
+      // Send cookies on a cross-origin upload (same-site session auth).
+      if (config.imageUploadWithCredentials) xhr.withCredentials = true;
+      // Custom request headers — the key piece for authenticated backends:
+      // Authorization: Bearer <token>, an API key, X-CSRF-Token, etc. Object or a
+      // function returning one. NOTE: never set Content-Type here — the browser
+      // must set the multipart/form-data boundary itself (we skip it defensively).
+      const headers = typeof config.imageUploadHeaders === 'function'
+        ? config.imageUploadHeaders(file)
+        : config.imageUploadHeaders;
+      if (headers && typeof headers === 'object') {
+        for (const [name, value] of Object.entries(headers)) {
+          if (value == null) continue;
+          if (String(name).toLowerCase() === 'content-type') continue; // don't clobber the boundary
+          try { xhr.setRequestHeader(name, value); } catch { /* invalid header name — skip */ }
+        }
+      }
       xhr.send(formData);
     });
   } catch (err) {

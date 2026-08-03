@@ -10,7 +10,7 @@ dist/
 # Test / coverage
 coverage/
 .vitest/
-
+    
 # Playwright
 test-results/
 playwright-report/

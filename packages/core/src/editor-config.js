@@ -30,6 +30,7 @@ export const DEFAULTS = {
   allowTags: null,
   allowAttributes: null,
   imageAllowDataUri: false,
+  imageRequireAlt: false,       // when true, the image dialog blocks insert with empty alt (a11y)
   imageDefaultWidth: null,      // px width applied to inserted images that carry no size
   imageAvailableClasses: null,  // [{value,label}] → class dropdown in Image Properties
   imageOpenOnDblClick: true,    // double-click an image opens the properties dialog
@@ -80,6 +81,11 @@ export const DEFAULTS = {
   // { url } (or { src }); optionally { sources: [{srcset, media?, type?, sizes?}] }
   // to emit a responsive <picture> (16.7.8) — every srcset is scheme-checked.
   imageUploadUrl: null,
+  // Upload request customization (for connecting to YOUR authenticated API/DB):
+  imageUploadHeaders: null,        // {name:value} or (file)=>({...}) — e.g. { Authorization: 'Bearer …' }. NEVER set Content-Type (breaks the multipart boundary).
+  imageUploadWithCredentials: false, // send cookies on a cross-origin upload (same-site session auth)
+  imageUploadFieldName: null,      // override the multipart field name (default 'file'); some backends expect 'image'/'upload'
+  imageUploadData: null,           // {key:value} or (file)=>({...}) — extra form fields sent with the file (folder id, CSRF token, post id…)
   // 19.7 — FREE BYO-endpoint AI hook (the funnel for the premium AI product).
   // aiEndpoint: a URL this editor POSTs { prompt, system, stream, ...} to and
   // streams tokens back from (see ai/ai-complete.js for the response contract).

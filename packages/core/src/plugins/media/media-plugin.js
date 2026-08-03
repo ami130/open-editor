@@ -96,7 +96,7 @@ export function createMediaPlugin() {
 
       // Re-open on an invalid URL (keeping what the user typed + showing why)
       // rather than closing silently. Cancel/close still exits cleanly.
-      let spec = null;
+      let spec;
       for (;;) {
         const ok = await editor.ui.modal.open({
           title: 'Embed video',

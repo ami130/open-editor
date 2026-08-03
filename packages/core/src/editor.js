@@ -29,6 +29,7 @@ import { THEME_TOKENS_CSS } from './utils/theme-css.js';
 import { ModalManager } from './ui/modal-manager.js';
 import { TooltipManager } from './ui/tooltip-manager.js';
 import { ContextMenuManager } from './ui/context-menu-manager.js';
+import { ToastManager } from './ui/toast-manager.js';
 import { ToolbarManager } from './ui/toolbar/toolbar-manager.js';
 import { StatusBar } from './ui/toolbar/status-bar.js';
 import { installTypeAround } from './editing/type-around.js';
@@ -159,13 +160,13 @@ export class OpenEditor extends EventEmitter {
     this.history = new HistoryManager(this);
     this.history.takeSnapshot();
 
-    // Phase 6 — Shared UI system (modal, tooltip, context menu)
-    // Always scoped to the outer document wrapper, even in iframe mode.
+    // Phase 6 — Shared UI system (modal/tooltip/contextMenu/toast), scoped to the outer wrapper even in iframe mode.
     const uiDoc = typeof document !== 'undefined' ? document : null;
     this.ui = {
       modal:       new ModalManager(this._wrapper, uiDoc),
       tooltip:     new TooltipManager(this._wrapper, uiDoc),
       contextMenu: new ContextMenuManager(this._wrapper, uiDoc, this),
+      toast:       new ToastManager(this._wrapper, uiDoc),
     };
 
     this._buildChrome();
@@ -222,9 +223,8 @@ export class OpenEditor extends EventEmitter {
     // Wrapper + "Powered by" strip layout — HOST doc, BOTH modes (see
     // wrapper-chrome-css.js). Unconditional, before the iframe early-return.
     injectStyleOnce(document, 'oe-wrapper-chrome', WRAPPER_CHROME_CSS);
-    // Count ONLY instances that actually own the shared global stylesheet.
-    // iframe instances inject BASE_CSS into their own document and SSR instances
-    // inject nothing, so they must not move this counter.
+    // Count ONLY instances that own the shared global stylesheet — iframe
+    // instances inject BASE_CSS into their own doc, SSR injects nothing.
     if (this._config.iframe) return;
     _instanceCount++;
     injectStyleOnce(document, 'oe-base-styles', BASE_CSS);

@@ -63,6 +63,49 @@ describe('Phase 5 — history public API', () => {
   });
 });
 
+describe('immediate undo — typing then Ctrl+Z BEFORE the idle snapshot fires', () => {
+  // Real-browser bug: type in a fresh editor and undo right away. The idle
+  // snapshot (1500ms) hasn't fired, so canUndo() is false — and the command
+  // layer's isEnabled gate refused `undo` BEFORE undo() could flush the pending
+  // edit. Net effect: undo did nothing at all. canUndo() must account for the
+  // pending idle snapshot, and executing undo must revert the just-typed text.
+  function typeInto(editor, html) {
+    editor.getEditorElement().innerHTML = html;
+    // Fire a real input event so the history manager schedules its idle snapshot.
+    editor.getEditorElement().dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('canUndo() is TRUE while an idle snapshot is pending (in-flight typing)', () => {
+    const { editor, target } = makeEditor();
+    typeInto(editor, '<p>hello</p>');
+    // No takeSnapshot yet, no idle-timer flush yet — but there IS undoable work.
+    expect(editor.history._idleTimer).not.toBeNull();
+    expect(editor.canUndo()).toBe(true);
+    cleanup(editor, target);
+  });
+
+  it('executing the undo COMMAND immediately reverts the just-typed text', () => {
+    const { editor, target } = makeEditor();
+    const baseline = editor.getEditorElement().innerHTML;
+    typeInto(editor, '<p>hello</p>');
+    // Go through the COMMAND layer (what Ctrl+Z and the toolbar button use) —
+    // this is where the isEnabled gate previously refused undo.
+    const ran = editor.commands.execute('undo');
+    expect(ran).not.toBe(false);
+    expect(editor.getEditorElement().innerHTML).toBe(baseline); // typed text reverted
+    cleanup(editor, target);
+  });
+
+  it('redo restores the reverted text after such an undo', () => {
+    const { editor, target } = makeEditor();
+    typeInto(editor, '<p>hello</p>');
+    editor.commands.execute('undo');
+    editor.commands.execute('redo');
+    expect(editor.getEditorElement().innerHTML).toContain('hello');
+    cleanup(editor, target);
+  });
+});
+
 describe('canUndo / canRedo after manual snapshots', () => {
   it('canUndo() returns true after a second snapshot is taken', () => {
     const { editor, target } = makeEditor();

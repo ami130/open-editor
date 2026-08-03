@@ -11,6 +11,7 @@ const DENY  = { manager: { gate: () => ({ allowed: false, reason: 'no-license' }
 
 function makeEditor(html = '<h1>Doc</h1><p>Body</p>') {
   const listeners = new Map();
+  const toasts = { success: [], error: [], info: [] };
   const editor = {
     _wrapper: document.createElement('div'),
     _config: {},
@@ -19,6 +20,13 @@ function makeEditor(html = '<h1>Doc</h1><p>Body</p>') {
     on(ev, fn) { (listeners.get(ev) || listeners.set(ev, []).get(ev)).push(fn); },
     off(ev, fn) { const a = listeners.get(ev) || []; const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); },
     emit(ev, p) { for (const fn of [...(listeners.get(ev) || [])]) fn(p); },
+    // Minimal toast surface capturing what the plugin shows the user.
+    ui: { toast: {
+      success: (m) => toasts.success.push(m),
+      error: (m) => toasts.error.push(m),
+      info: (m) => toasts.info.push(m),
+    } },
+    _toasts: toasts,
     logger: null, toolbar: null,
   };
   document.body.appendChild(editor._wrapper);
@@ -96,6 +104,24 @@ describe('export-pdf — granted', () => {
     createExportPdfPlugin(ALLOW).install(editor);
     expect(editor.exportPdf()).toBe(false);
     expect(blocked).toEqual({ reason: 'popup-blocked' });
+  });
+
+  it('shows a SUCCESS toast (points the user to “Save as PDF”) on a normal export', () => {
+    const editor = makeEditor();
+    opened = stubWindowOpen();
+    createExportPdfPlugin(ALLOW).install(editor);
+    editor.exportPdf();
+    expect(editor._toasts.success.length).toBe(1);
+    expect(editor._toasts.success[0]).toMatch(/Save as PDF/i);
+  });
+
+  it('shows an ERROR toast when the popup is blocked (no more silent failure)', () => {
+    const editor = makeEditor();
+    opened = stubWindowOpen(true);
+    createExportPdfPlugin(ALLOW).install(editor);
+    editor.exportPdf();
+    expect(editor._toasts.error.length).toBe(1);
+    expect(editor._toasts.error[0]).toMatch(/pop-?ups/i);
   });
 
   it('destroy() removes the editor.exportPdf handle', () => {

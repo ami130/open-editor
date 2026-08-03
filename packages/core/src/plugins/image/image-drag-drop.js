@@ -9,6 +9,7 @@
  */
 import { buildAndInsertFigure } from './image-dom.js';
 import { processImageFile, fileSizeError } from './image-upload.js';
+import { promptForAlt } from './image-alt-prompt.js';
 import { placeCaretFromPoint } from './image-dom.js';
 
 const DRAGOVER_CLASS = 'oe-editor--dragover';
@@ -104,9 +105,17 @@ async function handleDroppedFile(editor, file) {
   try {
     const result = await processImageFile(file, config, null, null, doc);
     if (!result) return;
+    // imageRequireAlt: drag-drop has no metadata step, so prompt for alt before
+    // inserting rather than silently shipping an alt-less image.
+    let alt;
+    if (config.imageRequireAlt) {
+      alt = await promptForAlt(editor);
+      if (alt === null) return; // user cancelled → don't insert
+    }
     buildAndInsertFigure(editor, result, {
       width:  result.width  || undefined,
       height: result.height || undefined,
+      ...(alt ? { alt } : {}),
     }, config, doc, 'plugin:image:drop');
   } catch (err) {
     editor.emit('error', { error: err, context: 'plugin:image:drop' });

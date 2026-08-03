@@ -1,18 +1,14 @@
 /**
  * image-dialog.js — Insert Image dialog UI (9.1, 9.2, 9.3, 9.10, 9.15, 9.17).
- *
- * openImageDialog(editor) → Promise<result|null>
- *   result: { src, alt, title, alignment }
- *
- * Delegates all Promise resolution to ModalManager's button system.
- * modal.open() returns 'insert' or null; form values are read after it resolves.
- * A while loop re-opens the modal on validation errors so the user can correct
- * input without losing what they typed.
+ * openImageDialog(editor) → Promise<{src,alt,title,alignment}|null>. Promise
+ * resolution is delegated to ModalManager's button system; a while loop re-opens
+ * the modal on validation errors so the user can correct input without losing
+ * what they typed.
  */
 import { sanitizeSrc } from './image-dom.js';
 import { processImageFile, fileSizeError, maxFileSize, formatMB } from './image-upload.js';
 import {
-  el, labeledInput, isValidImageUrl, buildAlignmentField, buildProgressBar,
+  el, labeledInput, isValidImageUrl, buildAlignmentField, buildProgressBar, wireDropzone,
 } from './image-dialog-parts.js';
 
 // ─── Main dialog builder ──────────────────────────────────────────────────────
@@ -71,23 +67,22 @@ export async function openImageDialog(editor) {
   root.appendChild(panelUrl);
   root.appendChild(panelFile);
 
-  // ── Shared fields (alt, title, alignment) ───────────────────────────────────
+  // ── Shared fields (alt, title, alignment) — imageRequireAlt makes alt mandatory.
   const shared = el(doc, 'div', { className: 'oe-img-dialog__shared' });
-
-  // Alt text with character counter
   const wAlt  = el(doc, 'div', { className: 'oe-img-dialog__field' });
+  const requireAlt = !!config.imageRequireAlt;
   const altLabelRow = el(doc, 'div', { className: 'oe-img-dialog__label-row' });
-  const altLbl  = el(doc, 'label', { for: 'oe-img-alt', className: 'oe-img-dialog__label' }, 'Alt text');
-  const altCtr  = el(doc, 'span',  { className: 'oe-img-dialog__char-count' }, 'empty = decorative');
+  const altLbl  = el(doc, 'label', { for: 'oe-img-alt', className: 'oe-img-dialog__label' }, requireAlt ? 'Alt text *' : 'Alt text');
+  const emptyHint = requireAlt ? 'required' : 'empty = decorative';
+  const altCtr  = el(doc, 'span',  { className: 'oe-img-dialog__char-count' }, emptyHint);
   altLabelRow.appendChild(altLbl);
   altLabelRow.appendChild(altCtr);
   const inAlt = el(doc, 'input', { id: 'oe-img-alt', type: 'text', className: 'oe-img-dialog__input',
     placeholder: 'Describe the image for screen readers', maxlength: '125' });
+  if (requireAlt) inAlt.setAttribute('aria-required', 'true');
   inAlt.addEventListener('input', () => {
-    const len = inAlt.value.length;
-    // Empty alt is valid (decorative image) — tell the user that rather than
-    // nagging. Once they type, switch to the live character counter.
-    altCtr.textContent = len === 0 ? 'empty = decorative' : `${len} / 125`;
+    const len = inAlt.value.length; // empty → decorative/required hint; else live counter
+    altCtr.textContent = len === 0 ? emptyHint : `${len} / 125`;
     altCtr.classList.toggle('oe-img-dialog__char-count--warn', len > 100);
   });
   wAlt.appendChild(altLabelRow);
@@ -234,20 +229,11 @@ export async function openImageDialog(editor) {
     // Confirm the cancellation so the progress bar doesn't silently vanish.
     setPanelStatus('Upload cancelled.');
   });
-  dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('oe-img-dialog__dropzone--over'); });
-  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('oe-img-dialog__dropzone--over'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('oe-img-dialog__dropzone--over');
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  });
+  // Drag/drop + whole-box click-to-browse + keyboard (see image-dialog-parts.js).
+  wireDropzone(dropZone, chooseLbl, fileInput, handleFile);
 
-  // ── Open modal — let ModalManager own the Promise ───────────────────────────
-  // modal.open() returns 'insert' or null. If null → cancelled, return null.
-  // If 'insert' → validate; on error show message and re-open (loop).
-  // closeOnBackdrop: false prevents accidental dismiss while filling fields.
-   
+  // Open modal (ModalManager owns the Promise): null → cancelled; 'insert' →
+  // validate and re-open on error. closeOnBackdrop:false avoids accidental dismiss.
   while (true) {
     const action = await editor.ui.modal.open({
       title: 'Insert Image',
@@ -290,9 +276,17 @@ export async function openImageDialog(editor) {
       src = resolvedSrc;
     }
 
+    const altText = inAlt.value.trim();
+    // a11y: imageRequireAlt blocks insert with empty alt (default off = decorative).
+    if (config.imageRequireAlt && !altText) {
+      showError('Please add alt text describing this image (required for accessibility).');
+      if (typeof inAlt.focus === 'function') inAlt.focus();
+      continue;
+    }
+
     return {
       src,
-      alt:       inAlt.value.trim(),
+      alt:       altText,
       title:     inTitle.value.trim(),
       alignment: getAlignment() || null,
     };

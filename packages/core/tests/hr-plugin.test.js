@@ -93,7 +93,7 @@ describe('select + restyle', () => {
   });
 
   it('the popover has a customizable numeric HEIGHT control (clamped)', () => {
-    const { p, hr } = withHr();
+    const { hr } = withHr();
     clickOn(hr);
     const num = editor.getContainer().querySelector('.oe-hr-popover__num');
     expect(num).toBeTruthy();

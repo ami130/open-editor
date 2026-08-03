@@ -8,7 +8,11 @@ import { test, expect } from '@playwright/test';
 const NOTICE = '[data-oe-premium-notice]';
 const PANEL = '[data-oe-seo-panel]';
 
-test.describe('Phase 19.4 — SEO Analyzer', () => {
+// SKIPPED: SEO was removed from the product. The SEO plugin is no longer
+// registered in the playground (premium-panel FEATURE_PLUGINS), so granting
+// 'seo' never produces a button/panel. Plugin code is retained under premium/seo;
+// to re-enable, re-register it, then remove .skip.
+test.describe.skip('Phase 19.4 — SEO Analyzer', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?nopremium');
     await page.waitForSelector('.oe-toolbar');

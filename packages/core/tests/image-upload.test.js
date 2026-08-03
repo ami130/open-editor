@@ -191,6 +191,91 @@ describe('9.4 — uploadFile', () => {
   });
 });
 
+// ── upload customization: auth headers, credentials, field name, extra data ──
+describe('uploadFile — connect to your API (auth headers, credentials, field, data)', () => {
+  let origXHR, origDoc;
+  // Captures what the plugin set on the XHR + the FormData it sent.
+  function makeCapturingXHR(captured) {
+    return {
+      open: vi.fn(),
+      setRequestHeader: vi.fn(function (n, v) { captured.headers[n] = v; }),
+      set withCredentials(v) { captured.withCredentials = v; },
+      get withCredentials() { return captured.withCredentials; },
+      send: vi.fn(function (fd) {
+        captured.formData = fd;
+        setTimeout(() => {
+          Object.defineProperty(this, 'status', { value: 200, configurable: true });
+          Object.defineProperty(this, 'responseText', { value: '{"url":"https://cdn/x.png"}', configurable: true });
+          this.dispatchEvent({ type: 'load' });
+        }, 0);
+      }),
+      abort: vi.fn(),
+      addEventListener: vi.fn(function (t, fn) { this._listeners[t] = fn; }),
+      dispatchEvent: vi.fn(function (e) { const fn = this._listeners[e.type]; if (fn) fn(e); }),
+      upload: { addEventListener: vi.fn(), dispatchEvent: vi.fn(), _listeners: {} },
+      _listeners: {},
+    };
+  }
+  beforeEach(() => { origXHR = globalThis.XMLHttpRequest; origDoc = globalThis.document; });
+  afterEach(() => { globalThis.XMLHttpRequest = origXHR; globalThis.document = origDoc; });
+
+  const jpg = () => new File(['x'], 'p.jpg', { type: 'image/jpeg' });
+  const run = (config, captured) => {
+    globalThis.XMLHttpRequest = vi.fn(() => makeCapturingXHR(captured));
+    return uploadFile(jpg(), 'https://api/up', null, null, makeMockDoc(10, 10), config);
+  };
+
+  it('sends imageUploadHeaders (e.g. Authorization: Bearer …)', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadHeaders: { Authorization: 'Bearer tok123', 'X-CSRF-Token': 'abc' } }, cap);
+    expect(cap.headers.Authorization).toBe('Bearer tok123');
+    expect(cap.headers['X-CSRF-Token']).toBe('abc');
+  });
+
+  it('imageUploadHeaders may be a function of the file', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadHeaders: (f) => ({ 'X-Name': f.name }) }, cap);
+    expect(cap.headers['X-Name']).toBe('p.jpg');
+  });
+
+  it('NEVER sets Content-Type (would clobber the multipart boundary)', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadHeaders: { 'Content-Type': 'application/json', Authorization: 'Bearer z' } }, cap);
+    expect(cap.headers['Content-Type']).toBeUndefined();
+    expect(cap.headers.Authorization).toBe('Bearer z'); // other headers still applied
+  });
+
+  it('imageUploadWithCredentials sends cookies cross-origin', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadWithCredentials: true }, cap);
+    expect(cap.withCredentials).toBe(true);
+  });
+
+  it('does NOT set withCredentials by default', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({}, cap);
+    expect(cap.withCredentials).toBe(false);
+  });
+
+  it('imageUploadFieldName overrides the default "file" field', async () => {
+    const cap = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadFieldName: 'image' }, cap);
+    expect(cap.formData.get('image')).toBeTruthy();
+    expect(cap.formData.get('file')).toBeNull();
+  });
+
+  it('imageUploadData appends extra form fields (object or function)', async () => {
+    const cap1 = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadData: { folderId: '42', postId: '7' } }, cap1);
+    expect(cap1.formData.get('folderId')).toBe('42');
+    expect(cap1.formData.get('postId')).toBe('7');
+
+    const cap2 = { headers: {}, withCredentials: false, formData: null };
+    await run({ imageUploadData: (f) => ({ name: f.name }) }, cap2);
+    expect(cap2.formData.get('name')).toBe('p.jpg');
+  });
+});
+
 // ── file-size guard (#9) ─────────────────────────────────────────────────────
 describe('fileSizeError / maxFileSize (config-driven)', () => {
   it('defaults to 10 MB and flags larger files', async () => {

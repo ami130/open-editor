@@ -255,8 +255,7 @@ export const editorApiMixin = {
     // _removeGlobalStyles() is defined in editor.js where _instanceCount lives.
     this._removeGlobalStyles();
 
-    // Tear down subsystems: plugins first (they depend on everything below),
-    // then chrome, history, commands, UI — in reverse-init order.
+    // Tear down subsystems in reverse-init order: plugins first, then chrome, history, commands, UI.
     if (this.plugins) { this.plugins.destroy(); this.plugins = null; }
     // Remove fullscreen ESC listener if editor is destroyed while in fullscreen.
     if (typeof this._removeFullscreenEscListener === 'function') {
@@ -274,6 +273,7 @@ export const editorApiMixin = {
       this.ui.modal.destroy();
       this.ui.tooltip.destroy();
       this.ui.contextMenu.destroy();
+      if (this.ui.toast) this.ui.toast.destroy();
       this.ui = null;
     }
 

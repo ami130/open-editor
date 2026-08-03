@@ -64,7 +64,7 @@ const DEMO_AI_ENDPOINT = '/__demo_ai__';
 void installDemoAiEndpoint; void DEMO_AI_ENDPOINT; // retained for reference; not installed (no AI)
 
 const editor = new OpenEditor('#editor', {
-  debug: true,
+  debug: false, // was true — kept the public demo console quiet (no per-event spam)
   placeholder: 'Start typing…',
   minHeight: 500,
   defaultContent: '',
@@ -137,7 +137,5 @@ initRealLicensePanel();
 editor.on('ready', () => {
   console.log('[Playground] Editor ready');
 });
-
-editor.on('onChange', ({ html }) => {
-  console.log('[onChange]', html);
-});
+// (Removed the per-keystroke [onChange] HTML logger — it spammed the public
+//  demo console on every edit. Re-add locally if you need to inspect output.)

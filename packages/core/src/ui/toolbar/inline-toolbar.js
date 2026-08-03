@@ -15,7 +15,35 @@ export const BUBBLE_ITEMS = [
   { type: 'button', name: 'strikethrough', command: 'strikethrough', icon: 'strikethrough', labelKey: 'strikethrough' },
   { type: 'button', name: 'inlineCode',    command: 'inlineCode',    icon: 'inlineCode',    labelKey: 'inlineCode' },
   { type: 'button', name: 'blockquote',    command: 'blockquote',    icon: 'blockquote',    labelKey: 'blockquote' },
+  // Link — "select text → add link" is a Google-Docs staple. It has no command
+  // (the link plugin owns the dialog), so onClick activates that plugin's
+  // toolbar button; the row hides itself when the link plugin isn't installed
+  // (see _syncLinkVisibility — the bubble is built before plugins install).
+  // Literal `tooltip` + inline icon so no new locale key / cross-plugin import.
+  {
+    type: 'button', name: 'bubbleLink', tooltip: 'Insert Link',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    onClick: (editor) => activateLinkButton(editor),
+  },
 ];
+
+/** The link plugin's rendered toolbar button, or null. The SAME predicate backs
+ *  both the bubble button's visibility and its click, so they can never diverge
+ *  (e.g. plugin installed but its button not rendered under toolbar:false / a
+ *  custom items list / feature-gated away → the bubble button must stay hidden,
+ *  not show a no-op). */
+function findLinkButton(editor) {
+  const root = editor && editor.getContainer && editor.getContainer();
+  return root && typeof root.querySelector === 'function'
+    ? root.querySelector('.oe-tb__btn[data-name="insertLink"]')
+    : null;
+}
+
+/** Activate the link plugin's toolbar button (opens its dialog) if present. */
+function activateLinkButton(editor) {
+  const btn = findLinkButton(editor);
+  if (btn) btn.click();
+}
 
 export class InlineToolbar {
   constructor(editor, locale, doc) {
@@ -52,6 +80,7 @@ export class InlineToolbar {
       const hooks = { savedBookmark: null, afterAction: this._afterAction };
       const c = createButton(this._editor, item, this._locale, doc, hooks);
       this._controls.push(c);
+      if (item.name === 'bubbleLink') this._linkBtn = c.el; // toggled by presence
       bar.appendChild(c.el);
     }
     if (this._editor._wrapper) this._editor._wrapper.appendChild(bar);
@@ -95,6 +124,7 @@ export class InlineToolbar {
       oy = iRect.top - wRect.top;
     }
     this._el.hidden = false;
+    this._syncLinkVisibility();
     this._sync();
     const bRect = this._el.getBoundingClientRect();
     let top = rect.top - wRect.top + oy - bRect.height - 8;
@@ -103,6 +133,14 @@ export class InlineToolbar {
     left = Math.max(0, Math.min(left, wRect.width - bRect.width));
     this._el.style.top = `${top}px`;
     this._el.style.left = `${left}px`;
+  }
+
+  /** Show the bubble Link button only when the link plugin's RENDERED toolbar
+   *  button exists — matching exactly what the click needs, so the bubble never
+   *  shows a button that would no-op (toolbar:false / custom items / gated). */
+  _syncLinkVisibility() {
+    if (!this._linkBtn) return;
+    this._linkBtn.hidden = !findLinkButton(this._editor);
   }
 
   _hide() { if (this._el) this._el.hidden = true; }

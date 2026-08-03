@@ -13,6 +13,8 @@ const DENY  = { manager: { gate: () => ({ allowed: false, reason: 'no-license' }
 
 function makeEditor(html = '<h1>Doc</h1><p>Body</p>') {
   const listeners = new Map();
+  // Capture progress-toast lifecycle so tests can assert user feedback.
+  const toastLog = { progress: [], success: [], error: [] };
   const editor = {
     _wrapper: document.createElement('div'),
     _config: {}, _destroyed: false, _iframeDoc: null,
@@ -20,6 +22,17 @@ function makeEditor(html = '<h1>Doc</h1><p>Body</p>') {
     on(ev, fn) { (listeners.get(ev) || listeners.set(ev, []).get(ev)).push(fn); },
     off(ev, fn) { const a = listeners.get(ev) || []; const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); },
     emit(ev, p) { for (const fn of [...(listeners.get(ev) || [])]) fn(p); },
+    ui: { toast: {
+      progress: (m) => {
+        toastLog.progress.push(m);
+        return {
+          success: (msg) => toastLog.success.push(msg),
+          error: (msg) => toastLog.error.push(msg),
+          update: () => {}, close: () => {},
+        };
+      },
+    } },
+    _toasts: toastLog,
     logger: null, toolbar: null,
   };
   document.body.appendChild(editor._wrapper);
@@ -140,6 +153,42 @@ describe('export-docx — granted', () => {
     const text = Array.from(bytes).map((n) => String.fromCharCode(n)).join('');
     expect(text).toContain('[Image: broken]');
     expect(text).not.toContain('<w:drawing>');
+  });
+
+  it('shows a progress toast → SUCCESS on a clean export (no more "nothing happened")', async () => {
+    const editor = makeEditor();
+    createExportDocxPlugin(ALLOW).install(editor);
+    await editor.exportDocx();
+    expect(editor._toasts.progress.length).toBe(1);     // spinner shown immediately
+    expect(editor._toasts.success.length).toBe(1);      // resolved to success
+    expect(editor._toasts.success[0]).toMatch(/download/i);
+    expect(editor._toasts.error.length).toBe(0);
+  });
+
+  it('WARNS the user when a remote image is dropped (CORS/404) instead of vanishing silently', async () => {
+    const html = '<p><img src="https://cdn.example.com/broken.png" alt="x"></p>';
+    const editor = makeEditor(html);
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 404 }));
+    createExportDocxPlugin(ALLOW).install(editor);
+    const ok = await editor.exportDocx();
+    expect(ok).toBe(true);                               // export still succeeds
+    // The dropped image is surfaced via the toast, not silently omitted.
+    expect(editor._toasts.error.length).toBe(1);
+    expect(editor._toasts.error[0]).toMatch(/image/i);
+    expect(editor._toasts.error[0]).toMatch(/1 image/i);
+  });
+
+  it('surfaces an ERROR toast (and emits exportDocxFailed) when the build throws', async () => {
+    const editor = makeEditor();
+    createExportDocxPlugin(ALLOW).install(editor);
+    // Force the download step to throw AFTER buildBytes resolves.
+    HTMLAnchorElement.prototype.click.mockImplementationOnce(() => { throw new Error('boom'); });
+    let failed = null;
+    editor.on('exportDocxFailed', (p) => { failed = p; });
+    const ok = await editor.exportDocx();
+    expect(ok).toBe(false);
+    expect(failed).toBeTruthy();
+    expect(editor._toasts.error.length).toBe(1);
   });
 });
 

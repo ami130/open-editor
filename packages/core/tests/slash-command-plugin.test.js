@@ -132,4 +132,53 @@ describe('slash-command plugin', () => {
     editor.plugins.uninstall('slashCommand');
     expect(document.querySelector('.oe-caret-popup')).toBeNull();
   });
+
+  // ── ACTION entries (image/table/link) ────────────────────────────────────
+  // These insert via a plugin's toolbar button, so they appear only when that
+  // button exists and picking one activates it (the same path a click uses).
+
+  /** A minimal plugin exposing a toolbar button named `name`, recording clicks. */
+  function stubButtonPlugin(name, clicks) {
+    return {
+      name: `stub-${name}`,
+      install() {},
+      destroy() {},
+      getToolbarButtons() {
+        return [{ type: 'button', name, tooltip: name, icon: '<svg></svg>', onClick: () => clicks.push(name) }];
+      },
+    };
+  }
+
+  it('an ACTION entry (Image) appears only when its toolbar button exists, and picking it activates the button', () => {
+    const clicks = [];
+    editor = createTestEditor({ toolbar: true });
+    editor.plugins.install(stubButtonPlugin('insertImage', clicks));
+    editor.plugins.install(createSlashCommandPlugin());
+    const p = editor.getEditorElement().querySelector('p');
+    p.textContent = '/image';
+    setCaretAtEnd(p.firstChild);
+    fireInput(editor.getEditorElement());
+
+    const options = [...document.querySelectorAll('.oe-caret-popup__option')];
+    const imageOpt = options.find((o) => o.textContent === 'Image');
+    expect(imageOpt).toBeTruthy();
+
+    imageOpt.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    // The trigger text is cleared and the plugin's button was activated.
+    expect(editor.getEditorElement().textContent).not.toContain('/image');
+    expect(clicks).toEqual(['insertImage']);
+  });
+
+  it('an ACTION entry is hidden when the owning plugin/button is absent', () => {
+    editor = createTestEditor({ toolbar: true }); // toolbar present but NO image plugin
+    editor.plugins.install(createSlashCommandPlugin());
+    const p = editor.getEditorElement().querySelector('p');
+    p.textContent = '/image';
+    setCaretAtEnd(p.firstChild);
+    fireInput(editor.getEditorElement());
+
+    const popup = document.querySelector('.oe-caret-popup');
+    const options = popup && !popup.hidden ? [...popup.querySelectorAll('.oe-caret-popup__option')] : [];
+    expect(options.find((o) => o.textContent === 'Image')).toBeUndefined();
+  });
 });

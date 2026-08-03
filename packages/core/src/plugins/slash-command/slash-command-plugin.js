@@ -83,6 +83,10 @@ export function createSlashCommandPlugin() {
       this._triggerNode = info.startNode;
       this._triggerLen = 1 + trigger.query.length;
       const items = filterSlashCommands(trigger.query).filter((entry) => {
+        // ACTION entries (image/table/link) are available iff the owning
+        // plugin's toolbar button is actually present (installed + granted) —
+        // picking them clicks that button, so no button = don't advertise it.
+        if (entry.action) return !!this._findActionButton(entry.action);
         if (!(editor.commands && typeof editor.commands.get === 'function' && editor.commands.get(entry.command))) return false;
         // Feature gating (Phase 2.5): drop slash entries whose feature isn't
         // granted (execute would refuse them anyway; don't advertise them).
@@ -124,11 +128,27 @@ export function createSlashCommandPlugin() {
         sel.addRange(range);
       }
       this._close();
-      if (editor.commands) {
+      if (entry.action) {
+        // The caret is now clean where "/query" was; activating the plugin's
+        // toolbar button opens its insert dialog at that caret — same code path
+        // a real button click uses, so no coupling to plugin internals.
+        const btn = this._findActionButton(entry.action);
+        if (btn) btn.click();
+      } else if (editor.commands) {
         if (entry.arg !== undefined) editor.commands.execute(entry.command, entry.arg);
         else editor.commands.execute(entry.command);
       }
       if (editor._onChangeFn) editor._onChangeFn();
+    },
+
+    /** Locate a plugin's toolbar button by its `name` (data-name), so an ACTION
+     *  slash entry can trigger the exact flow a click would. Null if absent
+     *  (plugin not installed, feature denied, or no toolbar in this config). */
+    _findActionButton(name) {
+      const editor = this._editor;
+      const root = editor && editor.getContainer && editor.getContainer();
+      if (!root || typeof root.querySelector !== 'function') return null;
+      return root.querySelector(`.oe-tb__btn[data-name="${name}"]`);
     },
 
     _close() {

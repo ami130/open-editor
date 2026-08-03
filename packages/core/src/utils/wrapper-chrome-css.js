@@ -45,10 +45,16 @@ export const WRAPPER_CHROME_CSS = `
     box-sizing: border-box;
     text-align: right;
     padding: 4px 16px 6px;
-    color: var(--oe-content-placeholder);
+    /* Muted BUT WCAG-AA compliant, in BOTH themes. The strip is a wrapper child
+       in the HOST doc; without its own background it showed the WHITE page even
+       under a dark editor theme, so dark-mode muted text (#98a1b3) on white was
+       ~2.6:1 (axe flagged it). Giving it the themed surface background makes the
+       fg/bg a theme-matched pair: light #69707f on #f8fafc = 4.64:1, dark
+       #98a1b3 on #1a1e28 = 6.41:1 — both pass. (The old #aaa @ opacity .65 was ~1.6:1.) */
+    color: var(--oe-fg-muted);
+    background: var(--oe-bg-muted);
     font-size: 11px;
     line-height: 1.2;
-    opacity: 0.65;
     user-select: none;
     -webkit-user-select: none;
     pointer-events: none;

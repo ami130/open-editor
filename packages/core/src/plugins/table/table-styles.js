@@ -18,7 +18,12 @@ const TABLE_CSS = `
   border: 1px solid var(--oe-border-strong);
   padding: 6px 8px;
   vertical-align: top;
-  min-width: 24px;
+  /* A readable column floor: with table-layout:fixed + width:100%, a 24px floor
+     let many-column tables crush cells into an unreadable sliver. 72px keeps
+     columns legible; once columns × 72px exceeds the editable width the table
+     grows past 100% and the editable scrolls it horizontally (overflow-x:auto)
+     instead of squeezing. */
+  min-width: 72px;
   word-break: break-word;
 }
 .oe-editor table.oe-table th {

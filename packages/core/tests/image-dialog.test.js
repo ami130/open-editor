@@ -204,3 +204,90 @@ describe('URL validation in dialog', () => {
     expect(result.src).toBe('https://example.com/photo.jpg');
   });
 });
+
+describe('drop zone — whole box opens the file picker', () => {
+  it('clicking anywhere in the drop zone (not just "browse") triggers the file input', async () => {
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    const dropZone = body.querySelector('.oe-img-dialog__dropzone');
+    const fileInput = body.querySelector('#oe-img-file');
+    expect(dropZone).toBeTruthy();
+    let clicked = 0;
+    fileInput.addEventListener('click', () => { clicked++; });
+    // Click the drop zone background (e.g. its icon/hint area), NOT the label.
+    const hint = dropZone.querySelector('.oe-img-dialog__dz-hint') || dropZone;
+    hint.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicked).toBe(1); // exactly once — the file picker opened
+  });
+
+  it('does NOT double-fire when the "browse" label itself is clicked', async () => {
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    const dropZone = body.querySelector('.oe-img-dialog__dropzone');
+    const fileInput = body.querySelector('#oe-img-file');
+    let clicked = 0;
+    fileInput.addEventListener('click', () => { clicked++; });
+    // Clicking the "browse" label natively activates the file input ONCE. The
+    // dropzone's own click handler must SKIP the label (chooseLbl.contains) so it
+    // doesn't add a second click → the picker opens exactly once, not twice.
+    const label = dropZone.querySelector('.oe-img-dialog__choose');
+    label.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicked).toBe(1); // exactly once — no double-fire from the dropzone handler
+  });
+});
+
+describe('imageRequireAlt (accessibility)', () => {
+  it('with imageRequireAlt, a valid URL but EMPTY alt is blocked and the modal re-opens', async () => {
+    editor.destroy();
+    editor = createTestEditor({ imageRequireAlt: true });
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+
+    let callCount = 0;
+    editor.ui.modal.open = vi.fn((config) => {
+      editor.ui.modal._capturedBody = config.body;
+      const inUrl = config.body.querySelector('#oe-img-url');
+      if (inUrl) inUrl.value = 'https://example.com/photo.jpg'; // valid src, but alt left empty
+      callCount++;
+      return Promise.resolve(callCount === 1 ? 'insert' : null); // cancel on the re-open
+    });
+
+    const result = await openImageDialog(editor);
+    expect(result).toBeNull();       // blocked — not inserted
+    expect(callCount).toBe(2);       // looped: shown error + re-opened
+    const errEl = editor.ui.modal._capturedBody.querySelector('.oe-img-dialog__error');
+    expect(errEl.textContent.toLowerCase()).toContain('alt text');
+  });
+
+  it('with imageRequireAlt, a valid URL WITH alt inserts normally', async () => {
+    editor.destroy();
+    editor = createTestEditor({ imageRequireAlt: true });
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+
+    editor.ui.modal.open = vi.fn((config) => {
+      editor.ui.modal._capturedBody = config.body;
+      config.body.querySelector('#oe-img-url').value = 'https://example.com/p.jpg';
+      config.body.querySelector('#oe-img-alt').value = 'A described photo';
+      return Promise.resolve('insert');
+    });
+
+    const result = await openImageDialog(editor);
+    expect(result).not.toBeNull();
+    expect(result.alt).toBe('A described photo');
+  });
+
+  it('the alt field is marked required (aria-required + "*") when imageRequireAlt is on', async () => {
+    editor.destroy();
+    editor = createTestEditor({ imageRequireAlt: true });
+    mockModalResolveWith(null); // capture the body without a real modal render
+    const { openImageDialog } = await import('../src/plugins/image/image-dialog.js');
+    openImageDialog(editor);
+    await new Promise((r) => setTimeout(r, 0));
+    const body = editor.ui.modal._capturedBody;
+    expect(body.querySelector('#oe-img-alt').getAttribute('aria-required')).toBe('true');
+    expect(body.querySelector('label[for="oe-img-alt"]').textContent).toContain('*');
+  });
+});
