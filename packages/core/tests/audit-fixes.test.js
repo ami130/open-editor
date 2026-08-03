@@ -88,6 +88,52 @@ describe('M10: Enter at end of nested blockquote keeps the new p in the same par
   });
 });
 
+describe('Q4: mid-quote Enter splits into a new paragraph INSIDE the quote', () => {
+  it('splitting a non-empty inner block keeps both halves inside the blockquote', async () => {
+    const { handleBlockquoteEnter } = await import('../src/commands/block-commands.js');
+    const { editor, target } = makeEditor('<blockquote><p>hello world</p></blockquote>');
+    const p = editor.getEditorElement().querySelector('blockquote > p');
+    setCursor(p.firstChild, 5); // caret after "hello"
+    const handled = handleBlockquoteEnter(editor);
+    expect(handled).toBe(true);
+    const bqs = editor.getEditorElement().querySelectorAll('blockquote');
+    expect(bqs.length).toBe(1);                              // still ONE quote
+    const innerPs = bqs[0].querySelectorAll('p');
+    expect(innerPs.length).toBe(2);                          // split into two <p>
+    expect(innerPs[0].textContent).toBe('hello');
+    expect(innerPs[1].textContent).toBe(' world');
+    cleanup(editor, target);
+  });
+
+  it('splitting a BARE-TEXT quote normalizes to two <p> inside the quote', async () => {
+    const { handleBlockquoteEnter } = await import('../src/commands/block-commands.js');
+    const { editor, target } = makeEditor('<blockquote>hello world</blockquote>');
+    const bq = editor.getEditorElement().querySelector('blockquote');
+    setCursor(bq.firstChild, 5);
+    const handled = handleBlockquoteEnter(editor);
+    expect(handled).toBe(true);
+    const innerPs = editor.getEditorElement().querySelectorAll('blockquote > p');
+    expect(innerPs.length).toBe(2);
+    expect(innerPs[0].textContent).toBe('hello');
+    expect(innerPs[1].textContent).toBe(' world');
+    cleanup(editor, target);
+  });
+
+  it('EMPTY last block still ESCAPES the quote (regression guard)', async () => {
+    const { handleBlockquoteEnter } = await import('../src/commands/block-commands.js');
+    const { editor, target } = makeEditor('<blockquote><p>quote</p><p><br></p></blockquote>');
+    const lastP = editor.getEditorElement().querySelectorAll('blockquote > p')[1];
+    setCursor(lastP, 0);
+    const handled = handleBlockquoteEnter(editor);
+    expect(handled).toBe(true);
+    // A <p> now sits AFTER the blockquote (escaped), quote keeps only "quote".
+    const bq = editor.getEditorElement().querySelector('blockquote');
+    expect(bq.querySelectorAll('p').length).toBe(1);
+    expect(bq.nextElementSibling && bq.nextElementSibling.tagName).toBe('P');
+    cleanup(editor, target);
+  });
+});
+
 describe('H6: history enforces a byte budget', () => {
   it('drops oldest snapshots when total bytes exceed the cap but keeps >=2', () => {
     const { editor, target } = makeEditor('<p>x</p>');

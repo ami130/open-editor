@@ -264,11 +264,16 @@ export function createDropdown(editor, item, locale, doc, hooks) {
 
       // Normalize: strip quotes, lowercase, trim whitespace for comparison.
       const normalize = (v) => (v || '').toLowerCase().replace(/['"]/g, '').trim();
-      const norm = normalize(rawVal);
+      // font-family reads back as a full stack (e.g. `"Times New Roman", serif`),
+      // so compare against the FIRST family, not the whole string — otherwise a
+      // single-name option like "Arial" never matches and the label stays generic.
+      const firstFamily = (v) => normalize((v || '').split(',')[0]);
+      const norm = item.kind === 'fontFamily' ? firstFamily(rawVal) : normalize(rawVal);
 
       let matched = null;
       for (const { el, opt } of optionEls) {
-        const isMatch = norm && normalize(opt.arg) === norm;
+        const optNorm = item.kind === 'fontFamily' ? firstFamily(opt.arg) : normalize(opt.arg);
+        const isMatch = norm && optNorm === norm;
         el.classList.toggle('oe-tb__dd-option--active', isMatch);
         if (isMatch) matched = opt;
       }

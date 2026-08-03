@@ -81,6 +81,10 @@ const ALLOWLIST = [
   // in every theme (convention), like a browser validation message.
   { match: /(background|border|border-color):[^;]*var\(--oe-c-danger-(100|200)\)/, reason: 'fixed danger-tint status signal' },
   { match: /color:\s*var\(--oe-c-warning\)/, reason: 'fixed warning status hue' },
+  // C3 mixed-selection indicator: a fixed rainbow that MEANS "multiple colors".
+  // It is deliberately NOT any single themeable surface color, so a semantic
+  // token can't express it — it must read the same in every theme.
+  { match: /background:\s*linear-gradient\(90deg,#e11d48/, reason: 'mixed-color indicator — a fixed rainbow, not a themeable surface' },
 ];
 
 function stripComments(css) {

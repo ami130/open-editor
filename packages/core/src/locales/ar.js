@@ -97,6 +97,7 @@ export const ar = {
   caseUpper: 'أحرف كبيرة',
   caseLower: 'أحرف صغيرة',
   caseTitle: 'حالة العنوان',
+  defaultValue: 'افتراضي',
   insertImage: 'إدراج صورة',
   insertLink: 'إدراج رابط',
   insertTable: 'إدراج جدول',

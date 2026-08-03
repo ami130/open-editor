@@ -1,18 +1,14 @@
 /**
- * Block-level commands: headings, paragraph, blockquote (with nesting),
- * pre/code block, alignment, writing-mode.
- *
- * Rules:
- *  - execCommand('formatBlock') fails inside <li> on Firefox.
- *    Always detect list context and exit first.
- *  - Alignment stores as inline style (text-align). The sanitizer whitelists
- *    style attributes on block elements so they survive setHTML round-trips.
- *  - Nested blockquote: re-applying 'blockquote' command when already inside
- *    one increases depth. Applying 'paragraph' unwraps one level.
+ * Block-level commands: headings, paragraph, blockquote, pre/code block.
+ * Uses direct DOM range ops, not execCommand('formatBlock') (fails inside <li>
+ * on Firefox). Block styles (alignment/line-height) are inline styles the
+ * sanitizer whitelists, so they round-trip. Quote is a TOGGLE: re-clicking it
+ * inside a quote unwraps ONE level (via paragraphCommand); it does not re-nest.
  */
 
 import { walkUp, getParentBlock, isInsideTag } from '../selection/range-utils.js';
 import { CommandManager } from './command-manager.js';
+import { getSelectedBlocks } from './style-read.js';
 
 function placeCursorAt(node, editor) {
   const win = editor.selection && editor.selection.getWindow();
@@ -60,6 +56,22 @@ function applyFormatBlock(editor, tag) {
     n.nodeType === 1 && n.tagName.toLowerCase() === 'li'
   );
   if (inListItem) return;
+
+  // MULTI-BLOCK: convert EVERY selected paragraph (was: only the caret's block),
+  // preserving each block's children + class/style/id.
+  const selected = getSelectedBlocks(editor).filter(
+    (b) => ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'div'].includes(b.tagName.toLowerCase())
+  );
+  if (selected.length > 1) {
+    for (const b of selected) {
+      if (b.tagName.toLowerCase() === tag) continue;
+      const el = doc.createElement(tag);
+      for (const a of ['class', 'style', 'id']) if (b.getAttribute(a)) el.setAttribute(a, b.getAttribute(a));
+      while (b.firstChild) el.appendChild(b.firstChild);
+      b.parentNode.replaceChild(el, b);
+    }
+    return;
+  }
 
   // Find the block to replace — skip blockquote so we act on the inner block.
   const block = walkUp(info.startNode, root, (n) => {
@@ -134,12 +146,8 @@ function currentInnerBlock(editor) {
   });
 }
 
-// ─── Paragraph (4.5) ─────────────────────────────────────────────────────────
-//
-// When inside a blockquote, 'paragraph' peels ONE blockquote level (the
-// symmetric inverse of blockquoteCommand's nesting). Otherwise it formats the
-// current block as <p>. Without this, nesting was one-way: formatBlock('p')
-// alone does not unwrap a blockquote ancestor.
+// ─── Paragraph (4.5) — inside a blockquote it peels ONE quote level (the ──────
+// inverse of the quote toggle); otherwise formats the current block as <p>.
 
 export const paragraphCommand = {
   execute(editor) {
@@ -208,11 +216,7 @@ export const h4Command = makeHeadingCommand(4);
 export const h5Command = makeHeadingCommand(5);
 export const h6Command = makeHeadingCommand(6);
 
-// ─── Blockquote with nesting (4.5, 4.22) ─────────────────────────────────────
-//
-// Re-applying blockquote when already inside one → wraps in another <blockquote>.
-// Applying 'paragraph' or outdent → removes one level.
-
+// ─── Blockquote (4.5, 4.22) — a TOGGLE: inside a quote it unwraps one level ───
 export const blockquoteCommand = {
   execute(editor) {
     const info = getSelInfo(editor);
@@ -227,10 +231,24 @@ export const blockquoteCommand = {
       // Toggle off: unwrap one blockquote level (same as paragraphCommand)
       return paragraphCommand.execute(editor);
     }
+    const doc = getDoc(editor);
+
+    // MULTI-BLOCK: wrap ALL selected paragraphs into ONE blockquote (Docs/Notion)
+    // — was: only the first. Only when they're siblings and none is an li/quote.
+    const selected = getSelectedBlocks(editor);
+    if (selected.length > 1
+      && selected.every((b) => b.parentNode === selected[0].parentNode
+        && b.tagName.toLowerCase() !== 'li' && b.tagName.toLowerCase() !== 'blockquote')) {
+      const bq = doc.createElement('blockquote');
+      selected[0].parentNode.insertBefore(bq, selected[0]);
+      for (const b of selected) bq.appendChild(b); // move each block into the quote
+      placeCursorAt(selected[0].firstChild || selected[0], editor);
+      return CommandManager.SKIP_RESTORE;
+    }
+
     // Manual DOM wrap — execCommand('formatBlock','blockquote') silently fails
     // on headings, list items, and pre blocks in many browsers. Find the current
     // block and wrap it directly so blockquote works reliably everywhere.
-    const doc = getDoc(editor);
     const block = getParentBlock(info.startNode, root);
     if (block && block !== root) {
       const blockTag = block.tagName.toLowerCase();

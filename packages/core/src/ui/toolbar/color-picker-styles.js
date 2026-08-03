@@ -66,4 +66,9 @@ export const COLOR_PICKER_CSS = `
     height: 3px; border-radius: 1px; pointer-events: none;
     background: transparent; transition: background 0.15s;
   }
+  /* C3: indeterminate strip — the selection spans multiple colors. A small
+     rainbow reads as "mixed" without implying any single applied color. */
+  .oe-tb__color-strip--mixed {
+    background: linear-gradient(90deg,#e11d48,#f59e0b,#22c55e,#3b82f6,#a855f7) !important;
+  }
 `;

@@ -96,6 +96,7 @@ export const es = {
   caseUpper: 'MAYÚSCULAS',
   caseLower: 'minúsculas',
   caseTitle: 'Tipo Título',
+  defaultValue: 'Predeterminado',
   insertImage: 'Insertar imagen',
   insertLink: 'Insertar enlace',
   insertTable: 'Insertar tabla',

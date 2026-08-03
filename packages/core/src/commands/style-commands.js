@@ -1,8 +1,9 @@
 import { walkUp } from '../selection/range-utils.js';
-import { getBlockInfo, getComputedAtCursor, getBlockLinHeight } from './style-read.js';
+import { getBlockInfo, getComputedAtCursor, getBlockLinHeight, getSelectedBlocks } from './style-read.js';
 import { CommandManager } from './command-manager.js';
 import { applyPropAcrossRange, isFormattingSpan } from './span-merge-utils.js';
 import { recolorPartialSpan } from './span-split.js';
+import { clearStyleProp } from './color-commands.js';
 
 function editorEl(editor) { return editor.getEditorElement(); }
 function selMgr(editor)   { return editor.selection; }
@@ -172,7 +173,8 @@ export function wrapInSpan(editor, styleProp, styleValue, expandWord = false) {
 
 export const fontSizeCommand = {
   execute(editor, value = '') {
-    if (!value || !isSafeCSSValue(value)) return;
+    if (!value) { clearStyleProp(editor, 'fontSize'); return CommandManager.SKIP_RESTORE; } // reset
+    if (!isSafeCSSValue(value)) return;
     if (wrapInSpan(editor, 'fontSize', value, true)) return CommandManager.SKIP_RESTORE;
   },
   getValue(editor) { return getComputedAtCursor(editor, 'fontSize'); },
@@ -180,7 +182,8 @@ export const fontSizeCommand = {
 
 export const fontFamilyCommand = {
   execute(editor, family = '') {
-    if (!family || !isSafeCSSValue(family)) return;
+    if (!family) { clearStyleProp(editor, 'fontFamily'); return CommandManager.SKIP_RESTORE; } // reset
+    if (!isSafeCSSValue(family)) return;
     if (wrapInSpan(editor, 'fontFamily', family, true)) return CommandManager.SKIP_RESTORE;
   },
   getValue(editor) { return getComputedAtCursor(editor, 'fontFamily'); },
@@ -188,9 +191,17 @@ export const fontFamilyCommand = {
 
 export const lineHeightCommand = {
   execute(editor, value = '') {
-    if (!value || !isSafeCSSValue(value)) return;
-    const block = getBlockInfo(editor);
-    if (block) block.style.lineHeight = value;
+    // RESET: an empty/'default'/'none' value CLEARS line-height (back to theme
+    // default). Previously there was no way to undo a line-height once set, and
+    // removeFormat (inline-only) couldn't reach this block style.
+    const reset = value === '' || value === 'default' || value === 'none';
+    if (!reset && !isSafeCSSValue(value)) return;
+    // Apply to EVERY selected block (not just the caret's) so a multi-paragraph
+    // selection all changes together.
+    for (const block of getSelectedBlocks(editor)) {
+      block.style.lineHeight = reset ? '' : value;
+      if (reset && block.getAttribute('style') === '') block.removeAttribute('style');
+    }
   },
   getValue(editor) { return getBlockLinHeight(editor); },
 };

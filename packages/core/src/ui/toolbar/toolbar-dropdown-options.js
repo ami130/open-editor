@@ -11,14 +11,18 @@ export function optionsFor(kind, locale, editor) {
   if (kind === 'heading') {
     return HEADING_OPTIONS.map((o) => ({ label: t(locale, o.labelKey), command: o.command, tag: o.tag }));
   }
+  // A leading "Default" entry (arg '') on the value dropdowns lets the user RESET
+  // to the theme default — previously there was no way to undo a size/family/
+  // line-height from the dropdown (only full removeFormat, which nuked everything).
+  const DEFAULT_OPT = (command) => ({ label: t(locale, 'defaultValue'), command, arg: '' });
   if (kind === 'fontFamily') {
-    return DEFAULT_FONTS.map((f) => ({ label: f, command: 'fontFamily', arg: f }));
+    return [DEFAULT_OPT('fontFamily'), ...DEFAULT_FONTS.map((f) => ({ label: f, command: 'fontFamily', arg: f }))];
   }
   if (kind === 'fontSize') {
-    return DEFAULT_FONT_SIZES.map((s) => ({ label: s, command: 'fontSize', arg: s }));
+    return [DEFAULT_OPT('fontSize'), ...DEFAULT_FONT_SIZES.map((s) => ({ label: s, command: 'fontSize', arg: s }))];
   }
   if (kind === 'lineHeight') {
-    return DEFAULT_LINE_HEIGHTS.map((v) => ({ label: v, command: 'lineHeight', arg: v }));
+    return [DEFAULT_OPT('lineHeight'), ...DEFAULT_LINE_HEIGHTS.map((v) => ({ label: v, command: 'lineHeight', arg: v }))];
   }
   if (kind === 'styles') {
     // 17.5.8 — options come from config.styles (the control is skipped

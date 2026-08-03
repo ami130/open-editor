@@ -52,6 +52,7 @@ export const EN_LOCALE = {
   caseUpper: 'UPPERCASE',
   caseLower: 'lowercase',
   caseTitle: 'Title Case',
+  defaultValue: 'Default',
   insertImage: 'Insert Image',
   insertLink: 'Insert Link',
   insertTable: 'Insert Table',

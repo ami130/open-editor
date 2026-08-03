@@ -84,9 +84,24 @@ export function registerCaseCommands(editor) {
     execute(ed, mode = 'title') {
       if (mode !== 'upper' && mode !== 'lower' && mode !== 'title') return false;
       const info = ed.selection && ed.selection.get();
-      if (!info || info.collapsed) return false;
+      if (!info) return false;
       const root = ed.getEditorElement();
       const doc = root.ownerDocument;
+      // COLLAPSED caret: apply to the WORD under the cursor (Word behaviour),
+      // instead of the previous no-op. Expand to word boundaries via the
+      // browser's word selection, transform, then collapse the caret to word end.
+      if (info.collapsed) {
+        const win = ed.selection.getWindow && ed.selection.getWindow();
+        const nativeSel = win && win.getSelection();
+        if (!nativeSel || !nativeSel.modify || nativeSel.rangeCount === 0) return false;
+        nativeSel.modify('move', 'backward', 'word');
+        nativeSel.modify('extend', 'forward', 'word');
+        const wordRange = nativeSel.getRangeAt(0);
+        if (wordRange.collapsed) return false; // caret not on a word
+        const n = applyCaseToRange(doc, root, wordRange, mode);
+        nativeSel.collapseToEnd(); // drop the caret after the word (no lingering selection)
+        return n > 0;
+      }
       return applyCaseToRange(doc, root, info.range, mode) > 0;
     },
   });

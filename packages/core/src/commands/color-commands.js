@@ -39,7 +39,7 @@ function splitAndClear(editor, span, propName, range) {
 // selection (or, when collapsed, the nearest styled ancestor). Used by the
 // color picker's "Clear color" so it goes through the command pipeline and is
 // captured by history/onChange — unlike a manual DOM walk.
-function clearStyleProp(editor, propName) {
+export function clearStyleProp(editor, propName) {
   const sel = selMgr(editor);
   if (!sel) return false;
   const info = sel.get();
@@ -140,6 +140,41 @@ function clearStyleProp(editor, propName) {
   return changed;
 }
 
+// C3: does a non-collapsed selection cover MORE THAN ONE distinct value for
+// `prop` (including "unset")? Used to drive an indeterminate toolbar indicator
+// so a mixed selection doesn't masquerade as one uniform color. Scans only the
+// text nodes the range touches, and only when the selection is non-collapsed.
+export function isColorMixed(editor, prop) {
+  const sel = selMgr(editor);
+  if (!sel) return false;
+  const info = sel.get();
+  if (!info || info.collapsed || !info.range) return false;
+  const root = editorEl(editor);
+  const r = info.range;
+  const doc = getDoc(editor);
+  const walker = doc.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  const seen = new Set();
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!n.nodeValue || !n.nodeValue.trim()) continue;
+    if (!(r.intersectsNode ? r.intersectsNode(n) : true)) continue;
+    const owner = walkUp(n, root, (el) => el.nodeType === 1 && el.style && !!el.style[prop]);
+    seen.add(owner ? owner.style[prop] : '');
+    if (seen.size > 1) return true;
+  }
+  return false;
+}
+
+function colorAtStart(editor, prop) {
+  const sel = selMgr(editor);
+  if (!sel) return '';
+  const info = sel.get();
+  if (!info) return '';
+  const span = walkUp(info.startNode, editorEl(editor), (n) =>
+    n.nodeType === 1 && n.style && !!n.style[prop]
+  );
+  return span ? span.style[prop] : '';
+}
+
 export const textColorCommand = {
   execute(editor, color = '') {
     if (!color || !isSafeCSSValue(color)) return;  // C-4: guard CSS injection
@@ -155,16 +190,8 @@ export const textColorCommand = {
     );
     return !!span;
   },
-  getValue(editor) {
-    const sel = selMgr(editor);
-    if (!sel) return '';
-    const info = sel.get();
-    if (!info) return '';
-    const span = walkUp(info.startNode, editorEl(editor), (n) =>
-      n.nodeType === 1 && n.style && !!n.style.color
-    );
-    return span ? span.style.color : '';
-  },
+  isMixed(editor) { return isColorMixed(editor, 'color'); },
+  getValue(editor) { return colorAtStart(editor, 'color'); },
 };
 
 // Clears text color across the selection (toolbar "Clear color").
@@ -187,16 +214,8 @@ export const backgroundColorCommand = {
     );
     return !!span;
   },
-  getValue(editor) {
-    const sel = selMgr(editor);
-    if (!sel) return '';
-    const info = sel.get();
-    if (!info) return '';
-    const span = walkUp(info.startNode, editorEl(editor), (n) =>
-      n.nodeType === 1 && n.style && !!n.style.backgroundColor
-    );
-    return span ? span.style.backgroundColor : '';
-  },
+  isMixed(editor) { return isColorMixed(editor, 'backgroundColor'); },
+  getValue(editor) { return colorAtStart(editor, 'backgroundColor'); },
 };
 
 // Clears background color across the selection (toolbar "Clear color").

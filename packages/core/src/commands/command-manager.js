@@ -35,6 +35,9 @@ export class CommandManager {
       isActive: descriptor.isActive  || null,
       isEnabled: descriptor.isEnabled || null,
       getValue: descriptor.getValue  || null,
+      // isMixed: optional — reports an INDETERMINATE state (e.g. a selection
+      // spanning multiple colors) so the toolbar can show a "mixed" indicator.
+      isMixed:  descriptor.isMixed   || null,
     });
     return this;
   }

@@ -96,6 +96,7 @@ export const de = {
   caseUpper: 'GROSSBUCHSTABEN',
   caseLower: 'kleinbuchstaben',
   caseTitle: 'Jedes Wort Groß',
+  defaultValue: 'Standard',
   insertImage: 'Bild einfügen',
   insertLink: 'Link einfügen',
   insertTable: 'Tabelle einfügen',

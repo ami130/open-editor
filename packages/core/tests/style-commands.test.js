@@ -47,12 +47,41 @@ describe('lineHeight command (T6)', () => {
     cleanup(editor, target);
   });
 
-  it('no-op when value is empty string', () => {
-    const { editor, target } = makeEditorWith('<p>text</p>');
-    const p = editor.getEditorElement().querySelector('p');
-    setCursor(p.firstChild, 0);
-    editor.commands.execute('lineHeight', '');
-    expect(p.style.lineHeight).toBe('');
+  it('RESETS line-height when value is empty / "default" / "none"', () => {
+    for (const resetVal of ['', 'default', 'none']) {
+      const { editor, target } = makeEditorWith('<p style="line-height:3">text</p>');
+      const p = editor.getEditorElement().querySelector('p');
+      setCursor(p.firstChild, 0);
+      expect(p.style.lineHeight).toBe('3');           // precondition
+      editor.commands.execute('lineHeight', resetVal);
+      expect(p.style.lineHeight).toBe('');            // cleared
+      cleanup(editor, target);
+    }
+  });
+
+  it('applies to ALL blocks in a multi-paragraph selection (not just the first)', () => {
+    const { editor, target } = makeEditorWith('<p>one</p><p>two</p><p>three</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[2].firstChild, 3); // span all three
+    editor.commands.execute('lineHeight', '2');
+    expect(ps[0].style.lineHeight).toBe('2');
+    expect(ps[1].style.lineHeight).toBe('2');
+    expect(ps[2].style.lineHeight).toBe('2');
+    cleanup(editor, target);
+  });
+});
+
+// ─── heading across a multi-block selection ──────────────────────────────────
+describe('heading command — multi-block selection', () => {
+  it('converts EVERY selected paragraph to the heading (not just the first)', () => {
+    const { editor, target } = makeEditorWith('<p>one</p><p>two</p><p>three</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[2].firstChild, 3);
+    editor.commands.execute('h2');
+    const h2s = editor.getEditorElement().querySelectorAll('h2');
+    expect(h2s.length).toBe(3);
+    expect(editor.getEditorElement().querySelectorAll('p').length).toBe(0);
+    expect(Array.from(h2s).map((h) => h.textContent).join('|')).toBe('one|two|three');
     cleanup(editor, target);
   });
 });

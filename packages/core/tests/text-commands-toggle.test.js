@@ -191,6 +191,25 @@ describe('inlineCode command', () => {
     expect(editor.getHTML()).not.toContain('​');
     cleanup(editor, target);
   });
+
+  // BUG: on an EMPTY block the caret sits on the <br> placeholder; a raw
+  // insertNode there put the wrapper in an invalid spot that the browser
+  // discarded on reflow, so the next typed char came out UNformatted. The
+  // wrapper must REPLACE the <br> so the pending format survives typing.
+  it('pending-format on an empty <p><br></p>: wrapper replaces the <br> (caret in <strong>, no stray <br>)', () => {
+    const { editor, target } = makeEditorWith('<p><br></p>');
+    const br = editor.getEditorElement().querySelector('br');
+    setCursor(br, 0); // caret ON the <br> (matches the real empty-editor state)
+    editor.commands.execute('bold');
+    const p = editor.getEditorElement().querySelector('p');
+    const strong = p.querySelector('strong');
+    expect(strong).not.toBeNull();                 // wrapper created
+    expect(p.querySelector('br')).toBeNull();      // the placeholder <br> is GONE
+    expect(strong.parentNode).toBe(p);             // wrapper is a valid child of the block
+    // The caret sits inside the wrapper, so typed text would be bold.
+    expect(editor.selection.get().startNode && strong.contains(editor.selection.get().startNode)).toBeTruthy();
+    cleanup(editor, target);
+  });
 });
 
 describe('selectAll command', () => {

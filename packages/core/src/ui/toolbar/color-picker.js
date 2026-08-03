@@ -67,7 +67,18 @@ export function createColorControl(editor, item, locale, doc, hooks) {
   const engine = createPickerEngine(doc, {
     recentKey: item.kind,
     onRequestFocus: restoreSelection,
-    onApply: (value) => {
+    onApply: (value, hex, alpha) => {
+      // C1: fully-transparent TEXT color = invisible text, never a useful state
+      // (you would simply not color it). Treat alpha-0 text as "clear the color"
+      // instead of writing rgba(...,0). Background alpha-0 is legitimate
+      // (a transparent highlight) and is left untouched.
+      if (command === 'textColor' && typeof alpha === 'number' && alpha <= 0) {
+        restoreSelection();
+        if (editor.commands) editor.commands.execute('removeTextColor');
+        close();
+        if (hooks.afterAction) hooks.afterAction();
+        return;
+      }
       if (editor.commands) editor.commands.execute(command, value);
       close();
       if (hooks.afterAction) hooks.afterAction();
@@ -106,7 +117,21 @@ export function createColorControl(editor, item, locale, doc, hooks) {
     openedViaKeyboard = false;
   }
 
-  function onViewportChange() { if (dom.panel.parentNode === doc.body) close(); }
+  // C4: on scroll/resize, REPOSITION the panel to stay glued to its trigger
+  // (was: close outright, which threw away an in-progress color pick the moment
+  // the page scrolled). Only close if the trigger has scrolled out of view.
+  function onViewportChange() {
+    if (dom.panel.parentNode !== doc.body) return;
+    let visible = true;
+    try {
+      const r = trigger.getBoundingClientRect();
+      const vh = window.innerHeight || 768;
+      const vw = window.innerWidth || 1024;
+      visible = r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
+    } catch { /* jsdom — assume visible */ }
+    if (visible) positionPanel(dom.panel, trigger);
+    else close();
+  }
 
   function close() {
     engine.deactivate();
@@ -150,8 +175,12 @@ export function createColorControl(editor, item, locale, doc, hooks) {
   function update() {
     const cmd = editor.commands && editor.commands.get && editor.commands.get(command);
     const raw = (cmd && cmd.getValue) ? cmd.getValue(editor) : '';
-    strip.style.backgroundColor = raw || '';
-    trigger.classList.toggle('oe-tb__btn--active', !!raw);
+    // C3: when the selection spans more than one color, show an INDETERMINATE
+    // strip instead of pretending the start color applies to the whole run.
+    const mixed = !!(cmd && cmd.isMixed && cmd.isMixed(editor));
+    strip.classList.toggle('oe-tb__color-strip--mixed', mixed);
+    strip.style.backgroundColor = mixed ? '' : (raw || '');
+    trigger.classList.toggle('oe-tb__btn--active', !!raw || mixed);
   }
   function destroy() {
     engine.deactivate();

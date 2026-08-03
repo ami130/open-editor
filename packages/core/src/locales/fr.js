@@ -96,6 +96,7 @@ export const fr = {
   caseUpper: 'MAJUSCULES',
   caseLower: 'minuscules',
   caseTitle: 'Première Lettre En Majuscule',
+  defaultValue: 'Par défaut',
   insertImage: 'Insérer une image',
   insertLink: 'Insérer un lien',
   insertTable: 'Insérer un tableau',

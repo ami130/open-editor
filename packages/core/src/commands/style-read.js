@@ -32,6 +32,37 @@ export function getBlockInfo(editor) {
   return getParentBlock(info.startNode, root);
 }
 
+/**
+ * All text blocks the current selection spans (for block-level tools like
+ * line-height / heading that should affect EVERY selected paragraph, not just
+ * the one the caret starts in). Collapsed selection → the single caret block.
+ * Read-only: returns block elements, never mutates.
+ */
+export function getSelectedBlocks(editor) {
+  const sel = selMgr(editor);
+  const info = sel && sel.get();
+  const start = getBlockInfo(editor);
+  if (!info || info.collapsed || !info.range) return start ? [start] : [];
+  const root = editorEl(editor);
+  const range = info.range;
+  // Candidate blocks = the standard block tags directly under the editor tree.
+  const blocks = [];
+  const all = root.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,pre,blockquote,div');
+  for (const b of all) {
+    if (STYLE_SKIP_TAGS.has(b.tagName.toLowerCase())) continue;
+    // Keep a block if the range intersects it (its content overlaps the selection).
+    try {
+      if (range.intersectsNode(b)) {
+        // Skip a block that merely CONTAINS a smaller selected block (prefer the
+        // innermost blocks); include it only if it has no selected block descendant.
+        if (!Array.from(all).some((o) => o !== b && b.contains(o) && range.intersectsNode(o))) blocks.push(b);
+      }
+    } catch { /* intersectsNode unsupported — fall through */ }
+  }
+  if (!blocks.length && start) return [start];
+  return blocks;
+}
+
 export function getComputedAtCursor(editor, prop) {
   const sel = selMgr(editor);
   if (!sel) return '';

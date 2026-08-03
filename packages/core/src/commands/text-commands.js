@@ -108,7 +108,25 @@ function toggleInlineDom(editor, tag) {
       const wrapper = doc.createElement(tag);
       const zwsp = doc.createTextNode('​');
       wrapper.appendChild(zwsp);
-      range.insertNode(wrapper);
+      // On an EMPTY block the caret sits on the <br> placeholder, and a raw
+      // range.insertNode there lands the wrapper in an invalid spot (inside/beside
+      // the <br>) that the browser discards on reflow — so the next typed char
+      // came out UNformatted. Replace the lone <br> with the wrapper so the caret
+      // is in a valid, editable position. startNode is either the <br> itself
+      // (empty editor) or a block whose only child is that <br>.
+      const sn = info.startNode;
+      let brPlaceholder = null;
+      if (sn && sn.nodeType === 1 && sn.nodeName === 'BR') {
+        brPlaceholder = sn;
+      } else if (sn && sn.nodeType === 1 && sn.childNodes.length === 1
+        && sn.firstChild && sn.firstChild.nodeName === 'BR') {
+        brPlaceholder = sn.firstChild;
+      }
+      if (brPlaceholder && brPlaceholder.parentNode) {
+        brPlaceholder.parentNode.replaceChild(wrapper, brPlaceholder);
+      } else {
+        range.insertNode(wrapper);
+      }
       const r = doc.createRange();
       r.setStart(zwsp, 1);
       r.collapse(true);

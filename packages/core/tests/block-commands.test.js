@@ -27,6 +27,14 @@ function setCursor(node, offset = 0) {
   window.getSelection().addRange(range);
 }
 
+function setRange(startNode, so, endNode, eo) {
+  const range = document.createRange();
+  range.setStart(startNode, so);
+  range.setEnd(endNode, eo);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+}
+
 // ─── isActive for block commands ─────────────────────────────────────────────
 
 describe('paragraph command', () => {
@@ -100,6 +108,33 @@ describe('blockquote command', () => {
     // Should have unwrapped — no blockquote should remain
     const nested = editor.getEditorElement().querySelector('blockquote blockquote');
     expect(nested).toBeNull();
+    cleanup(editor, target);
+  });
+
+  it('wraps ALL selected paragraphs into ONE blockquote (not just the first)', () => {
+    const { editor, target } = makeEditorWith('<p>one</p><p>two</p><p>three</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[2].firstChild, 3); // span all three
+    editor.commands.execute('blockquote');
+    const bqs = editor.getEditorElement().querySelectorAll('blockquote');
+    expect(bqs.length).toBe(1);                               // exactly ONE quote
+    expect(bqs[0].querySelectorAll('p').length).toBe(3);      // holds all three
+    expect(bqs[0].textContent).toBe('onetwothree');
+    // Nothing left outside the quote
+    expect(editor.getEditorElement().children.length).toBe(1);
+    cleanup(editor, target);
+  });
+
+  it('toggling a multi-paragraph quote off unwraps it (idempotent round-trip)', () => {
+    const { editor, target } = makeEditorWith('<p>one</p><p>two</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[1].firstChild, 3);
+    editor.commands.execute('blockquote');            // wrap
+    expect(editor.getEditorElement().querySelectorAll('blockquote').length).toBe(1);
+    // caret now inside the quote — toggling off unwraps one level
+    setCursor(editor.getEditorElement().querySelector('p').firstChild, 0);
+    editor.commands.execute('blockquote');            // toggle off
+    expect(editor.getEditorElement().querySelector('blockquote')).toBeNull();
     cleanup(editor, target);
   });
 });
