@@ -44,8 +44,8 @@
 // feature, add its entry back here AND flip its catalog/registry flags.
 // KEPT: export.pdf + export.docx (the only sold premium).
 export const BUNDLED_PREMIUM = [
-  { featureId: 'export.pdf',      configKey: 'exportPdf', load: () => import('../../../../premium/export-pdf/src/export-pdf-plugin.js').then((m) => m.rawExportPdfSpec) },
-  { featureId: 'export.docx',     configKey: 'exportDocx', load: () => import('../../../../premium/export-docx/src/export-docx-plugin.js').then((m) => m.rawExportDocxSpec) },
+  { featureId: 'export.pdf',      configKey: 'exportPdf', load: () => import('@openeditor-premium/export-pdf').then((m) => m.rawExportPdfSpec) },
+  { featureId: 'export.docx',     configKey: 'exportDocx', load: () => import('@openeditor-premium/export-docx').then((m) => m.rawExportDocxSpec) },
 ];
 
 /**

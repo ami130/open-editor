@@ -1,8 +1,8 @@
 {
   "name": "openeditor-text",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": false,
-  "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
+  "description": "Open Editor core engine — pure JavaScript, zero dependencies",
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
@@ -59,6 +59,8 @@
     "jsdom": "29.1.1",
     "rollup": "4.62.0",
     "typescript": "~5.6.3",
-    "vitest": "1.6.1"
+    "vitest": "1.6.1",
+    "@openeditor-premium/export-pdf": "workspace:*",
+    "@openeditor-premium/export-docx": "workspace:*"
   }
 }

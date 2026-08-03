@@ -17,12 +17,28 @@ const banner = `/*!
 // `min`/sourcemap here; they are deliberately NOT part of the tarball.
 const min = { plugins: [terser()] };
 
+// PREMIUM BOUNDARY (do-not-ship): the free core reaches premium plugins ONLY via
+// lazy dynamic import() in entitlements/premium-plugins.js. Mark those paths
+// EXTERNAL so premium source is NEVER compiled into the published tarball — in
+// ANY format. The import()s stay as runtime references; buildBundledPremiumSpecs
+// already wraps each load() in try/catch, so on a public (premium-absent) install
+// they fail soft (feature simply doesn't load) instead of crashing. In the
+// monorepo/playground the source IS present, so the demo keeps premium.
+// Premium is imported via the BARE specifier `@openeditor-premium/*` (a package
+// name, not a relative path) — so bundlers treat it as a normal external module:
+// no dangling relative path in the emitted dist, and on a public install where
+// the premium package isn't present the dynamic import() simply rejects (the
+// loader's try/catch fail-softs). Match the bare scope (and any stray relative
+// premium path, belt-and-suspenders).
+const external = (id) => id.startsWith('@openeditor-premium/') || /[\\/]premium[\\/]/.test(id);
+
 export default [
   // ESM module tree — for bundlers (webpack, vite, rollup, esbuild).
   // preserveModules keeps per-module granularity so tree-shaking works; each
   // module is individually minified.
   {
     input: 'src/index.js',
+    external,
     output: {
       dir: 'dist/esm',
       format: 'es',
@@ -39,6 +55,7 @@ export default [
   // honest, unavoidable outcome). Only the ESM-tree output (above) truly splits.
   {
     input: 'src/index.js',
+    external,
     output: [
       { file: 'dist/open-editor.esm.min.js', format: 'es', banner, sourcemap: false, inlineDynamicImports: true, ...min },
     ],
@@ -49,6 +66,7 @@ export default [
   // of it returns an empty object — the `.cjs` extension opts back into CJS.
   {
     input: 'src/index.js',
+    external,
     output: [
       { file: 'dist/open-editor.min.cjs', format: 'cjs', banner, sourcemap: false, exports: 'named', inlineDynamicImports: true, ...min },
     ],
@@ -56,6 +74,7 @@ export default [
   // UMD build — for direct <script> tag usage in browser.
   {
     input: 'src/index.js',
+    external,
     output: [
       { file: 'dist/open-editor.umd.min.js', format: 'umd', name: 'OpenEditor', banner, sourcemap: false, inlineDynamicImports: true, ...min },
     ],

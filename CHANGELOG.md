@@ -4,6 +4,40 @@ All notable changes to Open Editor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 [Semantic Versioning](https://semver.org/) once 1.0.0 is published.
 
+## [1.2.0] — 2026-08-03
+
+### Added
+- **Image upload → your API/DB:** connect the uploader to an authenticated
+  backend. New `imageUploadHeaders` (object or `(file) => object` — e.g.
+  `Authorization: Bearer …`, API keys, CSRF), `imageUploadWithCredentials`
+  (cross-origin cookie auth), `imageUploadFieldName` (override the `file`
+  field), and `imageUploadData` (extra form fields to link the upload to a DB
+  record). `Content-Type` is never overridden (preserves the multipart
+  boundary).
+- **Shared feedback surface (`editor.ui.toast`):** accessible success / error /
+  progress toasts. PDF and DOCX export now show progress + success, and surface
+  errors (popup-blocked, dropped images) instead of failing silently.
+- **Slash menu** now offers **Image**, **Table**, and **Link**; the bubble
+  (selection) toolbar gained a **Link** button.
+- **`imageRequireAlt`:** optionally require alt text before an image is inserted
+  (enforced across the dialog, drag-drop, and paste) for accessibility.
+- The image dialog's **whole drop zone** is clickable (not just the "browse"
+  word), with keyboard (Enter/Space) support.
+
+### Fixed
+- **Undo/redo did nothing immediately after typing:** `canUndo()` ignored a
+  pending (un-committed) typing snapshot, so the command layer refused `undo`
+  during the first typing burst — type-then-Ctrl+Z was a no-op. It now flushes
+  the pending edit and reverts correctly.
+- **Wide tables** now scroll horizontally instead of crushing columns into an
+  unreadable sliver.
+- **Accessibility:** the "Powered by" footer strip now meets WCAG AA contrast in
+  both light and dark themes.
+- Removed the jarring blue full-body focus ring on click (the caret is the
+  indicator; the high-contrast/forced-colors outline is kept for a11y).
+- DOCX export no longer silently drops CORS-blocked images without telling the
+  user, and its build/fetch errors can no longer become unhandled rejections.
+
 ## [1.1.0] — 2026-07-14
 
 ### Added

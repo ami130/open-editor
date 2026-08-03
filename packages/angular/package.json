@@ -1,14 +1,22 @@
 {
   "name": "openeditor-text-angular",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": false,
-  "description": "Official Angular wrapper for Open Editor \u2014 standalone component with ControlValueAccessor forms integration",
+  "description": "Official Angular wrapper for Open Editor — standalone component with ControlValueAccessor forms integration",
   "license": "MIT",
   "author": "Open Editor contributors",
-  "repository": { "type": "git", "url": "git+https://github.com/ami130/open-editor.git", "directory": "packages/angular" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ami130/open-editor.git",
+    "directory": "packages/angular"
+  },
   "homepage": "https://github.com/ami130/open-editor#readme",
-  "bugs": { "url": "https://github.com/ami130/open-editor/issues" },
-  "engines": { "node": ">=18" },
+  "bugs": {
+    "url": "https://github.com/ami130/open-editor/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [
     "rich-text-editor",
     "wysiwyg",

@@ -1,16 +1,30 @@
 {
   "name": "openeditor-text-vue",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": false,
   "description": "Official Vue 3 wrapper for Open Editor — v-model component + useOpenEditor composable",
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
-  "repository": { "type": "git", "url": "git+https://github.com/ami130/open-editor.git", "directory": "packages/vue" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ami130/open-editor.git",
+    "directory": "packages/vue"
+  },
   "homepage": "https://github.com/ami130/open-editor#readme",
-  "bugs": { "url": "https://github.com/ami130/open-editor/issues" },
-  "engines": { "node": ">=18" },
-  "keywords": ["rich-text-editor", "wysiwyg", "vue", "vue3", "open-editor"],
+  "bugs": {
+    "url": "https://github.com/ami130/open-editor/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "rich-text-editor",
+    "wysiwyg",
+    "vue",
+    "vue3",
+    "open-editor"
+  ],
   "main": "./dist/open-editor-vue.min.cjs",
   "module": "./dist/open-editor-vue.min.js",
   "types": "./index.d.ts",
@@ -23,7 +37,10 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "index.d.ts"],
+  "files": [
+    "dist",
+    "index.d.ts"
+  ],
   "scripts": {
     "build": "rollup -c rollup.config.js",
     "test": "vitest run",

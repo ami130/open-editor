@@ -36,3 +36,8 @@ export { bodyXml, escapeXml } from './ooxml-body.js';
 export { buildDocx } from './docx-parts.js';
 export { zipStore } from './zip-store.js';
 export { resolveRemoteImages, collectRemoteImageSrcs } from './image-fetch.js';
+
+// RAW (un-gated) spec — consumed by the free core's lazy premium-loader via the
+// bare specifier `@openeditor-premium/export-docx` (keeps the deep path out of
+// the published core bundle). Core's PluginManager applies the gate.
+export { rawExportDocxSpec } from './export-docx-plugin.js';

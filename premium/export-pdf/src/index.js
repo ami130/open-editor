@@ -27,3 +27,9 @@ export function createExportPdfPlugin(host, config = {}) {
 }
 
 export { buildPrintDocument, normalizeOptions, escapeHtml } from './print-document.js';
+
+// The RAW (un-gated) spec factory — consumed by the free core's lazy
+// premium-loader (entitlements/premium-plugins.js) via the bare package
+// specifier `@openeditor-premium/export-pdf`, so the deep file path never leaks
+// into the published core bundle. Core's PluginManager applies the gate itself.
+export { rawExportPdfSpec } from './export-pdf-plugin.js';
