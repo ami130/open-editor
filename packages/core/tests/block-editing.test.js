@@ -107,6 +107,55 @@ describe('4.5.1 — handleEnterSplit', () => {
     expect(paras[0].querySelector('strong')).not.toBeNull();
     cleanup(editor, target);
   });
+
+  // ── BUG: Enter at the END of formatted text (nothing after) produced an
+  //    empty inline wrapper new line (e.g. <p><strong></strong></p>) with NO
+  //    <br> — an invalid caret target, so "Enter can't go to the next line".
+  //    A new line must be a VALID caret target: a <br> (or real content), never
+  //    just an empty inline wrapper.
+  /** True if the block can actually hold the caret (has a <br> or real text). */
+  function isValidCaretLine(block) {
+    if (!block) return false;
+    if (block.querySelector('br, img')) return true;          // has a line break / media
+    if ((block.textContent || '').trim() !== '') return true;  // has real text
+    return false;                                              // empty (incl. empty <strong></strong>) → invalid
+  }
+
+  const FORMATS = [
+    ['bold',      '<p><strong>bold</strong></p>',            'strong'],
+    ['italic',    '<p><em>italic</em></p>',                  'em'],
+    ['underline', '<p><u>under</u></p>',                     'u'],
+    ['nested',    '<p><strong><em>both</em></strong></p>',   'em'],
+  ];
+  for (const [label, html, innerTag] of FORMATS) {
+    it(`Enter at END of ${label} text creates a VALID (caret-able) new line`, () => {
+      const { editor, target } = makeEditorWith(html);
+      const inner = editor.getEditorElement().querySelector(innerTag);
+      setCursor(inner.firstChild, inner.firstChild.nodeValue.length); // caret at end
+      const handled = handleEnterSplit(editor);
+      expect(handled).toBe(true);
+      const blocks = editor.getEditorElement().children;
+      expect(blocks.length).toBe(2);
+      // The NEW (second) line must be a real caret target, not an empty <strong></strong>.
+      const newLine = blocks[1];
+      expect(isValidCaretLine(newLine)).toBe(true);
+      // And it must NOT be an empty inline wrapper with nothing inside.
+      const emptyWrapper = newLine.querySelector('strong, em, u, b, i');
+      expect(emptyWrapper && !emptyWrapper.querySelector('br') && (emptyWrapper.textContent || '') === '').toBeFalsy();
+      cleanup(editor, target);
+    });
+  }
+
+  it('Enter at END of "text<strong>bold</strong>" (mixed) creates a valid new line', () => {
+    const { editor, target } = makeEditorWith('<p>text<strong>bold</strong></p>');
+    const strong = editor.getEditorElement().querySelector('strong');
+    setCursor(strong.firstChild, 4);
+    handleEnterSplit(editor);
+    const blocks = editor.getEditorElement().children;
+    expect(blocks.length).toBe(2);
+    expect(isValidCaretLine(blocks[1])).toBe(true);
+    cleanup(editor, target);
+  });
 });
 
 // ─── 4.5.2 Backspace-merge ───────────────────────────────────────────────────

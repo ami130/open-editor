@@ -119,3 +119,33 @@ test.describe('Media embed — insertAtCursor regression', () => {
     await expect(ed).toContainText('check this out');
   });
 });
+
+test.describe('Enter after inline formatting — new line must advance', () => {
+  // Reported bug: type bold/italic/underline text, press Enter → the caret
+  // couldn't move to the next line, because the split produced an empty inline
+  // wrapper (<p><strong></strong></p>) with no <br> — an invalid caret target.
+  // jsdom couldn't judge the caret behavior; this is the real-browser guard.
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.oe-editor[contenteditable="true"]');
+  });
+
+  for (const fmt of ['bold', 'italic', 'underline']) {
+    test(`${fmt}: type → Enter → type lands on a NEW line`, async ({ page }) => {
+      const ed = page.locator('.oe-editor');
+      await ed.click();
+      await page.locator(`.oe-tb__btn[data-name="${fmt}"]`).click(); // toggle format ON
+      await page.keyboard.type('first');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('second');
+      await page.waitForTimeout(120);
+
+      const blocks = await ed.evaluate((el) => el.children.length);
+      const l1 = await ed.evaluate((el) => (el.children[0]?.textContent || '').trim());
+      const l2 = await ed.evaluate((el) => (el.children[1]?.textContent || '').trim());
+      expect(blocks).toBeGreaterThanOrEqual(2);      // a real second line exists
+      expect(l1).toContain('first');
+      expect(l2).toContain('second');                // "second" advanced, not stuck on line 1
+    });
+  }
+});

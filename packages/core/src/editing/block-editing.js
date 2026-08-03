@@ -179,8 +179,7 @@ export function handleEnterSplit(editor) {
   if (!doc) return false;
 
   let block = getParentBlock(info.startNode, root);
-  // Firefox/WebKit: keyboard.insertText() places cursor at root element offset
-  // rather than inside the text node. Walk into the block at that position.
+  // Firefox/WebKit: insertText() can place the cursor at a root offset, not in the text node.
   const cursorAtRoot = !block && info.startNode === root && info.startOffset > 0;
   if (cursorAtRoot) {
     const child = root.childNodes[info.startOffset - 1];
@@ -210,10 +209,14 @@ export function handleEnterSplit(editor) {
   splitRange.setEndAfter(block.lastChild || block);
   newBlock.appendChild(splitRange.extractContents());
 
-  if (!block.firstChild || block.innerHTML.replace(/\s/g,'') === '') {
+  // VISUALLY empty = no text AND no <br>/media, even if an empty inline wrapper
+  // (<strong></strong>) remains — that fooled the old check into skipping the
+  // caret-anchoring <br>, so Enter after bold/italic/underline couldn't advance.
+  const visuallyEmpty = (b) => (b.textContent || '').replace(/[\u200B\uFEFF]/g, '').trim() === '' && !b.querySelector('br,img,video,iframe,object,canvas');
+  if (!block.firstChild || visuallyEmpty(block)) {
     block.innerHTML = ''; block.appendChild(doc.createElement('br'));
   }
-  if (!newBlock.firstChild || newBlock.innerHTML.replace(/\s/g,'') === '') {
+  if (!newBlock.firstChild || visuallyEmpty(newBlock)) {
     newBlock.innerHTML = ''; newBlock.appendChild(doc.createElement('br'));
   }
 
