@@ -11,7 +11,6 @@
 
 import { walkUp } from '../selection/range-utils.js';
 import { CommandManager } from './command-manager.js';
-import { unwrapInline } from './inline-unwrap.js';
 import { rangeCrossesBlocks, wrapBlocksInline } from './inline-block-wrap.js';
 import { selectionFullyFormatted, unwrapAcrossRange, denestSameTag } from './inline-toggle-range.js';
 
@@ -180,17 +179,23 @@ export const strikethroughCommand = {
   },
 };
 
-// ─── Superscript (4.3) ────────────────────────────────────────────────────────
+// ─── Superscript / Subscript (4.3) — mutually exclusive ───────────────────────
+// Turning one ON removes the other first (Word/CKEditor semantics): you can't be
+// both super- and sub-script at once. When the target is already active this is a
+// plain toggle-off, so we only clear the opposite when ADDING.
+function toggleVerticalAlign(editor, tag, opposite) {
+  if (!insideTag(editor, tag) && insideTag(editor, opposite)) toggleInlineDom(editor, opposite);
+  toggleInlineDom(editor, tag);
+  return CommandManager.SKIP_RESTORE;
+}
 
 export const superscriptCommand = {
-  execute(editor) { toggleInlineDom(editor, 'sup'); return CommandManager.SKIP_RESTORE; },
+  execute(editor) { return toggleVerticalAlign(editor, 'sup', 'sub'); },
   isActive(editor) { return insideTag(editor, 'sup'); },
 };
 
-// ─── Subscript (4.3) ──────────────────────────────────────────────────────────
-
 export const subscriptCommand = {
-  execute(editor) { toggleInlineDom(editor, 'sub'); return CommandManager.SKIP_RESTORE; },
+  execute(editor) { return toggleVerticalAlign(editor, 'sub', 'sup'); },
   isActive(editor) { return insideTag(editor, 'sub'); },
 };
 
@@ -201,84 +206,7 @@ export const inlineCodeCommand = {
   isActive(editor) { return insideTag(editor, 'code'); },
 };
 
-// ─── removeFormat (4.10) ──────────────────────────────────────────────────────
-// Remove all inline formatting from the selected range by unwrapping any
-// span/strong/em/u/s/sup/sub/code elements inside the selection.
+// removeFormat lives in its own module (kept text-commands.js under 300 lines);
+// re-export it so existing importers (setup-commands.js) keep their import path.
+export { removeFormatCommand } from './remove-format.js';
 
-const INLINE_FMT_TAGS = new Set(['strong','b','em','i','u','s','del','strike','sup','sub','code','span','mark','abbr','cite','q','small','ins','font']);
-
-export const removeFormatCommand = {
-  execute(editor) {
-    const sel = selMgr(editor);
-    if (!sel) return;
-    const info = sel.get();
-    if (!info || info.collapsed) return;
-    const win = getWin(editor);
-    if (!win) return;
-    const nativeSel = win.getSelection();
-    if (!nativeSel || nativeSel.rangeCount === 0) return;
-    const root = editorEl(editor);
-    const doc = getDoc(editor);
-
-    // STEP 1 (C1 fix): unwrap inline formatting ANCESTORS that ENCLOSE the
-    // selection. cloneContents() below only sees tags *inside* the range, so a
-    // selection sitting inside <strong> would otherwise clone a bare text node
-    // and re-insert it right back into the surviving <strong> — a silent no-op.
-    // Unwrapping each enclosing inline tag across the range (via the same
-    // partial-aware unwrapInline used by toggles) lifts the selection out first.
-    let guard = 0;
-    for (;;) {
-      if (++guard > 20) break; // safety — never loop unbounded
-      const cur = nativeSel.getRangeAt(0);
-      const startEl = cur.startContainer.nodeType === 1
-        ? cur.startContainer : cur.startContainer.parentNode;
-      const enclosing = walkUp(startEl, root, (n) =>
-        n.nodeType === 1 && INLINE_FMT_TAGS.has(n.tagName.toLowerCase()));
-      if (!enclosing) break;
-      unwrapInline(enclosing, cur, enclosing.tagName.toLowerCase(), doc, nativeSel);
-    }
-
-    // STEP 2: clone the (now-unenclosed) selection, strip inline tags +
-    // formatting attributes CONTAINED within it, re-insert.
-    const range = nativeSel.getRangeAt(0);
-    const fragment = range.cloneContents();
-    const INLINE_TAGS = INLINE_FMT_TAGS;
-    function stripInline(node) {
-      Array.from(node.childNodes).forEach((child) => {
-        if (child.nodeType === 1) {
-          const tag = child.tagName.toLowerCase();
-          if (INLINE_TAGS.has(tag)) {
-            stripInline(child);
-            // Unwrap: lift children out, drop the formatting element entirely.
-            while (child.firstChild) node.insertBefore(child.firstChild, child);
-            node.removeChild(child);
-          } else {
-            // Non-inline element (e.g. a block kept as-is) — strip the
-            // formatting attributes that carry styling so removeFormat actually
-            // clears it: style, class, color, face, size.
-            child.removeAttribute('style');
-            child.removeAttribute('class');
-            child.removeAttribute('color');
-            child.removeAttribute('face');
-            child.removeAttribute('size');
-            stripInline(child);
-          }
-        }
-      });
-    }
-    stripInline(fragment);
-    range.deleteContents();
-    // Track the last inserted node so we can place the caret after it.
-    const lastNode = fragment.lastChild;
-    range.insertNode(fragment);
-    try {
-      if (lastNode) {
-        range.setStartAfter(lastNode);
-        range.collapse(true);
-        nativeSel.removeAllRanges();
-        nativeSel.addRange(range);
-      }
-    } catch { /* range went stale — leave selection as-is */ }
-    return CommandManager.SKIP_RESTORE;
-  },
-};

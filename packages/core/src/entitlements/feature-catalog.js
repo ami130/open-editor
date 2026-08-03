@@ -43,7 +43,9 @@ export const EDITOR_FEATURES = [
   { id: 'text.strikethrough', title: 'Strikethrough', group: 'Text formatting', commands: ['strikethrough'], toolbar: ['strikethrough'] },
   { id: 'text.superscript', title: 'Superscript', group: 'Text formatting', commands: ['superscript'], toolbar: ['superscript'] },
   { id: 'text.subscript', title: 'Subscript', group: 'Text formatting', commands: ['subscript'], toolbar: ['subscript'] },
-  { id: 'text.inlineCode', title: 'Inline code', group: 'Text formatting', commands: ['inlineCode'], toolbar: ['inlineCode'] },
+  // inlineCode command is retained (backtick autoformat, paste/markdown round-trip)
+  // but the toolbar button was removed by product decision — no `toolbar:` entry.
+  { id: 'text.inlineCode', title: 'Inline code', group: 'Text formatting', commands: ['inlineCode'] },
   { id: 'text.decoration', title: 'Overline / dotted underline', group: 'Text formatting', commands: ['overline', 'dottedUnderline'] },
   { id: 'text.changeCase', title: 'Change case', group: 'Text formatting', commands: ['changeCase'], toolbar: ['changeCase'] },
   // textTransform is a CSS text-transform style command (API-only, no toolbar UI

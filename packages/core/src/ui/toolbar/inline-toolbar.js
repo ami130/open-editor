@@ -13,7 +13,6 @@ export const BUBBLE_ITEMS = [
   { type: 'button', name: 'italic',        command: 'italic',        icon: 'italic',        labelKey: 'italic' },
   { type: 'button', name: 'underline',     command: 'underline',     icon: 'underline',     labelKey: 'underline' },
   { type: 'button', name: 'strikethrough', command: 'strikethrough', icon: 'strikethrough', labelKey: 'strikethrough' },
-  { type: 'button', name: 'inlineCode',    command: 'inlineCode',    icon: 'inlineCode',    labelKey: 'inlineCode' },
   { type: 'button', name: 'blockquote',    command: 'blockquote',    icon: 'blockquote',    labelKey: 'blockquote' },
   // Link — "select text → add link" is a Google-Docs staple. It has no command
   // (the link plugin owns the dialog), so onClick activates that plugin's

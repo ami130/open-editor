@@ -200,6 +200,99 @@ describe('C1 — removeFormat clears formatting that wraps the selection', () =>
     expect(strongText).toBe('ho');
     cleanup(editor, target);
   });
+
+  // COLLAPSED CARET: the "bold on → clear format → keep typing plain" flow.
+  // Previously removeFormat returned early on a collapsed caret (no-op), so the
+  // caret stayed inside <strong> and the next char was still bold.
+  function caretAt(node, off) {
+    const r = document.createRange(); r.setStart(node, off); r.collapse(true);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  /** After clear-format at a caret, the caret must NOT be inside any inline-format tag. */
+  function caretInsideFormat(editor) {
+    const info = editor.selection.get();
+    let n = info && info.startNode;
+    const root = editor.getEditorElement();
+    while (n && n !== root) {
+      if (n.nodeType === 1 && /^(strong|b|em|i|u|s|del|sup|sub|code|span|mark|font)$/.test(n.tagName.toLowerCase())) return true;
+      n = n.parentNode;
+    }
+    return false;
+  }
+
+  it('collapsed caret inside <strong> → clear-format escapes it (caret no longer bold)', () => {
+    const { editor, target } = makeEditor('<p><strong>bold</strong></p>');
+    const t = editor.getEditorElement().querySelector('strong').firstChild;
+    caretAt(t, t.nodeValue.length); // caret at end, INSIDE <strong>
+    expect(caretInsideFormat(editor)).toBe(true);   // precondition: bold is active
+    editor.commands.execute('removeFormat');
+    expect(caretInsideFormat(editor)).toBe(false);  // FIX: caret escaped the formatting
+    expect(editor.getEditorElement().textContent).toBe('bold'); // text preserved
+    cleanup(editor, target);
+  });
+
+  it('collapsed caret inside an EMPTY pending <em> husk → clear-format removes the husk', () => {
+    const { editor, target } = makeEditor('<p>hi<em>​</em></p>');
+    const em = editor.getEditorElement().querySelector('em');
+    caretAt(em.firstChild, 1);
+    editor.commands.execute('removeFormat');
+    expect(editor.getEditorElement().querySelector('em')).toBeNull(); // husk gone
+    expect(caretInsideFormat(editor)).toBe(false);
+    cleanup(editor, target);
+  });
+
+  it('collapsed caret in PLAIN text → clear-format is a safe no-op', () => {
+    const { editor, target } = makeEditor('<p>plain</p>');
+    const t = editor.getEditorElement().querySelector('p').firstChild;
+    caretAt(t, 3);
+    expect(() => editor.commands.execute('removeFormat')).not.toThrow();
+    expect(editor.getEditorElement().textContent).toBe('plain');
+    cleanup(editor, target);
+  });
+});
+
+// ─── Superscript / Subscript mutual exclusivity ───────────────────────────────
+describe('super/subscript are mutually exclusive', () => {
+  function selectWord(editor, tag) {
+    const node = tag ? editor.getEditorElement().querySelector(tag).firstChild
+                     : editor.getEditorElement().querySelector('p').firstChild;
+    const r = document.createRange(); r.selectNodeContents(node);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  it('applying subscript to superscript text swaps it (no <sub><sup> nesting)', () => {
+    const { editor, target } = makeEditor('<p>x</p>');
+    selectWord(editor);
+    editor.commands.execute('superscript');
+    expect(editor.getEditorElement().querySelector('sup')).not.toBeNull();
+    // Now apply subscript to the same text — must become <sub>, not <sub><sup>.
+    selectWord(editor, 'sup');
+    editor.commands.execute('subscript');
+    const html = editor.getEditorElement().innerHTML;
+    expect(html).toMatch(/<sub>/);
+    expect(html).not.toMatch(/<sub>\s*<sup>|<sup>\s*<sub>/); // no conflicting nesting
+    expect(editor.getEditorElement().querySelector('sup')).toBeNull(); // sup removed
+    cleanup(editor, target);
+  });
+  it('applying superscript to subscript text swaps it the other way', () => {
+    const { editor, target } = makeEditor('<p>y</p>');
+    selectWord(editor);
+    editor.commands.execute('subscript');
+    selectWord(editor, 'sub');
+    editor.commands.execute('superscript');
+    expect(editor.getEditorElement().querySelector('sup')).not.toBeNull();
+    expect(editor.getEditorElement().querySelector('sub')).toBeNull();
+    cleanup(editor, target);
+  });
+  it('toggling the SAME one off still works (superscript on then off)', () => {
+    const { editor, target } = makeEditor('<p>z</p>');
+    selectWord(editor);
+    editor.commands.execute('superscript');
+    expect(editor.getEditorElement().querySelector('sup')).not.toBeNull();
+    selectWord(editor, 'sup');
+    editor.commands.execute('superscript'); // toggle OFF
+    expect(editor.getEditorElement().querySelector('sup')).toBeNull();
+    cleanup(editor, target);
+  });
 });
 
 // ─── Re-audit C2: cross-block inline format must not wrap block elements ───────
