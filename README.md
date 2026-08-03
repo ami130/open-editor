@@ -1824,7 +1824,7 @@ page imports the React wrapper without SSR crashes.
 **Goal:** License-gated features that generate revenue, completely separated from free core.
 
 Milestones:
-- [x] 19.1 — License key format: signed JWT, validated client-side with embedded public key (no network call). **Algorithm (amended 2026-07-15, see [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md)): ES256 (ECDSA P-256) via native WebCrypto — Ed25519 isn't available at the browser support floor and ES256 ships zero crypto code; tokens are `alg`+`kid` agile so Ed25519 becomes the designated successor via key rotation.** *(Built as Phase 22: `@openeditors/entitlements` — offline verifier, fails closed, 39 tests.)*
+- [x] 19.1 — License key format: signed JWT, validated client-side with embedded public key (no network call). **Algorithm (amended 2026-07-15, see the Phase 22 design notes): ES256 (ECDSA P-256) via native WebCrypto — Ed25519 isn't available at the browser support floor and ES256 ships zero crypto code; tokens are `alg`+`kid` agile so Ed25519 becomes the designated successor via key rotation.** *(Built as Phase 22: `@openeditors/entitlements` — offline verifier, fails closed, 39 tests.)*
 - [x] 19.2 — `FeatureManager`: checks license payload for specific feature flags before activating premium plugins. *(2026-07-17: runtime integration shipped — `@openeditor-premium/runtime`: `createPremiumHost()` + `gatePremiumPlugin()`; feature-id vocabulary frozen additive-only in the registry (one id per sellable unit, all of Phase 19 covered) so the admin plan-builder composes packages with zero code changes.)*
 - [x] 19.3 — Invalid / expired license: shows non-blocking upgrade prompt, degrades gracefully. *(2026-07-17: denied plugin becomes a same-name no-op stub — emits `premiumDenied`, one aggregated dismissible notice per editor, free editor untouched; proven by the `hello-premium` template package + `premium-gate.test.js` e2e across all 3 engines with REAL in-browser-minted ES256 licenses, dev-host bypass OFF.)*
 - [x] 19.4 — Premium plugin: **SEO Analyzer** — keyword density, heading structure, readability score, meta description editor. ✅ **done 2026-07-17** (`@openeditor-premium/seo`, gated on `seo`). READ-ONLY content analysis: overall 0–100 score, word count, heading-outline warnings (no/multiple H1, skipped levels), whole-word/phrase keyword density with a healthy-range check, Flesch Reading Ease + label, meta-description length assessment, top-words. Toolbar button opens a live panel (keyword + meta inputs re-analyze the current content on each keystroke) + headless `editor.analyzeSeo()`. Pure engine (readability + analyze) with 47 unit + 7 e2e (×3 engines), including a byte-identical before/after test proving it never mutates the document. Grep-verified absent from the free bundle. **Advanced upgrade (2026-07-17):** content-depth (avg sentence length, long-sentence %, passive-voice + transition-word estimates), link/image SEO (internal/external/empty/nofollow links, images missing alt), keyword intelligence (keyword in H1/first-paragraph/subheadings/meta + n-gram related phrases), and a Google-style search-snippet preview with a title-length check.
@@ -1984,7 +1984,7 @@ a working config, and installs.
 premium plugin so 19.x plugins are entitlement-gated from day one, and BEFORE the
 platform (23) so it has a stable contract to issue against.
 
-> **Design decision pending owner approval:** [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md)
+> **Design decision pending owner approval:** the Phase 22 design notes
 > (2026-07-15) — recommends **ES256 via native WebCrypto** instead of Ed25519
 > (Ed25519 isn't available at the project's browser floor; ES256 ships zero
 > crypto code), with `alg`+`kid` agility so Ed25519 slots in later. Includes the
@@ -1997,7 +1997,7 @@ Design decisions (the contract):
   code changes anywhere**.
 - **License format**: signed JWT (**ES256 (ECDSA P-256) via native WebCrypto**,
   `alg`+`kid` header for algorithm-agility and key rotation — amended 2026-07-15
-  from Ed25519 per [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md); Ed25519 is the
+  from Ed25519 per the Phase 22 design notes; Ed25519 is the
   designated successor once the browser floor supports it), verified
   OFFLINE with an embedded public key (19.1) — no phone-home to function. Payload:
   `{ features[], limits{}, domains[], seats, plan, customer, exp, iat }`. The license
@@ -2014,7 +2014,7 @@ Design decisions (the contract):
 > zero cross-imports, core source digest unchanged, all 2,056 core tests still
 > green). **32 entitlements tests pass**, including the full 22.4 adversarial
 > sweep. Algorithm is **ES256 via native WebCrypto** (not Ed25519) per
-> [PHASE-22-DESIGN.md](PHASE-22-DESIGN.md). Remaining: 22.5 (anti-sharing
+> the Phase 22 design notes. Remaining: 22.5 (anti-sharing
 > layers — lands with the Phase 23 platform that issues/revokes).
 
 Milestones:
@@ -2146,7 +2146,7 @@ to a paid, working license with zero human involvement.
 ---
 
 ### PHASE 25 — Distribution: `openeditors` CLI + name migration *(decided 2026-07-15)*
-**Goal:** One brand, one command. Full proposal: [PROPOSAL-CLI.md](PROPOSAL-CLI.md).
+**Goal:** One brand, one command.
 
 **Naming decision record (2026-07-15, supersedes `@open-editor-hq/*` for all
 forward-looking work; historical milestone notes keep the old names as facts):**
