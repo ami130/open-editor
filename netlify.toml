@@ -1,0 +1,10 @@
+# Netlify deploy config for the Open Editor playground (static Vite build).
+# Mirrors vercel.json: install the pnpm workspace, build the playground into a
+# repo-root `dist` (Vite --outDir is relative to the playground package), and
+# publish that. Works from the repo root — the build reaches into packages/ + premium/.
+[build]
+  command = "pnpm install && pnpm --filter playground exec vite build --outDir ../../dist --emptyOutDir"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

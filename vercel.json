@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "pnpm --filter playground build",
   "installCommand": "pnpm install",
-  "outputDirectory": "apps/playground/dist"
+  "buildCommand": "pnpm --filter playground exec vite build --outDir ../../dist --emptyOutDir",
+  "outputDirectory": "dist"
 }
