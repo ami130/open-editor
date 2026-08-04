@@ -45,12 +45,20 @@ describe('color command (# hex fix)', () => {
     expect(editor.getEditorElement().querySelector('span')).not.toBeNull();
     cleanup(editor, target);
   });
-  it('textColor on collapsed cursor expands to word', () => {
-    const { editor, target } = makeEditor();
+  it('I5: textColor on a collapsed caret sets a PENDING span (does NOT recolor the word)', () => {
+    // Was: expanded to and recolored the whole word under the caret. Now it sets
+    // a pending format (empty ZWSP span) so only the NEXT typed text is colored,
+    // matching bold/italic.
+    const { editor, target } = makeEditor('<p>hello world</p>');
     const p = editor.getEditorElement().querySelector('p');
-    setCursor(p.firstChild, 2);
+    setCursor(p.firstChild, 2);                 // caret at "he|llo"
     editor.commands.execute('textColor', '#0000ff');
-    expect(editor.getEditorElement().querySelector('span')).not.toBeNull();
+    const span = editor.getEditorElement().querySelector('span[style*="color"]');
+    expect(span).not.toBeNull();
+    // the pending span is EMPTY (only the zero-width placeholder), the word "hello"
+    // is NOT wrapped/recolored
+    expect(span.textContent.replace(/[\u200B\uFEFF]/g, '')).toBe('');
+    expect(editor.getEditorElement().textContent.replace(/[\u200B\uFEFF]/g, '')).toBe('hello world');
     cleanup(editor, target);
   });
 

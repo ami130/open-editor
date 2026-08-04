@@ -12,6 +12,15 @@
  */
 import { sanitizeSrc, applyAlignment } from './image-dom.js';
 import { buildImagePropsForm } from './image-properties-form.js';
+import { MIN_WIDTH, MIN_HEIGHT, MAX_WIDTH, MAX_HEIGHT } from './image-resize-compute.js';
+
+// Clamp a typed dimension to the same bounds the drag/keyboard resize enforce,
+// so Properties can't serialize a size those paths would refuse (0 / 99999).
+function clampDim(val, min, max) {
+  const n = parseInt(val, 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(max, Math.max(min, n));
+}
 
 /** Apply properties to an existing figure. See module header for semantics. */
 export function applyImageProps(figure, props = {}, config = {}) {
@@ -43,8 +52,16 @@ export function applyImageProps(figure, props = {}, config = {}) {
   // dedicated fields (width/height/margins/border-radius) override individual
   // sub-properties below. This preserves extra author styles (e.g. box-shadow)
   // without the free-text box clobbering the managed props.
+  // BUT cssText replaces the WHOLE inline block, which would drop the resize
+  // anchor's committed margin-left. Preserve it across the wipe unless the user
+  // explicitly set a left margin in the form (props.margins.left).
   if ('style' in props) {
+    const priorMarginLeft = img.style.marginLeft;
     img.style.cssText = props.style || '';
+    const userSetLeft = props.margins && props.margins.left != null && props.margins.left !== '';
+    if (priorMarginLeft && !userSetLeft && !img.style.marginLeft) {
+      img.style.marginLeft = priorMarginLeft;
+    }
   }
 
   const setPx = (prop, val) => {
@@ -52,14 +69,14 @@ export function applyImageProps(figure, props = {}, config = {}) {
     else img.style[prop] = `${parseInt(val, 10)}px`;
   };
   if ('width' in props) {
-    setPx('width', props.width);
-    if (props.width) img.setAttribute('width', parseInt(props.width, 10));
-    else img.removeAttribute('width');
+    const w = clampDim(props.width, MIN_WIDTH, MAX_WIDTH);
+    if (w == null) { img.style.width = ''; img.removeAttribute('width'); }
+    else { img.style.width = `${w}px`; img.setAttribute('width', w); }
   }
   if ('height' in props) {
-    setPx('height', props.height);
-    if (props.height) img.setAttribute('height', parseInt(props.height, 10));
-    else img.removeAttribute('height');
+    const h = clampDim(props.height, MIN_HEIGHT, MAX_HEIGHT);
+    if (h == null) { img.style.height = ''; img.removeAttribute('height'); }
+    else { img.style.height = `${h}px`; img.setAttribute('height', h); }
   }
   if ('borderRadius' in props) setPx('borderRadius', props.borderRadius);
 

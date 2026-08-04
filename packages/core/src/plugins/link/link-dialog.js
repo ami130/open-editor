@@ -12,6 +12,7 @@
  * unsafe schemes; allow merely odd-but-valid URLs).
  */
 import { isAllowedLinkHref } from '../../sanitizer/sanitizer-utils.js';
+import { normalizeUserHref } from './link-url.js';
 import { buildLinkForm } from './link-dialog-form.js';
 
 export async function openLinkDialog(editor, existingLink = null) {
@@ -61,6 +62,9 @@ export async function openLinkDialog(editor, existingLink = null) {
       showError('Please enter a URL.');
       continue;
     }
+    // L4: "example.com" → "https://example.com" so the commonest input isn't
+    // saved as a broken page-relative link. No-ops for schemes/anchors/paths.
+    values.href = normalizeUserHref(values.href);
     if (!isAllowedLinkHref(values.href)) {
       showError('That URL was blocked for security reasons.');
       continue;

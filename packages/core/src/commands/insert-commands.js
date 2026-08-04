@@ -125,6 +125,25 @@ export const insertTextCommand = {
 // Both insert a void <hr> block; the page break carries the oe-page-break
 // class (screen: dashed marker; print: break-after page). One shared body.
 
+// An <hr> is invalid inside these containers, and a page break nested in a
+// list/table/quote does not reliably force a page break in browsers (H1).
+const HR_HOIST_ANCESTORS = new Set(['li', 'ul', 'ol', 'dl', 'dd', 'dt',
+  'td', 'th', 'tr', 'tbody', 'thead', 'tfoot', 'table', 'blockquote']);
+
+// The top-level block under root that the <hr> should be hoisted to sit AFTER.
+// Walks up from the hr through any hoist-triggering ancestor to the direct child
+// of root; returns null when the hr is already a direct child of root.
+function topLevelHoistTarget(hr, root) {
+  let node = hr.parentNode;
+  let needsHoist = false;
+  while (node && node !== root) {
+    if (node.nodeType === 1 && HR_HOIST_ANCESTORS.has(node.tagName.toLowerCase())) needsHoist = true;
+    if (node.parentNode === root) return needsHoist ? node : null;
+    node = node.parentNode;
+  }
+  return null;
+}
+
 function insertHrLike(editor, className) {
     const doc = getDoc(editor);
     const root = editorEl(editor);
@@ -144,7 +163,24 @@ function insertHrLike(editor, className) {
       root.appendChild(hr);
       root.appendChild(p);
     } else {
-      insertParent.insertBefore(p, hr.nextSibling);
+      // H1: if the hr landed inside a list/table/quote, hoist it (and the
+      // trailing <p>) out to sit AFTER that whole top-level block — an <hr> is
+      // invalid there and a nested page break won't break the printed page.
+      const hoistAfter = topLevelHoistTarget(hr, root);
+      if (hoistAfter && hoistAfter.parentNode === root) {
+        root.insertBefore(hr, hoistAfter.nextSibling);
+        root.insertBefore(p, hr.nextSibling);
+      } else {
+        insertParent.insertBefore(p, hr.nextSibling);
+      }
+    }
+    // H6: don't stack redundant consecutive page breaks (they'd print a blank
+    // page between them). If an adjacent sibling is already a page break, drop
+    // the new one and just place the caret in the following <p>.
+    const isPB = (n) => n && n.nodeType === 1 && n.tagName === 'HR' &&
+      n.classList && n.classList.contains('oe-page-break');
+    if (className === 'oe-page-break' && (isPB(hr.previousSibling) || isPB(p.nextSibling))) {
+      if (hr.parentNode) hr.parentNode.removeChild(hr);
     }
     // Place cursor in the <p> after the <hr>.
     const range = doc.createRange();

@@ -31,10 +31,13 @@ describe('LinkPopover — construction', () => {
     expect(editor._wrapper.contains(el)).toBe(true);
   });
 
-  it('has Open / Edit / Unlink buttons and a url slot', () => {
+  it('has Open / Copy / Edit / Unlink buttons and a url slot', () => {
     const el = popover.getElement();
-    expect(el.querySelectorAll('.oe-link-popover__btn').length).toBe(3);
+    expect(el.querySelectorAll('.oe-link-popover__btn').length).toBe(4);
     expect(el.querySelector('.oe-link-popover__url')).toBeTruthy();
+    // A11Y (L7): the popover is a labelled toolbar.
+    expect(el.getAttribute('role')).toBe('toolbar');
+    expect(el.getAttribute('aria-label')).toBe('Link actions');
   });
 });
 
@@ -150,7 +153,7 @@ describe('LinkPopover — Edit / Unlink callbacks', () => {
     const onEdit = vi.fn();
     popover.onEdit = onEdit;
     popover.showFor(a);
-    popover.getElement().querySelectorAll('.oe-link-popover__btn')[1].click();
+    popover.getElement().querySelector('[aria-label="Edit link"]').click();
     expect(onEdit).toHaveBeenCalledWith(a);
   });
 
@@ -159,8 +162,25 @@ describe('LinkPopover — Edit / Unlink callbacks', () => {
     const onUnlink = vi.fn();
     popover.onUnlink = onUnlink;
     popover.showFor(a);
-    popover.getElement().querySelectorAll('.oe-link-popover__btn')[2].click();
+    popover.getElement().querySelector('[aria-label="Unlink"]').click();
     expect(onUnlink).toHaveBeenCalledWith(a);
     expect(popover.getElement().hidden).toBe(true);
+  });
+});
+
+describe('LinkPopover — a11y (L7)', () => {
+  it('has a Copy button that is disabled when there is no href', () => {
+    const el = popover.getElement();
+    const copy = el.querySelector('[aria-label="Copy link"]');
+    expect(copy).toBeTruthy();
+  });
+  it('focusFirst() makes exactly one button the tab-stop (roving tabindex)', () => {
+    const a = anchorIn('<a href="https://x.com">x</a>');
+    popover.showFor(a);
+    popover.focusFirst();
+    const btns = [...popover.getElement().querySelectorAll('.oe-link-popover__btn')];
+    const tabbable = btns.filter((b) => b.getAttribute('tabindex') === '0');
+    expect(tabbable.length).toBe(1);
+    expect(btns.filter((b) => b.getAttribute('tabindex') === '-1').length).toBe(btns.length - 1);
   });
 });

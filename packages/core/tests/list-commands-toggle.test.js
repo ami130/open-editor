@@ -77,13 +77,32 @@ describe('indent command', () => {
     cleanup(editor, target);
   });
 
-  it('indent applies marginLeft: 10px to the list item (Jodit margin-based)', () => {
+  it('toolbar indent on a list item NESTS structurally (same model as Tab — L4)', () => {
+    // L4: toolbar Indent/Outdent and Tab/Shift+Tab must share ONE indent model.
+    // A list item now nests structurally (no margin), so Shift+Tab/Outdent can
+    // undo it — the old margin-on-li behaviour left the two models unable to
+    // reconcile.
     const { editor, target } = makeEditorWith('<ul><li>one</li><li>two</li></ul>');
     const items = editor.getEditorElement().querySelectorAll('li');
     setCursor(items[1].firstChild, 0);
     editor.commands.execute('indent');
-    expect(items[1].style.marginLeft).toBe('10px');
+    expect(items[1].style.marginLeft).toBe('');                 // NOT margin-based
+    expect(editor.getEditorElement().querySelector('li ul, li ol')).not.toBeNull(); // nested
+    // "two" now lives inside a sublist under "one"
+    expect(editor.getEditorElement().querySelector('li ul li, li ol li').textContent).toBe('two');
+    cleanup(editor, target);
+  });
+
+  it('toolbar outdent UNDOES a toolbar/Tab indent on a list item (L4 round-trip)', () => {
+    const { editor, target } = makeEditorWith('<ul><li>one</li><li>two</li></ul>');
+    const items = editor.getEditorElement().querySelectorAll('li');
+    setCursor(items[1].firstChild, 0);
+    editor.commands.execute('indent');                          // nest "two" under "one"
+    expect(editor.getEditorElement().querySelector('li ul li, li ol li')).not.toBeNull();
+    setCursor(editor.getEditorElement().querySelector('li ul li, li ol li').firstChild, 0);
+    editor.commands.execute('outdent');                         // un-nest via toolbar
     expect(editor.getEditorElement().querySelector('li ul, li ol')).toBeNull();
+    expect(editor.getEditorElement().querySelectorAll('ul > li').length).toBe(2);
     cleanup(editor, target);
   });
 });
@@ -213,13 +232,17 @@ describe('definitionList command', () => {
 });
 
 describe('outdent top-level non-empty list item', () => {
-  it('toolbar outdent on <li> with no margin: stays as li (margin-based, T4)', () => {
+  it('toolbar outdent on a top-level <li> converts it to <p> (L4: same as Shift+Tab)', () => {
+    // L4: toolbar Outdent now uses the structural model (like Shift+Tab), so a
+    // top-level item leaves the list and becomes a paragraph — no more margin.
     const { editor, target } = makeEditorWith('<ul><li>hello</li></ul>');
     const li = editor.getEditorElement().querySelector('li');
     setCursor(li.firstChild, 0);
     editor.commands.execute('outdent');
-    expect(editor.getEditorElement().querySelector('li')).not.toBeNull();
-    expect(li.style.marginLeft).toBe('');
+    const p = editor.getEditorElement().querySelector('p');
+    expect(p).not.toBeNull();
+    expect(p.textContent).toBe('hello');
+    expect(editor.getEditorElement().querySelector('ul')).toBeNull();
     cleanup(editor, target);
   });
 

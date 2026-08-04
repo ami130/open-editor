@@ -21,7 +21,7 @@ import {
   isList, nearestLi, nearestList, placeCursor, topBlock,
   getSelectionBlocks,
   wrapBlocksInList, unwrapListToBlocksAll,
-  convertListType,
+  convertListType, coalesceAdjacentLists, copyBlockAttrs,
 } from './list-dom.js';
 
 // ─── Micro-helpers ────────────────────────────────────────────────────────────
@@ -117,40 +117,63 @@ function toggleList(editor, tag) {
     // returned nothing (e.g. cursor in an empty editor with no paragraph)
     const anchor = topBlock(info.startNode, root);
     if (!anchor) return null;
-    const list = wrapBlocksInList(doc, [anchor], tag);
+    let list = wrapBlocksInList(doc, [anchor], tag);
     const firstLi = list && list.querySelector('li');
     if (firstLi) placeCursor(firstLi, editor);
+    if (list) list = coalesceAdjacentLists(list);   // L9: merge with an adjacent same-type list
     return list;
   }
 
   // When selection mixes plain blocks and existing lists, merge everything
   // into ONE output list in DOM order (Jodit collapses adjacent same-type lists).
-  const mixedLis = [];
+  const list = doc.createElement(tag);
+
+  // L7: carry over the attributes of the FIRST same-type source list so its
+  // start/list-style-type/id/class survive the merge (was: silently dropped).
+  const donor = blocks.find((b) => isList(b) && b.tagName.toLowerCase() === tag);
+  if (donor) {
+    for (const attr of Array.from(donor.attributes)) list.setAttribute(attr.name, attr.value);
+  }
+
+  // Drop a placeholder at the first block's position BEFORE moving anything —
+  // moving <li>s out of a source list can empty it, so reading blocks[0] later
+  // is unsafe.
+  const firstBlock = blocks[0];
+  const anchorParent = firstBlock.parentNode;
+  const marker = doc.createComment('oe-list-merge');
+  if (anchorParent) anchorParent.insertBefore(marker, firstBlock);
+
   for (const block of blocks) {
     if (isList(block)) {
-      // Pull all <li> children out of the existing list
-      for (const li of Array.from(block.children)) mixedLis.push(li.cloneNode(true));
+      // MOVE each <li> out of the existing list (identity preserved, not cloned).
+      for (const li of Array.from(block.children)) list.appendChild(li);
     } else {
-      // Wrap the block's content into a fresh <li>
+      // Wrap the block's content into a fresh <li>.
       const li = doc.createElement('li');
-      while (block.firstChild) li.appendChild(block.firstChild);
+      if (block.nodeType !== 1) {
+        li.appendChild(block);          // L8: bare text node — move it, don't drop it
+      } else {
+        copyBlockAttrs(block, li);      // I7: keep the paragraph's align/line-height/id/class
+        while (block.firstChild) li.appendChild(block.firstChild);
+      }
       if (!li.firstChild) li.appendChild(doc.createElement('br'));
-      mixedLis.push(li);
+      list.appendChild(li);
     }
   }
 
-  // Build the single output list and replace all the source blocks
-  const list = doc.createElement(tag);
-  for (const li of mixedLis) list.appendChild(li);
-  const firstBlock = blocks[0];
-  firstBlock.parentNode.insertBefore(list, firstBlock);
+  if (marker.parentNode) marker.parentNode.replaceChild(list, marker);
+  else if (anchorParent) anchorParent.appendChild(list);
+  // Remove the now-empty source blocks/lists (their content was moved out).
   for (const block of blocks) {
-    if (block.parentNode) block.parentNode.removeChild(block);
+    if (block.parentNode && block !== list && !list.contains(block)) {
+      block.parentNode.removeChild(block);
+    }
   }
 
-  const firstLi = list.querySelector('li');
+  const merged = coalesceAdjacentLists(list);   // L9: fold in an adjacent same-type list
+  const firstLi = merged.querySelector('li');
   if (firstLi) placeCursor(firstLi, editor);
-  return list;
+  return merged;
 }
 
 // ─── ul / ol commands ─────────────────────────────────────────────────────────
@@ -174,6 +197,10 @@ export function toggleListWithStyle(editor, tag, styleValue) {
   // list gating. `tag` is 'ul'/'ol' → list.bullet/list.ordered; the style value
   // is the list.style feature. If the list feature isn't granted, do nothing; if
   // list is granted but list.style isn't, create the list without the style.
+  // I4: this path bypasses CommandManager, which is the ONLY place readonly is
+  // enforced — so it must reject a readonly editor itself, or the list-style
+  // split-button mutates a non-editable document.
+  if (editor.isReadOnly && editor.isReadOnly()) return;
   const granted = (feature) => !feature || !editor.isFeatureGranted || editor.isFeatureGranted(feature);
   if (!granted(featureForCommand(tag))) return;
 
@@ -191,89 +218,12 @@ export function toggleListWithStyle(editor, tag, styleValue) {
   if (list && styleValue && granted('list.style')) {
     list.style.listStyleType = styleValue;
   }
+  // I4: direct-DOM mutation → notify onChange (CommandManager would have).
+  if (list && typeof editor._onChangeFn === 'function') editor._onChangeFn();
 }
 
-// ─── Indent / Outdent ─────────────────────────────────────────────────────────
-//
-// Jodit behaviour:
-//  - LTR: marginLeft ±10px  |  RTL: marginRight ±10px  (Jodit getKey() logic)
-//  - Table cells (td/th): paddingLeft / paddingRight instead of margin
-//  - Never nests list items — that is Tab/Shift+Tab, not toolbar indent.
-//  - Never goes negative — removes style attribute when value reaches 0.
-
-const INDENT_STEP = 10; // px — matches Jodit's indentMargin default
-
-function getIndentKey(block, editor) {
-  const tag = block.nodeType === 1 ? block.tagName.toLowerCase() : '';
-  const isCell = tag === 'td' || tag === 'th';
-  const prop   = isCell ? 'padding' : 'margin';
-  // Check RTL on the editor root or the block itself. Use the editor's own
-  // window (iframe-safe) — the global getComputedStyle on a node from another
-  // document is unreliable across browsers.
-  const root = editor && editor.getEditorElement ? editor.getEditorElement() : null;
-  let computedDir = '';
-  if (root) {
-    const win = (editor.selection && typeof editor.selection.getWindow === 'function')
-      ? editor.selection.getWindow()
-      : (typeof window !== 'undefined' ? window : null);
-    try {
-      if (win && win.getComputedStyle) computedDir = win.getComputedStyle(root).direction || '';
-    } catch { /* headless / cross-doc */ }
-  }
-  const dir  = (root && root.getAttribute('dir')) || computedDir || 'ltr';
-  const side  = dir === 'rtl' ? 'Right' : 'Left';
-  return prop + side; // e.g. "marginLeft", "marginRight", "paddingLeft"
-}
-
-function applyMarginIndent(block, direction, editor) {
-  if (!block || block.nodeType !== 1) return;
-  const key = getIndentKey(block, editor);
-  const cur  = parseInt(block.style[key] || '0', 10) || 0;
-  const next = cur + direction * INDENT_STEP;
-  if (next <= 0) {
-    block.style[key] = '';
-    if (!block.getAttribute('style')) block.removeAttribute('style');
-  } else {
-    block.style[key] = next + 'px';
-  }
-}
-
-function resolveIndentBlocks(info, root) {
-  if (!info) return [];
-  if (!info.collapsed) return getSelectionBlocks(info.range, root);
-  const anchor = topBlock(info.startNode, root);
-  if (!anchor) return [];
-  // Inside a list item: the <li> is the block to indent
-  const li = nearestLi(info.startNode, root);
-  if (li) return [li];
-  return [anchor];
-}
-
-export const indentCommand = {
-  execute(editor) {
-    const info = getSelInfo(editor);
-    if (!info) return CommandManager.SKIP_RESTORE;
-    const root = editorEl(editor);
-    const blocks = resolveIndentBlocks(info, root);
-    for (const block of blocks) applyMarginIndent(block, 1, editor);
-    return CommandManager.SKIP_RESTORE;
-  },
-  isActive() { return false; },
-};
-
-export const outdentCommand = {
-  execute(editor) {
-    const info = getSelInfo(editor);
-    if (!info) return CommandManager.SKIP_RESTORE;
-    const root = editorEl(editor);
-    const blocks = resolveIndentBlocks(info, root);
-    for (const block of blocks) applyMarginIndent(block, -1, editor);
-    return CommandManager.SKIP_RESTORE;
-  },
-  isActive() { return false; },
-  // No isEnabled — Jodit never disables outdent (style just removes at 0)
-};
-
-// Tab/Enter list keyboard handlers live in list-keyboard.js (kept under the
-// 300-line limit). Re-exported here so existing import paths keep working.
+// Indent/Outdent commands live in list-indent-commands.js (kept under the
+// 300-line limit). Tab/Enter keyboard handlers live in list-keyboard.js. Both
+// re-exported here so existing import paths keep working.
+export { indentCommand, outdentCommand } from './list-indent-commands.js';
 export { handleListTab, handleListEnter } from './list-keyboard.js';

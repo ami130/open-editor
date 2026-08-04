@@ -79,25 +79,28 @@ describe('multi-block list toggle', () => {
 });
 
 describe('indent / outdent', () => {
-  it('indent on <li> applies marginLeft: 10px (Jodit margin-based)', () => {
+  it('indent on a non-first <li> NESTS it structurally (L4, no margin)', () => {
     const ctx = make('<ul><li>one</li><li>two</li></ul>');
     const li2 = ctx.ed.getEditorElement().querySelectorAll('li')[1];
     cursorIn(li2.firstChild, 0);
     ctx.ed.commands.execute('indent');
     const root = ctx.ed.getEditorElement();
+    const nested = root.querySelector('li ul li, li ol li');
     cleanup(ctx);
-    expect(li2.style.marginLeft).toBe('10px');
-    // No list nesting — Jodit uses margin, not structural nesting for toolbar indent
-    expect(root.querySelector('li ul, li ol')).toBeNull();
+    expect(li2.style.marginLeft).toBe('');            // L4: structural, not margin
+    expect(nested).not.toBeNull();
+    expect(nested.textContent).toBe('two');
   });
 
-  it('indent on first <li>: applies marginLeft 10px', () => {
+  it('indent on the first <li> is a no-op (nothing to nest under — L4)', () => {
     const ctx = make('<ul><li>only</li></ul>');
     const li = ctx.ed.getEditorElement().querySelector('li');
     cursorIn(li.firstChild, 0);
     ctx.ed.commands.execute('indent');
+    const root = ctx.ed.getEditorElement();
     cleanup(ctx);
-    expect(li.style.marginLeft).toBe('10px');
+    expect(li.style.marginLeft).toBe('');
+    expect(root.querySelector('li ul, li ol')).toBeNull();
   });
 
   it('indent on <p> applies marginLeft: 10px', () => {
@@ -155,5 +158,30 @@ describe('indent / outdent', () => {
     ctx.ed.commands.execute('indent');
     cleanup(ctx);
     expect(p.style.marginLeft).toBe('30px');
+  });
+});
+
+// ─── I7: wrapping styled paragraphs into a list keeps their block styles ──────
+describe('I7 — list-wrap preserves block-level styles', () => {
+  it('centered/line-height paragraphs keep those styles on the <li>', () => {
+    const ctx = make('<p style="text-align:center;line-height:2">A</p><p style="text-align:center">B</p>');
+    selectAll(ctx.ed);
+    ctx.ed.commands.execute('ul');
+    const lis = ctx.ed.getEditorElement().querySelectorAll('li');
+    const align = Array.from(lis).map((l) => l.style.textAlign);
+    const lh0 = lis[0].style.lineHeight;
+    cleanup(ctx);
+    expect(align).toEqual(['center', 'center']);   // was: dropped
+    expect(lh0).toBe('2');
+  });
+
+  it('preserves id and class on the wrapped item', () => {
+    const ctx = make('<p id="para" class="lead" style="text-align:right">X</p>');
+    cursorIn(ctx.ed.getEditorElement().querySelector('p').firstChild, 0);
+    ctx.ed.commands.execute('ul');
+    const li = ctx.ed.getEditorElement().querySelector('li');
+    const info = { id: li.id, cls: li.className, align: li.style.textAlign };
+    cleanup(ctx);
+    expect(info).toEqual({ id: 'para', cls: 'lead', align: 'right' });
   });
 });

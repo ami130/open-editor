@@ -54,4 +54,41 @@ describe('outdentLi — preserves node identity (move, not clone)', () => {
     expect(result.node.textContent).toBe('only');
     expect(root.querySelector('ul')).toBeNull();
   });
+
+  // ─── L1: outdenting a top-level parent must PRESERVE its nested children ───
+  it('L1: top-level outdent keeps nested sub-items (no data loss)', () => {
+    root.innerHTML = '<ul><li>Parent<ul><li>child1</li><li>child2</li></ul></li></ul>';
+    const parentLi = root.querySelector('li');
+    const result = outdentLi(document, root, parentLi);
+    // "Parent" becomes a <p>; the children survive as a following list.
+    expect(result.node.tagName).toBe('P');
+    expect(result.node.textContent).toBe('Parent');
+    const survivingLis = Array.from(root.querySelectorAll('li')).map((l) => l.textContent);
+    expect(survivingLis).toEqual(['child1', 'child2']);   // NOT deleted
+    // The sublist now follows the <p> as a sibling.
+    expect(result.node.nextElementSibling.tagName).toMatch(/^(UL|OL)$/);
+  });
+
+  it('L1: promoted sublist keeps the SAME child li nodes (identity, not clone)', () => {
+    root.innerHTML = '<ul><li>P<ul><li>a</li></ul></li></ul>';
+    const parentLi = root.querySelector('li');
+    const childLi = root.querySelector('li li');
+    childLi._marker = Symbol('child');
+    outdentLi(document, root, parentLi);
+    const moved = root.querySelector('li');
+    expect(moved.textContent).toBe('a');
+    expect(moved._marker).toBe(childLi._marker);   // same instance moved, not cloned
+  });
+
+  // ─── I8: outdenting a styled top-level <li> to a <p> keeps its block styles ──
+  it('I8: top-level outdent carries the li alignment/line-height onto the <p>', () => {
+    root.innerHTML = '<ul><li style="text-align:center;line-height:2" id="it" class="hi">item</li></ul>';
+    const li = root.querySelector('li');
+    const result = outdentLi(document, root, li);
+    expect(result.node.tagName).toBe('P');
+    expect(result.node.style.textAlign).toBe('center');   // was: dropped
+    expect(result.node.style.lineHeight).toBe('2');
+    expect(result.node.id).toBe('it');
+    expect(result.node.className).toBe('hi');
+  });
 });

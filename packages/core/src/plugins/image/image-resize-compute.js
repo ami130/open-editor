@@ -7,6 +7,13 @@
 
 export const MIN_WIDTH  = 40;
 export const MIN_HEIGHT = 20;
+// IMG19: an upper clamp so a runaway drag can't serialize an absurd size (e.g.
+// width="9000") that differs from what CSS max-width:100% actually renders.
+// Generous — real images fit well under this; it only stops pathological drags.
+export const MAX_WIDTH  = 8000;
+export const MAX_HEIGHT = 8000;
+const clampW = (w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w));
+const clampH = (h) => Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, h));
 
 /**
  * Compute the new size for a drag.
@@ -44,27 +51,27 @@ export function computeResize(drag, clientX, clientY, shiftKey) {
   //   height === null → CSS height:auto (horizontal drag)
   //   width  === null → CSS width:auto  (vertical drag)
   if (isHorizontalOnly) {
-    const w = Math.max(MIN_WIDTH, startW + dx);
+    const w = clampW(startW + dx);
     const derivedH = aspect ? Math.round(w / aspect) : Math.round(startH);
     return { width: Math.round(w), height: null, derivedHeight: derivedH, locked: false };
   }
   if (isVerticalOnly) {
-    const h = Math.max(MIN_HEIGHT, startH + dy);
+    const h = clampH(startH + dy);
     const derivedW = aspect ? Math.round(h * aspect) : Math.round(startW);
     return { width: null, height: Math.round(h), derivedWidth: derivedW, locked: false };
   }
 
   // Corner handles.
   const free = shiftKey; // Shift = free-form stretch; default = keep ratio
-  let newW = Math.max(MIN_WIDTH,  startW + dx);
-  let newH = Math.max(MIN_HEIGHT, startH + dy);
+  let newW = clampW(startW + dx);
+  let newH = clampH(startH + dy);
 
   if (!free && aspect) {
     // Keep aspect: the larger drag axis drives, derive the other.
     const dxAbs = Math.abs(clientX - startX);
     const dyAbs = Math.abs(clientY - startY);
-    if (dxAbs >= dyAbs) newH = Math.max(MIN_HEIGHT, newW / aspect);
-    else                newW = Math.max(MIN_WIDTH,  newH * aspect);
+    if (dxAbs >= dyAbs) newH = clampH(newW / aspect);
+    else                newW = clampW(newH * aspect);
   }
 
   return { width: Math.round(newW), height: Math.round(newH), locked: !free };

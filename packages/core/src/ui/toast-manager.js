@@ -177,7 +177,12 @@ export class ToastManager {
         }
       }, 200);
     };
-    if (closeBtn) closeBtn.addEventListener('click', close);
+    // The close (×) button dismisses the toast AND notifies via opts.onClose, so
+    // a sticky progress toast can double as a Cancel affordance for the caller.
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+      close();
+      if (typeof opts.onClose === 'function') { try { opts.onClose(); } catch { /* ignore */ } }
+    });
 
     // Auto-dismiss unless it's a sticky progress toast.
     const duration = opts.duration != null ? opts.duration : DEFAULT_MS;

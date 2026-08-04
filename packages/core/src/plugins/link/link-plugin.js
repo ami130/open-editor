@@ -126,6 +126,14 @@ export function createLinkPlugin() {
         this._openDialog(existing || null);
         return true;
       }
+      // A11Y (L7): Alt+Enter with the caret in a link moves focus INTO the link
+      // popover toolbar (Open/Copy/Edit/Unlink), which is otherwise mouse-only.
+      if (e.altKey && e.key === 'Enter' && this._popover) {
+        const editor = this._editor;
+        const sel = editor && editor.selection && editor.selection.get();
+        const a = sel && sel.startNode ? findLinkAt(sel.startNode, editor.getEditorElement()) : null;
+        if (a) { this._popover.showFor(a); if (this._popover.focusFirst()) return true; }
+      }
       return false;
     },
 
@@ -148,10 +156,16 @@ export function createLinkPlugin() {
         editor.emit('error', { error: err, context: 'plugin:link:dialog' });
         return;
       }
-      if (!result) return; // cancelled
+      // L6: ALWAYS return the caret/focus to the document — including on cancel
+      // (Ctrl+K → Escape). Previously cancel returned early, leaving focus on the
+      // toolbar button and losing the user's place.
+      const restoreCaret = () => {
+        if (bookmark && editor.selection) editor.selection.restore(bookmark);
+        else { const el = editor.getEditorElement(); if (el) el.focus(); }
+      };
+      if (!result) { restoreCaret(); return; } // cancelled
 
-      if (bookmark && editor.selection) editor.selection.restore(bookmark);
-      else { const el = editor.getEditorElement(); if (el) el.focus(); }
+      restoreCaret();
 
       editor.history && editor.history.takeSnapshot();
 

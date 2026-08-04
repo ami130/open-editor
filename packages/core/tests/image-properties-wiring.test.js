@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestEditor } from '../src/testing/test-harness.js';
 import { ImageSelectionManager } from '../src/plugins/image/image-selection.js';
+import { buildImageMenuItems } from '../src/plugins/image/image-context-menu.js';
 import { createFigure } from '../src/plugins/image/image-dom.js';
 
 let editor, root, mgr;
@@ -62,7 +63,7 @@ describe('9.1c — context menu offers Image properties…', () => {
     const fig = insertFig();
     let got = null;
     mgr.onEditProps = (f) => { got = f; };
-    const items = mgr._buildContextMenuItems(fig);
+    const items = buildImageMenuItems(mgr, fig);
     const props = items.find((i) => i.label === 'Image properties…');
     expect(props).toBeTruthy();
     props.action();

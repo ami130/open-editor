@@ -17,6 +17,7 @@ import { ImageResizeManager }         from './image-resize.js';
 import { ImageActionBar }             from './image-actionbar.js';
 import { installDragDrop }            from './image-drag-drop.js';
 import { installPaste }               from './image-paste.js';
+import { focusCaption }               from './image-keyboard-resize.js';
 
 // SVG icon for the toolbar button (inline — no external resource)
 const INSERT_IMAGE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -36,6 +37,7 @@ export function createImagePlugin() {
     _selection:      null,
     _resize:         null,
     _actionBar:      null,
+    _dropIndicator:  null,
     _nativeHandlers: null,
 
     // ─── install ──────────────────────────────────────────────────────────────
@@ -62,9 +64,15 @@ export function createImagePlugin() {
       this._actionBar.onEdit   = (fig) => this._openProperties(fig);
       this._actionBar.onLink   = (fig) => this._selection && this._selection._promptLink(fig);
       this._actionBar.onDelete = (fig) => this._selection && this._selection.deleteFigure(fig);
+      // IMG17 — caption button: deselect the island (so it's no longer captured
+      // by the resize overlay) and focus its figcaption for editing.
+      this._actionBar.onCaption = (fig) => {
+        if (this._selection) this._selection._deselectAll();
+        focusCaption(editor, fig);
+      };
 
       // 9.5 — drag-and-drop (registers editor.on listeners via installDragDrop)
-      installDragDrop(editor);
+      this._dropIndicator = installDragDrop(editor);   // IMG15 overlay to clean up
 
       // 9.6 — paste interception
       installPaste(editor);
@@ -104,6 +112,7 @@ export function createImagePlugin() {
       this._nativeHandlers = null;
 
       if (this._actionBar) { this._actionBar.destroy(); this._actionBar = null; }
+      if (this._dropIndicator) { this._dropIndicator.destroy(); this._dropIndicator = null; }
       if (this._selection) { this._selection.destroy(); this._selection = null; }
       if (this._resize)    { this._resize.destroy();    this._resize    = null; }
 

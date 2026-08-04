@@ -100,16 +100,17 @@ describe('indent/outdent never disabled (Jodit behaviour)', () => {
     cleanup(ctx);
   });
 
-  it('indent on first li applies marginLeft: 10px (Jodit margin-based)', () => {
+  it('indent on the FIRST li is a no-op (nothing to nest under — L4 structural)', () => {
+    // L4: list items nest structurally now, and the first item has no previous
+    // sibling to nest under → indent does nothing (matches Tab). No margin.
     const ctx = make('<ul><li>only</li></ul>');
     const li = ctx.ed.getEditorElement().querySelector('li');
     collapsedCursor(li.firstChild, 0);
     ctx.ed.commands.execute('indent');
     const root = ctx.ed.getEditorElement();
     cleanup(ctx);
-    // Jodit uses margin, not list nesting — no sub-list appears, but marginLeft is set
-    expect(root.querySelector('li ul')).toBeNull();
-    expect(li.style.marginLeft).toBe('10px');
+    expect(root.querySelector('li ul')).toBeNull();   // no nesting possible
+    expect(li.style.marginLeft).toBe('');             // and no margin
   });
 
   it('outdent outside list (no margin): DOM unchanged', () => {
@@ -145,39 +146,42 @@ describe('toggle off: click UL again unwraps back to paragraphs', () => {
   });
 });
 
-// ─── GAP 4: indent / outdent work correctly (Jodit margin-based) ─────────────
+// ─── GAP 4: indent / outdent work correctly (L4 structural, shared with Tab) ──
 
 describe('indent and outdent correctness', () => {
-  it('indent on any <li> applies marginLeft: 10px (no list nesting)', () => {
+  it('indent on a non-first <li> NESTS it structurally (no margin — L4)', () => {
     const ctx = make('<ul><li>one</li><li>two</li></ul>');
     const li2 = ctx.ed.getEditorElement().querySelectorAll('li')[1];
     collapsedCursor(li2.firstChild, 0);
     ctx.ed.commands.execute('indent');
     const root = ctx.ed.getEditorElement();
+    const nested = root.querySelector('li ul li, li ol li');
     cleanup(ctx);
-    // Jodit toolbar indent = margin, not structural nesting
-    expect(li2.style.marginLeft).toBe('10px');
-    expect(root.querySelector('li ul li')).toBeNull();
+    expect(li2.style.marginLeft).toBe('');            // NOT margin
+    expect(nested).not.toBeNull();                    // nested under "one"
+    expect(nested.textContent).toBe('two');
   });
 
-  it('outdent on <li> with marginLeft reduces margin by 10px', () => {
-    const ctx = make('<ul><li style="margin-left:20px">two</li></ul>');
-    const li = ctx.ed.getEditorElement().querySelector('li');
-    collapsedCursor(li.firstChild, 0);
+  it('outdent on a nested <li> lifts it one level (structural, L4)', () => {
+    const ctx = make('<ul><li>one<ul><li>two</li></ul></li></ul>');
+    const nested = ctx.ed.getEditorElement().querySelector('li ul li, li ol li');
+    collapsedCursor(nested.firstChild, 0);
     ctx.ed.commands.execute('outdent');
+    const root = ctx.ed.getEditorElement();
+    const topLevel = root.querySelectorAll('ul > li').length;
     cleanup(ctx);
-    expect(li.style.marginLeft).toBe('10px');
+    expect(topLevel).toBe(2);                          // "two" lifted to top level
+    expect(root.querySelector('li ul li, li ol li')).toBeNull();
   });
 
-  it('outdent on <li> with no margin: marginLeft stays empty (no conversion)', () => {
+  it('outdent on a top-level <li> converts it to <p> (structural, L4)', () => {
     const ctx = make('<ul><li>hello</li></ul>');
     const li = ctx.ed.getEditorElement().querySelector('li');
     collapsedCursor(li.firstChild, 0);
     ctx.ed.commands.execute('outdent');
     const root = ctx.ed.getEditorElement();
     cleanup(ctx);
-    // Still a list item — outdent removes margin only, no structural conversion
-    expect(root.querySelector('ul')).not.toBeNull();
-    expect(li.style.marginLeft).toBe('');
+    expect(root.querySelector('ul')).toBeNull();       // left the list
+    expect(root.querySelector('p').textContent).toBe('hello');
   });
 });

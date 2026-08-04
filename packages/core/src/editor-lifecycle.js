@@ -40,7 +40,11 @@ export const editorLifecycleMixin = {
       const html = this.getHTML();
       const text = this.getText();
       this._state.html = html;
-      this._state.isDirty = true;
+      // isDirty reflects "content differs from the last committed baseline", NOT
+      // "a change event fired". This makes undoing back to the saved state read
+      // as clean (was: unconditionally true, so the beforeunload guard fired on
+      // already-saved content and a no-op undo looked dirty).
+      this._state.isDirty = html !== this._state.savedHtml;
       // The config callback fires first, then the event — both get {html, text}.
       // A throwing callback must not prevent the event or corrupt editor state.
       if (handler) {
@@ -49,6 +53,26 @@ export const editorLifecycleMixin = {
       }
       this.emit('onChange', { html, text });
     }, wait);
+  },
+
+  // ─── Dirty tracking (public) ─────────────────────────────────────────────────
+
+  /** True when current content differs from the last committed baseline (load /
+   *  setHTML / markClean). Undoing back to the saved state reads as clean.
+   *  Computed from the current DOM, so it's accurate before the debounce flushes. */
+  isDirty() {
+    if (this._destroyed || !this._state) return false;
+    return this.getHTML() !== this._state.savedHtml;
+  },
+
+  /** Adopt the current content as the new committed baseline (call after a save).
+   *  Clears isDirty and cancels any pending onChange so it can't re-dirty. */
+  markClean() {
+    if (this._destroyed || !this._state) return this;
+    if (this._onChangeFn && typeof this._onChangeFn.cancel === 'function') this._onChangeFn.cancel();
+    this._state.html = this._state.savedHtml = this.getHTML();
+    this._state.isDirty = false;
+    return this;
   },
 
   // ─── Autosave setup ──────────────────────────────────────────────────────────

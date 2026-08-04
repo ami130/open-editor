@@ -159,6 +159,9 @@ export class OpenEditor extends EventEmitter {
     // Phase 5 — History: wire up after DOM is stable, take initial snapshot
     this.history = new HistoryManager(this);
     this.history.takeSnapshot();
+    // Seed the dirty-tracking baseline from the initial content so a fresh editor
+    // (or one built with defaultContent) starts clean until content diverges.
+    this._state.html = this._state.savedHtml = this.getHTML();
 
     // Phase 6 — Shared UI system (modal/tooltip/contextMenu/toast), scoped to the outer wrapper even in iframe mode.
     const uiDoc = typeof document !== 'undefined' ? document : null;
@@ -216,9 +219,8 @@ export class OpenEditor extends EventEmitter {
     // var(--oe-*) resolves against defined values. Injected into the host doc
     // (where chrome renders); the iframe editable gets them via BASE_CSS.
     injectStyleOnce(document, 'oe-theme-tokens', THEME_TOKENS_CSS);
-    // F1 fix: chrome a11y rules (forced-colors / reduced-motion) must live in the
-    // HOST document, where the toolbar/menus/modals render — even in iframe mode,
-    // where BASE_CSS goes into the iframe. Unconditional, before the early-return.
+    // F1 fix: chrome a11y rules (forced-colors / reduced-motion) live in the HOST
+    // document where chrome renders (even in iframe mode). Before the early-return.
     injectStyleOnce(document, 'oe-a11y-styles', A11Y_CHROME_CSS);
     // Wrapper + "Powered by" strip layout — HOST doc, BOTH modes (see
     // wrapper-chrome-css.js). Unconditional, before the iframe early-return.
@@ -252,10 +254,8 @@ export class OpenEditor extends EventEmitter {
   }
 
   _updatePlaceholder() {
-    // CSS :empty is unreliable: after the user clears content, contentEditable
-    // typically leaves a <br> or empty block so :empty no longer matches and
-    // the placeholder never reappears. Drive it from the editor's own isEmpty()
-    // by toggling an 'oe-empty' class instead.
+    // CSS :empty is unreliable (cleared contentEditable keeps a <br>/empty block,
+    // so :empty stops matching). Drive it from isEmpty() via an 'oe-empty' class.
     const el = this._editorEl;
     if (!el) return;
     if (typeof this.isEmpty === 'function') {

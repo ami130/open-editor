@@ -177,6 +177,31 @@ describe('Editor — fullscreen + print (7.16/7.17)', () => {
     window.open = orig;
     cleanup(editor, target);
   });
+
+  // ─── Fullscreen locks the host page scroll and restores it exactly ───────────
+  it('fullscreen locks body scroll on enter and restores it on exit', () => {
+    const prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'scroll';           // host set its own value
+    const { editor, target } = makeEditor();
+    editor.toggleFullscreen();
+    expect(document.body.style.overflow).toBe('hidden'); // locked
+    editor.toggleFullscreen();
+    expect(document.body.style.overflow).toBe('scroll'); // restored EXACTLY, not ''
+    cleanup(editor, target);
+    document.body.style.overflow = prevBodyOverflow;     // test isolation
+  });
+
+  it('restores body scroll when destroyed WHILE fullscreen (no stuck lock)', () => {
+    const prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = '';
+    const { editor, target } = makeEditor();
+    editor.toggleFullscreen();
+    expect(document.body.style.overflow).toBe('hidden');
+    editor.destroy();                                   // destroy while fullscreen
+    expect(document.body.style.overflow).toBe('');      // lock released, page usable
+    if (target.parentNode) target.parentNode.removeChild(target);
+    document.body.style.overflow = prevBodyOverflow;
+  });
 });
 
 describe('Status bar (7.20)', () => {

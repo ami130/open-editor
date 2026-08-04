@@ -48,6 +48,14 @@ export class CommandAnnouncer {
 
   _announce(payload) {
     if (!this._region || !payload) return;
+    // A command may carry an explicit human announcement (e.g. image resize/align/
+    // delete, which aren't on/off toggles). Speak it verbatim. Re-set '' first so
+    // a repeated string still re-announces.
+    if (typeof payload.announce === 'string' && payload.announce) {
+      this._region.textContent = '';
+      this._region.textContent = payload.announce;
+      return;
+    }
     const label = TOGGLE_LABELS[payload.command];
     if (!label) return;
     let on;

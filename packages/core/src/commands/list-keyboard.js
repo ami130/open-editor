@@ -12,6 +12,13 @@ import { featureForCommand } from '../entitlements/feature-catalog.js';
 function editorEl(editor)   { return editor.getEditorElement(); }
 function getDoc(editor)     { return editor._iframeDoc || document; }
 function getSelInfo(editor) { return editor.selection ? editor.selection.get() : null; }
+// L15: readonly can be signalled via either source — check BOTH (editor-events
+// uses _state.isReadOnly; the config flag is _config.readonly) so a divergence
+// between them can't let a structural edit slip through in a readonly editor.
+function isReadonly(editor) {
+  return !!((editor._config && editor._config.readonly) ||
+    (editor._state && editor._state.isReadOnly));
+}
 
 // ─── Tab / Shift+Tab inside list ─────────────────────────────────────────────
 //
@@ -55,7 +62,7 @@ function isAtLiStart(li, info) {
 }
 
 export function handleListTab(editor, shiftKey) {
-  if (editor._config && editor._config.readonly) return false;
+  if (isReadonly(editor)) return false;
   // Feature gating (Phase 2 leak-fix): Tab/Shift+Tab list nesting runs straight
   // from keydown — it does NOT go through commands.execute, so it must gate
   // itself or it bypasses list.indent gating. When list.indent isn't granted,
@@ -68,19 +75,22 @@ export function handleListTab(editor, shiftKey) {
   const li = nearestLi(info.startNode, root);
   if (!li) return false;
 
-  // Both Tab and Shift+Tab only fire when cursor is at the start of the li.
-  // Jodit's isSameLeftCursorPosition check — mid-text Tab/Shift+Tab passes through.
-  if (!isAtLiStart(li, info)) return false;
-
   // Tab/Shift+Tab = structural nesting (indentLi/outdentLi), not margin.
   const doc = getDoc(editor);
   if (shiftKey) {
+    // L11: Shift+Tab OUTDENTS from anywhere in the line — most editors un-nest
+    // regardless of the caret column (the old li-start gate blocked mid-text
+    // Shift+Tab, so users couldn't outdent without first moving to line start).
     const result = outdentLi(doc, root, li);
     if (result) placeCursor(result.node, editor);
     else        placeCursor(li, editor);
     return true;
   } else {
-    // Tab on first item (no previous sibling): let key pass through (Issue 9)
+    // Tab INDENTS only at the very start of the item (Jodit's
+    // isSameLeftCursorPosition) — mid-text Tab passes through so the browser can
+    // do its default. On the first item (no previous sibling) it also passes
+    // through (can't nest without a preceding item to nest under).
+    if (!isAtLiStart(li, info)) return false;
     if (!li.previousElementSibling) return false;
     const result = indentLi(doc, li);
     if (result) placeCursor(result, editor);
@@ -98,20 +108,62 @@ function isEmptyLi(li) {
     li.firstChild.nodeType === 1 && li.firstChild.tagName.toLowerCase() === 'br');
 }
 
+// L10: an <li> whose OWN direct content is empty but which OWNS a sublist (an
+// "outline parent" like <li>|<ul>\u2026</ul></li>). isEmptyLi rejects it (so the
+// exit-to-<p> path never fires and the user is trapped). Detect it separately.
+function isEmptyParentWithSublist(li) {
+  const firstList = Array.from(li.children).find(
+    (c) => c.tagName && (c.tagName.toLowerCase() === 'ul' || c.tagName.toLowerCase() === 'ol')
+  );
+  if (!firstList) return false;
+  // Direct content BEFORE the sublist must be visually empty.
+  let direct = '';
+  for (const child of Array.from(li.childNodes)) {
+    if (child === firstList) break;
+    direct += child.textContent || '';
+  }
+  return direct.replace(/[\u200B\u200C\u2060\uFEFF]/g, '').replace(/\u200D/g, '').trim() === '';
+}
+
+// Enter on an empty outline-parent: dissolve it by lifting its sublist's items
+// up to replace it, so the user escapes and no child content is lost.
+function exitEmptyParent(editor, li, list) {
+  const sub = Array.from(li.children).find(
+    (c) => c.tagName && (c.tagName.toLowerCase() === 'ul' || c.tagName.toLowerCase() === 'ol')
+  );
+  if (!sub) return false;
+  // Move the sublist's items up into `list` at the empty li's position.
+  const ref = li;
+  for (const child of Array.from(sub.children)) list.insertBefore(child, ref);
+  const firstPromoted = ref.previousElementSibling;
+  if (li.parentNode) li.parentNode.removeChild(li);   // removes the now-empty parent + its empty sublist
+  if (firstPromoted) placeCursor(firstPromoted, editor);
+  return true;
+}
+
 // NOTE (feature gating): handleListEnter is intentionally NOT gated. Enter on an
 // empty <li> EXITS the list (a cleanup/escape action, like Backspace) — it never
 // CREATES list structure, so it belongs with the always-on core. Gating it would
 // trap a user inside a list they can't leave. (Tab-nesting IS gated above.)
 export function handleListEnter(editor) {
-  if (editor._config && editor._config.readonly) return false;
+  if (isReadonly(editor)) return false;
   const info = getSelInfo(editor);
   if (!info) return false;
   const root = editorEl(editor);
   const li   = nearestLi(info.startNode, root);
   const list = nearestList(info.startNode, root);
-  if (!li || !list || !isEmptyLi(li)) return false;
+  if (!li || !list) return false;
 
   const doc = getDoc(editor);
+
+  // L10: empty outline-parent (empty direct content + a sublist) → dissolve it,
+  // promoting the sublist's items so the user isn't trapped and nothing is lost.
+  // (If the caret were inside the sublist, `li` would be that inner item, which
+  // owns no sublist, so this branch wouldn't fire.)
+  if (!isEmptyLi(li) && isEmptyParentWithSublist(li)) {
+    return exitEmptyParent(editor, li, list);
+  }
+  if (!isEmptyLi(li)) return false;
 
   // Collect any siblings AFTER the empty li inside the same list —
   // they must travel with the exit so they aren't orphaned (Jodit behaviour).
@@ -128,37 +180,39 @@ export function handleListEnter(editor) {
   const parentLi = nearestLi(list, root);
   const isNested = !!parentLi;
 
+  // Build the continuation list for trailing items, mirroring the source list's
+  // tag + inline marker so a numbered/styled list keeps its style after exit.
+  const makeContinuation = () => {
+    const cont = doc.createElement(list.tagName.toLowerCase());
+    if (list.style.listStyleType) cont.style.listStyleType = list.style.listStyleType;
+    for (const t of trailingLis) cont.appendChild(t);
+    return cont;
+  };
+
+  // L3 fix: move trailing items OUT of `list` FIRST, then remove the empty li,
+  // then drop `list` only if it is now truly empty. The old order checked
+  // emptiness before the trailing items were moved, leaving a stray empty <ul>
+  // whenever the empty li was the FIRST item.
   if (isNested) {
     const newLi = doc.createElement('li');
     newLi.appendChild(doc.createElement('br'));
     const parentList = parentLi.parentNode;
-    // Insert new li after the parent li
     parentList.insertBefore(newLi, parentLi.nextSibling);
-    // Remove empty li
-    li.parentNode.removeChild(li);
-    // If there were trailing siblings, keep them in their existing sublist
-    // (they stay in `list` which is still attached to parentLi)
-    if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
-    // If trailing items existed, append them in a new sublist after newLi
+    if (li.parentNode) li.parentNode.removeChild(li);
     if (trailingLis.length > 0) {
-      const sub = doc.createElement(list.tagName.toLowerCase());
-      for (const t of trailingLis) sub.appendChild(t);
-      parentList.insertBefore(sub, newLi.nextSibling);
+      parentList.insertBefore(makeContinuation(), newLi.nextSibling);
     }
+    if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
     placeCursor(newLi, editor);
   } else {
     const p = doc.createElement('p');
     p.appendChild(doc.createElement('br'));
     if (list.parentNode) list.parentNode.insertBefore(p, list.nextSibling);
-    // If there were trailing items, they stay in the list (list stays in DOM)
-    li.parentNode.removeChild(li);
-    if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
-    // Trailing items that were after the empty li: keep them in a continuation list
-    if (trailingLis.length > 0) {
-      const cont = doc.createElement(list.tagName.toLowerCase());
-      for (const t of trailingLis) cont.appendChild(t);
-      if (p.parentNode) p.parentNode.insertBefore(cont, p.nextSibling);
+    if (li.parentNode) li.parentNode.removeChild(li);
+    if (trailingLis.length > 0 && p.parentNode) {
+      p.parentNode.insertBefore(makeContinuation(), p.nextSibling);
     }
+    if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
     placeCursor(p, editor);
   }
   return true;

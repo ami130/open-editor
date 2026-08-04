@@ -80,7 +80,7 @@ const ALLOWLIST = [
   // warning-count hue are a fixed semantic palette — a red error stays red-tinted
   // in every theme (convention), like a browser validation message.
   { match: /(background|border|border-color):[^;]*var\(--oe-c-danger-(100|200)\)/, reason: 'fixed danger-tint status signal' },
-  { match: /color:\s*var\(--oe-c-warning\)/, reason: 'fixed warning status hue' },
+  { match: /(color|background):\s*var\(--oe-c-warning\)/, reason: 'fixed warning status hue (incl. the missing-alt badge)' },
   // C3 mixed-selection indicator: a fixed rainbow that MEANS "multiple colors".
   // It is deliberately NOT any single themeable surface color, so a semantic
   // token can't express it — it must read the same in every theme.

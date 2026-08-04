@@ -79,6 +79,7 @@ export const ALIGN_LABELS = { '': 'None', left: 'Float left', center: 'Center', 
 export function isValidImageUrl(src) {
   if (typeof src !== 'string') return false;
   const s = src.trim().toLowerCase();
+  if (s.startsWith('//')) return false;   // IMG12: protocol-relative — reject (see sanitizeSrc)
   return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('/');
 }
 

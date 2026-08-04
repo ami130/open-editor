@@ -201,8 +201,41 @@ export const strikethroughCommand = {
 // Turning one ON removes the other first (Word/CKEditor semantics): you can't be
 // both super- and sub-script at once. When the target is already active this is a
 // plain toggle-off, so we only clear the opposite when ADDING.
+
+// True if the opposite tag appears ANYWHERE the selection touches — not just at
+// the start node. I6: a selection that STARTS in plain text but extends into a
+// <sub> must still drop the sub before applying sup, or both end up applied.
+function oppositeInSelection(editor, opposite) {
+  const sel = selMgr(editor);
+  const info = sel && sel.get();
+  if (!info) return false;
+  if (info.collapsed || !info.range) return insideTag(editor, opposite);
+  // Scan the selected sub-tree for the opposite tag intersecting the range.
+  const scopeNode = info.range.commonAncestorContainer;
+  const scope = scopeNode.nodeType === 1 ? scopeNode : scopeNode.parentNode;
+  if (!scope) return insideTag(editor, opposite);
+  if (scope.tagName && scope.tagName.toLowerCase() === opposite) return true;
+  for (const el of Array.from(scope.querySelectorAll(opposite))) {
+    try { if (!info.range.intersectsNode || info.range.intersectsNode(el)) return true; }
+    catch { return true; }
+  }
+  return insideTag(editor, opposite);
+}
+
 function toggleVerticalAlign(editor, tag, opposite) {
-  if (!insideTag(editor, tag) && insideTag(editor, opposite)) toggleInlineDom(editor, opposite);
+  if (!insideTag(editor, tag) && oppositeInSelection(editor, opposite)) {
+    // Remove the opposite EVERYWHERE in the selection (range-aware), not just at
+    // the caret's ancestor — insideTag alone missed a partial-into-opposite range.
+    const sel = selMgr(editor);
+    const info = sel && sel.get();
+    const win = (sel && typeof sel.getWindow === 'function') ? sel.getWindow() : null;
+    const nativeSel = win && win.getSelection();
+    if (info && info.range && nativeSel) {
+      unwrapAcrossRange(info.range, editorEl(editor), opposite, getDoc(editor), nativeSel);
+    } else {
+      toggleInlineDom(editor, opposite);
+    }
+  }
   toggleInlineDom(editor, tag);
   return CommandManager.SKIP_RESTORE;
 }

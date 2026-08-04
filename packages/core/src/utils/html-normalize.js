@@ -8,10 +8,38 @@ export function normalizeOutputHTML(html, doc) {
   const tmp = doc.createElement('div');
   tmp.innerHTML = html;
   normalizeNode(tmp);
+  // Drop empty formatting husks left by the pending-format path (apply bold/
+  // color/font at a caret, then don't type -> an empty <strong>/<span style>).
+  // Runs on this DETACHED copy only, so the live editing DOM keeps its pending
+  // span while the caret is inside it. Treats a ZWSP-only element as empty.
+  pruneEmptyFormatHusks(tmp);
   // Strip zero-width chars unconditionally — ZWSP/ZWNJ/ZWJ/word-joiner/BOM
   // inserted by the pending-format path must never survive serialized output,
   // regardless of whether the sanitizer is enabled (sanitize:false config path).
   return tmp.innerHTML.replace(/[\u200B\u200C\u2060\uFEFF]/g, '').replace(/\u200D/g, '');
+}
+
+// Inline formatting elements whose ONLY purpose is styling — an empty one
+// carries no content and is safe to drop. Anchors/bookmarks (<a>, or anything
+// with an id) and void/media elements are preserved by the guards below.
+const FORMAT_INLINE = new Set(['strong','b','em','i','u','s','del','strike',
+  'sup','sub','code','span','mark','abbr','cite','q','small','ins','font']);
+const ZERO_WIDTH_RE = /[\u200B\u200C\u2060\uFEFF]/g;   // ZWJ handled separately (no-misleading-character-class)
+const ZWJ_RE = /\u200D/g;
+
+// Recursively remove empty formatting-only inline elements, bottom-up so an
+// element that becomes empty after its children are pruned is caught too.
+function pruneEmptyFormatHusks(node) {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType !== 1) continue;
+    pruneEmptyFormatHusks(child);                       // children first
+    const tag = child.tagName.toLowerCase();
+    if (!FORMAT_INLINE.has(tag)) continue;              // only formatting tags
+    if (child.id) continue;                             // keep anchored elements
+    if (child.querySelector('img,hr,br,video,audio,iframe,embed,object,svg,canvas,picture')) continue;
+    const text = (child.textContent || '').replace(ZERO_WIDTH_RE, '').replace(ZWJ_RE, '');
+    if (text === '' && child.childElementCount === 0) child.parentNode.removeChild(child);
+  }
 }
 
 function normalizeNode(node) {
@@ -52,6 +80,17 @@ function normalizeNode(node) {
       node.replaceChild(s, child);
       normalizeNode(s);
       continue;
+    }
+
+    // Image islands: strip editing-only STATE classes that must never ship in
+    // saved output. `oe-figure--selected` is toggled on click/focus and would
+    // otherwise bake a selection ring into published content (the alignment
+    // classes oe-figure--left/right/center/inline ARE content and are kept).
+    // Runs on the detached serialization copy only, so the live DOM keeps its
+    // selection class while editing.
+    if (tag === 'figure' && child.classList) {
+      child.classList.remove('oe-figure--selected');
+      if (child.getAttribute('class') === '') child.removeAttribute('class');
     }
 
     // 2.20 — empty <p> gets a <br> inside for canonical cross-browser form.

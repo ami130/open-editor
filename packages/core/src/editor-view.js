@@ -3,6 +3,8 @@
  * to OpenEditor. Extracted to keep editor-api.js under the 300-line limit.
  */
 
+import { buildPrintDocument } from './utils/print-document.js';
+
 // 15.6 — validate a user-supplied CSS custom-property value before it reaches
 // setProperty. Rejects declaration-breakers (; { } < >), control chars and
 // newlines (which could smuggle a second declaration), and the url()/
@@ -24,6 +26,7 @@ export const editorViewMixin = {
     if (this._destroyed || !this._wrapper) return;
     const on = !this._wrapper.classList.contains('oe-wrapper--fullscreen');
     this._wrapper.classList.toggle('oe-wrapper--fullscreen', on);
+    this._setFullscreenScrollLock(on);
     if (on) {
       this._fsEscHandler = (e) => { if (e.key === 'Escape') this.toggleFullscreen(); };
       const d = this._iframeDoc || (typeof document !== 'undefined' ? document : null);
@@ -36,12 +39,33 @@ export const editorViewMixin = {
     }
   },
 
+  // Lock the HOST page's scroll while fullscreen (the wrapper covers the viewport
+  // via position:fixed, but the body behind it would otherwise still scroll on a
+  // wheel/touch gesture, and exit could leave the page at an unexpected offset).
+  // Saves the prior inline overflow and restores it EXACTLY on exit/destroy.
+  _setFullscreenScrollLock(on) {
+    const body = this._wrapper && this._wrapper.ownerDocument
+      && this._wrapper.ownerDocument.body;
+    if (!body) return;
+    if (on) {
+      if (this._fsPrevBodyOverflow === undefined) {
+        this._fsPrevBodyOverflow = body.style.overflow;   // '' when not set inline
+      }
+      body.style.overflow = 'hidden';
+    } else if (this._fsPrevBodyOverflow !== undefined) {
+      body.style.overflow = this._fsPrevBodyOverflow;
+      this._fsPrevBodyOverflow = undefined;
+    }
+  },
+
   _removeFullscreenEscListener() {
     if (this._fsDoc && this._fsEscHandler) {
       this._fsDoc.removeEventListener('keydown', this._fsEscHandler, true);
     }
     this._fsEscHandler = null;
     this._fsDoc = null;
+    // Restore the host body scroll if we were fullscreen (covers destroy-in-FS).
+    this._setFullscreenScrollLock(false);
   },
 
   isFullscreen() {
@@ -54,11 +78,12 @@ export const editorViewMixin = {
     const win = window.open('', '_blank', 'width=800,height=600');
     if (!win) return; // popup blocked — fail gracefully
     try {
-      // 17.5.3 — the print document has none of the editor's CSS, so the
-      // page-break rule must travel with it (visible dashes would print
-      // otherwise, and no break would happen).
-      const printCss = '<style>hr.oe-page-break{border:0;height:0;break-after:page;page-break-after:always;}</style>';
-      win.document.write(`<!DOCTYPE html><html><head><title>Print</title>${printCss}</head><body>${html}</body></html>`);
+      // H2: ship the editor's full stylesheet (theme tokens + BASE_CSS, content
+      // wrapped in .oe-editor) so the printout matches the editor — previously
+      // only the page-break rule travelled and everything else printed unstyled.
+      // A @media print block emits the real page break and hides screen-only
+      // markers (dashed page-break line, hr click-padding, selection outline).
+      win.document.write(buildPrintDocument(html, 'Print'));
       win.document.close();
       win.focus();
       win.print();

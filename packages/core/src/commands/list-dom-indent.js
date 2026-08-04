@@ -4,7 +4,7 @@
  * list-keyboard.js.
  */
 
-import { isList, nearestLi } from './list-dom.js';
+import { isList, copyBlockAttrs } from './list-dom.js';
 import { markerForDepth, listDepth } from './list-style-depth.js';
 
 /**
@@ -54,21 +54,46 @@ export function outdentLi(doc, root, li) {
 
   const listParent = list.parentNode;
 
-  // Case A: top-level
-  if (listParent === root || !nearestLi(listParent, root)) {
+  // Case A: NOT a true nested list. A list is "nested" (Case B) only when it is
+  // a DIRECT child of an <li> (the valid <li><ul>… structure). L12: the old
+  // check walked all the way up with nearestLi, so a list inside a <td>/<div>
+  // whose far ancestor happened to be an <li> was mis-treated as nested and
+  // produced an <li> stranded directly under a <td>. Testing listParent
+  // directly keeps the outdent inside its real container.
+  const isNested = listParent && listParent.nodeType === 1 &&
+    listParent.tagName.toLowerCase() === 'li';
+  if (!isNested) {
     const p = doc.createElement('p');
+    // I8: carry the <li>'s own formatting (align/line-height/id/class/dir) onto
+    // the new <p> — alignment is stored on the <li>, so outdenting to a paragraph
+    // used to silently drop it (heading→p conversion already copies style).
+    copyBlockAttrs(li, p);
     // M5 fix: MOVE the li's children into the new <p> (do not clone). Cloning
     // discarded node identity — any contenteditable="false" island, image with
     // attached resize/selection state, or element referenced elsewhere became a
     // detached orphan while a dead copy lived in the DOM. Array.from snapshots
-    // the live childNodes so moving during iteration is safe. Nested sublists
-    // are left in place on the li (removed with it below).
+    // the live childNodes so moving during iteration is safe.
+    //
+    // L1 fix: nested sublists must be PRESERVED, not deleted with the li. Split
+    // the li's children in DOM order: inline/text content goes into the <p>;
+    // a nested sublist and everything after it is promoted to follow the <p>
+    // as its own top-level list (so "outdent a parent" keeps its children).
+    const promoted = [];
+    let hitList = false;
     for (const child of Array.from(li.childNodes)) {
-      if (!isList(child)) p.appendChild(child);
+      if (isList(child)) hitList = true;   // this child + all after it are promoted
+      if (hitList) promoted.push(child);
+      else p.appendChild(child);
     }
     if (!p.firstChild) p.appendChild(doc.createElement('br'));
 
     list.parentNode.insertBefore(p, list.nextSibling);
+    // Insert promoted nodes (nested sublists / trailing content) right after <p>.
+    let ref = p.nextSibling;
+    for (const node of promoted) {
+      p.parentNode.insertBefore(node, ref);
+      ref = node.nextSibling;
+    }
     li.parentNode.removeChild(li);
     if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
     return { node: p, wasConverted: true };
@@ -95,7 +120,13 @@ export function outdentLi(doc, root, li) {
     }
     const sub = existingSub || doc.createElement(subTag);
     for (const t of trailing) sub.appendChild(t);
-    if (!existingSub) li.appendChild(sub);
+    if (!existingSub) {
+      li.appendChild(sub);
+      // L13: match indentLi — vary the marker by depth so this regenerated
+      // sublist doesn't revert to the default bullet, staying visually
+      // consistent with sublists created via Tab.
+      sub.style.listStyleType = markerForDepth(subTag, listDepth(sub));
+    }
   }
 
   parentList.insertBefore(li, parentLi.nextSibling);

@@ -8,6 +8,7 @@
  */
 
 import { getParentBlock } from '../selection/range-utils.js';
+import { getSelectedBlocks } from './style-read.js';
 
 function editorEl(editor)   { return editor.getEditorElement(); }
 function getSelInfo(editor) { return editor.selection ? editor.selection.get() : null; }
@@ -30,23 +31,59 @@ function currentTextBlock(editor) {
   return getParentBlock(info.startNode, root);
 }
 
+// A1: every block the selection touches, so alignment covers a multi-paragraph
+// selection (was: only the block at the cursor). getSelectedBlocks returns the
+// innermost intersecting blocks (incl. <li>) and falls back to the single caret
+// block, so a collapsed cursor still aligns exactly one block. ul/ol containers
+// are filtered so alignment lands on the <li>/<p>, not the whole list.
+function alignTargetBlocks(editor) {
+  const blocks = getSelectedBlocks(editor).filter(
+    (b) => b && b.nodeType === 1 && !ALIGN_SKIP_TAGS.has(b.tagName.toLowerCase())
+  );
+  if (blocks.length) return blocks;
+  const single = currentTextBlock(editor);
+  return single ? [single] : [];
+}
+
+// A2: the resolved writing direction for a block — a block/ancestor `dir` attr
+// wins, else the editor's configured direction. In RTL the default alignment is
+// RIGHT, so an unset text-align must NOT read as "left-active".
+function blockDir(block, editor) {
+  let n = block;
+  while (n && n.nodeType === 1) {
+    const d = n.getAttribute && n.getAttribute('dir');
+    if (d === 'rtl' || d === 'ltr') return d;
+    n = n.parentNode;
+  }
+  return (editor.getDirection && editor.getDirection()) || 'ltr';
+}
+
 // ─── Alignment (4.6) ─────────────────────────────────────────────────────────
 
 function makeAlignCommand(value) {
   return {
     execute(editor) {
-      const block = currentTextBlock(editor);
-      if (!block) return;
-      // Toggle off when already set to this value (clears the inline style)
-      // rather than re-writing it, so alignment is reversible.
-      block.style.textAlign = block.style.textAlign === value ? '' : value;
+      const blocks = alignTargetBlocks(editor);
+      if (!blocks.length) return;
+      // Toggle semantics across the whole selection: if EVERY target block is
+      // already at this value, clear them all (reversible); otherwise set them
+      // all to this value — so a mixed selection becomes uniformly aligned.
+      const allSet = blocks.every((b) => b.style.textAlign === value);
+      for (const b of blocks) b.style.textAlign = allSet ? '' : value;
     },
     isActive(editor) {
       const block = currentTextBlock(editor);
       if (!block) return false;
       const ta = block.style.textAlign;
-      // A block with no explicit alignment is left-aligned by default.
-      if (value === 'left') return ta === 'left' || ta === '';
+      if (value === 'left') {
+        // A block with no explicit alignment defaults to LEFT only in LTR; in
+        // RTL its visual default is right, so don't report Left as active (A2).
+        return ta === 'left' || (ta === '' && blockDir(block, editor) !== 'rtl');
+      }
+      if (value === 'right') {
+        // Symmetric: an unset RTL block is visually right-aligned.
+        return ta === 'right' || (ta === '' && blockDir(block, editor) === 'rtl');
+      }
       return ta === value;
     },
   };

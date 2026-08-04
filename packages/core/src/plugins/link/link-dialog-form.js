@@ -10,6 +10,8 @@
  * (they are generic element factories, no image-specific state).
  */
 import { el, labeledInput } from '../image/image-dialog-parts.js';
+import { isAllowedLinkHref } from '../../sanitizer/sanitizer-utils.js';
+import { normalizeUserHref } from './link-url.js';
 
 /** Read rel tokens off an <a> and report whether it contains 'nofollow'. */
 function relHasNofollow(a) {
@@ -85,6 +87,10 @@ export function buildLinkForm(doc, editor, existingLink) {
     type: 'text', placeholder: 'https://example.com or #anchor', required: 'required',
   });
   if (existingLink) inUrl.value = existingLink.getAttribute('href') || '';
+  // L10 (a11y): mark the field required for AT and describe it with the live hint.
+  inUrl.setAttribute('aria-required', 'true');
+  inUrl.setAttribute('aria-describedby', 'oe-link-url-hint');
+  const urlHint = el(doc, 'div', { className: 'oe-link-dialog__hint', id: 'oe-link-url-hint' });
   // Offer existing bookmark anchors as suggestions.
   const anchors = editor ? Array.from(
     editor.getEditorElement().querySelectorAll('a.oe-bookmark[id]')
@@ -99,7 +105,26 @@ export function buildLinkForm(doc, editor, existingLink) {
     inUrl.setAttribute('list', 'oe-link-anchors');
     form.appendChild(dl);
   }
+  wUrl.appendChild(urlHint);
   form.appendChild(wUrl);
+
+  // L10: live URL feedback as the user types — shows what will be linked (with the
+  // https:// auto-prepend applied) or flags a blocked/invalid value, and toggles
+  // aria-invalid. Uses the SAME normalize+allowlist as submit, so no surprises.
+  const refreshUrlHint = () => {
+    const raw = inUrl.value.trim();
+    if (raw === '') { urlHint.textContent = ''; inUrl.removeAttribute('aria-invalid'); return; }
+    const norm = normalizeUserHref(raw);
+    if (!isAllowedLinkHref(norm)) {
+      urlHint.textContent = 'This URL will be blocked (unsupported or unsafe scheme).';
+      inUrl.setAttribute('aria-invalid', 'true');
+    } else {
+      inUrl.removeAttribute('aria-invalid');
+      urlHint.textContent = (norm !== raw) ? `Will link to: ${norm}` : '';
+    }
+  };
+  inUrl.addEventListener('input', refreshUrlHint);
+  refreshUrlHint();
 
   // ── Display text ────────────────────────────────────────────────────────────
   const { wrap: wText, input: inText } = labeledInput(doc, 'oe-link-text', 'Text', {

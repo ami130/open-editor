@@ -24,6 +24,11 @@ function placeCursorAt(node, editor) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Attributes carried across a block-tag conversion (heading↔paragraph↔pre).
+// I10: dir/lang/align were previously dropped — dir loss silently changes a
+// block's default alignment, and align/lang are legitimate authored attributes.
+const BLOCK_KEEP_ATTRS = ['class', 'style', 'id', 'dir', 'lang', 'align'];
+
 function editorEl(editor) { return editor.getEditorElement(); }
 function getDoc(editor)   { return editor._iframeDoc || document; }
 
@@ -32,15 +37,12 @@ function getSelInfo(editor) {
 }
 
 /**
- * Apply formatBlock via direct DOM replacement.
- * Replaces the nearest block ancestor with a new element of the given tag,
- * preserving all children and inline styles. This is more reliable than
- * doc.execCommand('formatBlock') which requires browser focus and is
- * deprecated in modern browsers.
- *
- * Allowed target tags: p, h1-h6, pre. For blockquote, use blockquoteCommand.
+ * Apply formatBlock via direct DOM replacement — replaces the nearest block
+ * ancestor with a new element of `tag`, preserving children + attributes (more
+ * reliable than the deprecated, focus-dependent execCommand('formatBlock')).
+ * Target tags: p, h1-h6, pre. For blockquote, use blockquoteCommand.
  */
-function applyFormatBlock(editor, tag) {
+export function applyFormatBlock(editor, tag) {
   const doc = getDoc(editor);
   const info = getSelInfo(editor);
   if (!info) return;
@@ -66,7 +68,9 @@ function applyFormatBlock(editor, tag) {
     for (const b of selected) {
       if (b.tagName.toLowerCase() === tag) continue;
       const el = doc.createElement(tag);
-      for (const a of ['class', 'style', 'id']) if (b.getAttribute(a)) el.setAttribute(a, b.getAttribute(a));
+      // I10: also carry dir/lang/align — dropping dir silently flips a block's
+      // default alignment; align/lang are legitimate authored attributes.
+      for (const a of BLOCK_KEEP_ATTRS) if (b.getAttribute(a)) el.setAttribute(a, b.getAttribute(a));
       while (b.firstChild) el.appendChild(b.firstChild);
       b.parentNode.replaceChild(el, b);
     }
@@ -82,6 +86,18 @@ function applyFormatBlock(editor, tag) {
   });
 
   if (!block || block === root) {
+    // I9: a bare-text blockquote (no inner <p>) has no inner block to convert —
+    // the old fallback appended a stray empty heading at root. Instead wrap the
+    // quote's direct inline content into the target block IN PLACE.
+    const bq = walkUp(info.startNode, root, (n) =>
+      n.nodeType === 1 && n.tagName.toLowerCase() === 'blockquote');
+    if (bq && bq.firstChild && !bq.querySelector('p,h1,h2,h3,h4,h5,h6,pre,div,ul,ol,blockquote')) {
+      const inner = doc.createElement(tag);
+      while (bq.firstChild) inner.appendChild(bq.firstChild);
+      bq.appendChild(inner);
+      placeCursorAt(inner.firstChild || inner, editor);
+      return;
+    }
     // No suitable block found — fall back to creating a new block at root level
     const newEl = doc.createElement(tag);
     newEl.innerHTML = '<br>';
@@ -96,10 +112,11 @@ function applyFormatBlock(editor, tag) {
   // Create replacement element, copy children and style
   const newEl = doc.createElement(tag);
 
-  // Copy class and style attributes if present
-  if (block.getAttribute('class')) newEl.setAttribute('class', block.getAttribute('class'));
-  if (block.getAttribute('style')) newEl.setAttribute('style', block.getAttribute('style'));
-  if (block.getAttribute('id'))    newEl.setAttribute('id',    block.getAttribute('id'));
+  // Copy formatting attributes (I10: incl. dir/lang/align — dropping dir flips
+  // default alignment; align/lang are legitimate authored attributes).
+  for (const a of BLOCK_KEEP_ATTRS) {
+    if (block.getAttribute(a)) newEl.setAttribute(a, block.getAttribute(a));
+  }
 
   // Move all children
   while (block.firstChild) newEl.appendChild(block.firstChild);
@@ -134,7 +151,7 @@ function applyFormatBlock(editor, tag) {
  * so they correctly identify the inner block
  * (p, h1, h2, …) even when the cursor is nested inside a blockquote.
  */
-function currentInnerBlock(editor) {
+export function currentInnerBlock(editor) {
   const info = getSelInfo(editor);
   if (!info) return null;
   const root = editorEl(editor);
@@ -193,28 +210,10 @@ export const paragraphCommand = {
   },
 };
 
-// ─── Headings h1–h6 (4.5) ────────────────────────────────────────────────────
-
-function makeHeadingCommand(level) {
-  const tag = `h${level}`;
-  return {
-    execute(editor) {
-      applyFormatBlock(editor, tag);
-      return CommandManager.SKIP_RESTORE;
-    },
-    isActive(editor) {
-      const block = currentInnerBlock(editor);
-      return !!block && block.tagName.toLowerCase() === tag;
-    },
-  };
-}
-
-export const h1Command = makeHeadingCommand(1);
-export const h2Command = makeHeadingCommand(2);
-export const h3Command = makeHeadingCommand(3);
-export const h4Command = makeHeadingCommand(4);
-export const h5Command = makeHeadingCommand(5);
-export const h6Command = makeHeadingCommand(6);
+// Heading h1–h6 commands live in heading-commands.js (kept under the 300-line
+// limit). Re-exported so setup-commands.js's import path stays valid.
+export { h1Command, h2Command, h3Command, h4Command, h5Command, h6Command }
+  from './heading-commands.js';
 
 // ─── Blockquote (4.5, 4.22) — a TOGGLE: inside a quote it unwraps one level ───
 export const blockquoteCommand = {

@@ -6,10 +6,49 @@ import { describe, it, expect } from 'vitest';
 import { styleToSemantic } from '../src/paste/style-to-semantic.js';
 import {
   normalizeEncoding, removeEmptyInline, mergeAdjacentInline, stripInlineStyles,
-  unwrapBareWrappers, normalizePaste,
+  unwrapBareWrappers, normalizePaste, convertPageBreaks,
 } from '../src/paste/normalize-paste.js';
 
 const ctx = { editor: null };
+
+describe('H3 — decorative <hr> keeps its inline style through paste strip', () => {
+  it('stripInlineStyles preserves style on <hr> (but still strips other elements)', () => {
+    const html = '<hr style="border-top: 8px double rgb(255,0,0)"><p style="color:red">x</p>';
+    const out = stripInlineStyles(html, ctx);
+    expect(out).toMatch(/<hr style="[^"]*border-top/);   // hr style kept
+    expect(out).not.toMatch(/<p style=/);                // other styles stripped
+  });
+  it('full normalizePaste round-trip keeps the restyled hr', () => {
+    const out = normalizePaste('<hr style="border-top: 4px dashed rgb(0,0,255)">', ctx);
+    expect(out).toMatch(/<hr style="[^"]*border-top/);
+  });
+});
+
+describe('H4 — Word/GDocs manual page breaks map to <hr class="oe-page-break">', () => {
+  it('<br style="page-break-before:always"> → hr.oe-page-break', () => {
+    const out = convertPageBreaks('<p>a</p><br style="page-break-before:always"><p>b</p>', ctx);
+    expect(out).toContain('<hr class="oe-page-break">');
+    expect(out).not.toMatch(/page-break-before/);
+  });
+  it('Word mso-special-character:page-break → hr.oe-page-break', () => {
+    const out = convertPageBreaks('<p>a</p><br clear="all" style="mso-special-character:page-break"><p>b</p>', ctx);
+    expect(out).toContain('<hr class="oe-page-break">');
+  });
+  it('a content block with page-break-before gets an hr BEFORE it, text kept', () => {
+    const out = convertPageBreaks('<p style="page-break-before:always; color:red">next page</p>', ctx);
+    expect(out).toMatch(/<hr class="oe-page-break">\s*<p/);
+    expect(out).toContain('next page');                   // text preserved
+    expect(out).not.toMatch(/page-break-before/);         // break decl removed
+  });
+  it('no page-break markers → unchanged (fast path)', () => {
+    const html = '<p>plain</p>';
+    expect(convertPageBreaks(html, ctx)).toBe(html);
+  });
+  it('normalizePaste runs the conversion for any source', () => {
+    const out = normalizePaste('<div style="page-break-after:always"></div>', ctx);
+    expect(out).toContain('<hr class="oe-page-break">');
+  });
+});
 
 describe('styleToSemantic (12.13) — exceeds Jodit', () => {
   it('promotes font-weight:bold/700 → <strong>', () => {

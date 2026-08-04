@@ -1,6 +1,6 @@
 export { normalizeEncoding, normalizeTextNodes, normalizeStructure } from './sanitizer-utils.js';
 import { normalizeEncoding, normalizeTextNodes, normalizeStructure } from './sanitizer-utils.js';
-import { isUnsafeUrl, isUnsafeStyle } from './sanitizer-utils.js';
+import { isUnsafeUrl, isUnsafeStyle, isAllowedLinkHref } from './sanitizer-utils.js';
 import { DEFAULT_TAG_WHITELIST, DENY_TAGS_FULL, isSafeEmbedIframe, EMBED_IFRAME_ATTRS } from './sanitizer-config.js';
 
 // ─── Walk DOM tree and clean ──────────────────────────────────────────────────
@@ -79,15 +79,26 @@ function walkAndStrip(node, tagAllowMap, attrAllowMap, denySet, sanitizerOpts) {
         continue;
       }
 
-      // URL attributes — block dangerous schemes
-      // `cite` on <blockquote>/<q> is a URL attribute; browsers don't navigate to it
-      // automatically but we still sanitize it for consistency.
-      const isUrlAttr = name === 'href' || name === 'src' || name === 'action' ||
-                        name === 'xlink:href' || name === 'srcdoc' || name === 'cite';
-      if (isUrlAttr) {
-        if (name === 'srcdoc' || isUnsafeUrl(attr.value, sanitizerOpts)) {
-          attrsToRemove.push(attr.name);
-          continue;
+      // A NAVIGABLE link href (<a>/<area>) must clear the STRICT link allowlist —
+      // the same policy the link UI enforces at create time — so pasted / setHTML
+      // content can't smuggle a scheme the dialog would reject (ms-msdt:, intent:,
+      // jar:, file:, about:, ftp:, any custom scheme…). The blocklist isUnsafeUrl
+      // used for other URL attrs only stops a handful of schemes, which let those
+      // survive a paste and become a one-click launch. This is scoped to the
+      // clickable link href and does NOT depend on imageAllowDataUri.
+      if (name === 'href' && (tag === 'a' || tag === 'area')) {
+        if (!isAllowedLinkHref(attr.value)) { attrsToRemove.push(attr.name); continue; }
+      } else {
+        // URL attributes — block dangerous schemes
+        // `cite` on <blockquote>/<q> is a URL attribute; browsers don't navigate to it
+        // automatically but we still sanitize it for consistency.
+        const isUrlAttr = name === 'href' || name === 'src' || name === 'action' ||
+                          name === 'xlink:href' || name === 'srcdoc' || name === 'cite';
+        if (isUrlAttr) {
+          if (name === 'srcdoc' || isUnsafeUrl(attr.value, sanitizerOpts)) {
+            attrsToRemove.push(attr.name);
+            continue;
+          }
         }
       }
 

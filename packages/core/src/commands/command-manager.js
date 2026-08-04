@@ -153,6 +153,14 @@ export class CommandManager {
 
     if (ok) {
       this._editor.emit('afterCommand', { command: name, args });
+      // I1: a command mutates the DOM programmatically (via insertAtCursor or a
+      // direct style/replaceChild), which never dispatches a browser `input`
+      // event — so onChange/isDirty would otherwise miss EVERY toolbar action
+      // (bold, color, align, list, hr, page break …). Notify the change here so
+      // integrators' onChange, autosave dirty-tracking, and _state.html stay in
+      // sync. _onChangeFn is debounced + idempotent (re-reads current HTML), so
+      // this is safe for undo/redo too (their restored content IS a change).
+      if (typeof this._editor._onChangeFn === 'function') this._editor._onChangeFn();
     }
 
     return ok;

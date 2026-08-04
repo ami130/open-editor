@@ -10,6 +10,25 @@
 import { walkUp } from '../selection/range-utils.js';
 import { CommandManager } from './command-manager.js';
 import { unwrapInline } from './inline-unwrap.js';
+import { getSelectedBlocks } from './style-read.js';
+
+// Block-level VISUAL formatting that "clear formatting" should also remove (it
+// lives on the block element — the selection's container — so the inline strip
+// below never reaches it). Structural props are intentionally NOT touched.
+const BLOCK_FORMAT_PROPS = [
+  'textAlign', 'lineHeight', 'textIndent', 'letterSpacing', 'textTransform',
+  'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'color', 'backgroundColor',
+];
+
+// I2: strip block-level formatting styles from every block the selection touches
+// so removeFormat clears line-height / alignment / indent etc. (was inline-only).
+function clearBlockFormatting(editor) {
+  for (const block of getSelectedBlocks(editor)) {
+    if (!block || block.nodeType !== 1 || !block.style) continue;
+    for (const prop of BLOCK_FORMAT_PROPS) block.style[prop] = '';
+    if (block.getAttribute && !block.getAttribute('style')) block.removeAttribute('style');
+  }
+}
 
 function editorEl(editor) { return editor.getEditorElement(); }
 function selMgr(editor)   { return editor.selection; }
@@ -51,6 +70,7 @@ export const removeFormatCommand = {
           if ((outer.textContent || '').replace(/[\u200B\uFEFF]/g, '') === '') outer.parentNode.removeChild(outer);
         } catch { /* stale range */ }
       }
+      clearBlockFormatting(editor);   // I2: also clear the block's line-height/align/etc.
       return CommandManager.SKIP_RESTORE;
     }
 
@@ -108,6 +128,7 @@ export const removeFormatCommand = {
         nativeSel.addRange(range);
       }
     } catch { /* range went stale — leave selection as-is */ }
+    clearBlockFormatting(editor);   // I2: clear block-level line-height/align/indent/etc.
     return CommandManager.SKIP_RESTORE;
   },
 };

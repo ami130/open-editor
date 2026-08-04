@@ -43,27 +43,26 @@ describe('list on empty/fresh editor', () => {
     expect(root.querySelector('ul')).not.toBeNull();
   });
 
-  it('indent on first <li> applies marginLeft: 10px (Jodit margin-based)', () => {
+  it('indent on the first <li> is a no-op (L4: structural, nothing to nest under)', () => {
     const ctx = makeEditor('<ul><li>only</li></ul>');
     const li = ctx.ed.getEditorElement().querySelector('li');
     placeCaretAt(li.firstChild, 0);
     ctx.ed.commands.execute('indent');
     const root = ctx.ed.getEditorElement();
     cleanup(ctx);
-    // Jodit uses marginLeft, not list nesting — applies to any li regardless of position
-    expect(root.querySelector('li ul')).toBeNull();
-    expect(li.style.marginLeft).toBe('10px');
+    expect(root.querySelector('li ul')).toBeNull();   // no previous item to nest under
+    expect(li.style.marginLeft).toBe('');             // and no margin
   });
 
-  it('outdent on <li> with no margin: stays as list item (no structural conversion)', () => {
+  it('outdent on a top-level <li> converts it to <p> (L4: structural)', () => {
     const ctx = makeEditor('<ul><li>item</li></ul>');
     const li = ctx.ed.getEditorElement().querySelector('li');
     placeCaretAt(li.firstChild, 0);
     ctx.ed.commands.execute('outdent');
     const root = ctx.ed.getEditorElement();
     cleanup(ctx);
-    // No margin to remove — li stays as li, marginLeft stays empty
-    expect(root.querySelector('ul')).not.toBeNull();
-    expect(li.style.marginLeft).toBe('');
+    // L4: top-level outdent leaves the list (becomes a paragraph), like Shift+Tab
+    expect(root.querySelector('ul')).toBeNull();
+    expect(root.querySelector('p').textContent).toBe('item');
   });
 });

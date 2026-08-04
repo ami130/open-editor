@@ -51,7 +51,12 @@ export function wrapInSpan(editor, styleProp, styleValue, expandWord = false) {
   if (!info) return false;
   const root = editorEl(editor);
 
-  // Collapsed + expandWord: select the word under the cursor before proceeding.
+  // I5: COLLAPSED caret + expandWord → set a PENDING format (like bold/italic):
+  // insert an empty styled span with a ZWSP and drop the caret inside it, so the
+  // NEXT typed characters get the style. Previously this expanded to (and
+  // recolored) the whole word under the caret — surprising, and inconsistent
+  // with the inline-tag commands. Now "caret → pick color → type" colors only
+  // what you type, matching bold.
   if (info.collapsed) {
     if (!expandWord) return false;
     const win = (typeof sel.getWindow === 'function') ? sel.getWindow() : null;
@@ -59,34 +64,31 @@ export function wrapInSpan(editor, styleProp, styleValue, expandWord = false) {
     const doc = getDoc(editor);
     const nativeSel = win.getSelection();
     if (!nativeSel || nativeSel.rangeCount === 0) return false;
-    const r = nativeSel.getRangeAt(0).cloneRange();
-    // Expand to word boundaries via the browser's word selection (modify() is
-    // non-standard but supported in all major browsers).
-    if (nativeSel.modify) {
-      nativeSel.modify('move', 'backward', 'word');
-      nativeSel.modify('extend', 'forward', 'word');
-    } else {
-      // Fallback: scan text node for word boundaries manually.
-      const container = r.startContainer;
-      if (container.nodeType === 3) {
-        const text = container.nodeValue || '';
-        let start = r.startOffset;
-        let end = r.startOffset;
-        while (start > 0 && !/\s/.test(text[start - 1])) start--;
-        while (end < text.length && !/\s/.test(text[end])) end++;
-        if (start === end) return false;
-        const wr = doc.createRange();
-        wr.setStart(container, start);
-        wr.setEnd(container, end);
-        nativeSel.removeAllRanges();
-        nativeSel.addRange(wr);
+    try {
+      const wrapper = doc.createElement('span');
+      wrapper.style[styleProp] = styleValue;
+      const zwsp = doc.createTextNode('\u200B');
+      wrapper.appendChild(zwsp);
+      // On an empty block the caret sits on the <br> placeholder; range.insertNode
+      // there lands the span in an invalid spot the browser discards on reflow.
+      // Replace the lone <br> with the span so the caret is in a valid position
+      // (same handling as toggleInlineDom's pending path).
+      const sn = info.startNode;
+      let brPlaceholder = null;
+      if (sn && sn.nodeType === 1 && sn.nodeName === 'BR') brPlaceholder = sn;
+      else if (sn && sn.nodeType === 1 && sn.childNodes.length === 1
+        && sn.firstChild && sn.firstChild.nodeName === 'BR') brPlaceholder = sn.firstChild;
+      if (brPlaceholder && brPlaceholder.parentNode) {
+        brPlaceholder.parentNode.replaceChild(wrapper, brPlaceholder);
       } else {
-        return false;
+        const r = nativeSel.getRangeAt(0).cloneRange();
+        r.insertNode(wrapper);
       }
-    }
-    // Re-read info after expanding selection
-    const newInfo = sel.get();
-    if (!newInfo || newInfo.collapsed) return false;
+      const r2 = doc.createRange();
+      r2.setStart(zwsp, 1); r2.collapse(true);
+      nativeSel.removeAllRanges(); nativeSel.addRange(r2);
+    } catch { /* ignore — leave caret as-is */ }
+    return true;   // pending format applied
   }
 
   // Re-read info (may have been expanded above)

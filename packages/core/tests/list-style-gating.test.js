@@ -51,4 +51,14 @@ describe('Phase 2 leak-fix — list-style picker gating', () => {
     expect(editor.getHTML()).toContain('<ul');
     expect(editor.getHTML()).toContain('list-style-type: square');
   });
+
+  // ─── I4: readonly must block the direct-DOM list-style path ──────────────────
+  it('I4: readonly editor → toggleListWithStyle makes no list at all', () => {
+    editor = mount({});
+    editor.setHTML('<p>hello</p>');
+    selectAllText(editor);
+    editor.setReadOnly(true);
+    toggleListWithStyle(editor, 'ul', 'square');
+    expect(editor.getHTML()).not.toContain('<ul');
+  });
 });

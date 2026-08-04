@@ -19,7 +19,9 @@ vi.mock('../src/plugins/image/image-upload.js', async (orig) => {
 });
 
 let editor;
-beforeEach(() => { editor = createTestEditor({ imageRequireAlt: true }); });
+// imageAllowDataUri:true so the screenshot data-URI actually embeds — a
+// quick-insert with NEITHER upload nor data-URI is a dead-end (warned, no insert).
+beforeEach(() => { editor = createTestEditor({ imageRequireAlt: true, imageAllowDataUri: true }); });
 afterEach(() => {
   if (!editor.isDestroyed()) editor.destroy();
   if (editor._target && editor._target.parentNode) editor._target.remove();

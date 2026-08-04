@@ -158,4 +158,22 @@ describe('select + restyle', () => {
     p.destroy();
     expect(editor.getContainer().querySelector('.oe-hr-popover')).toBeNull();
   });
+
+  // ─── I3: readonly must block the restyle popover entirely ────────────────────
+  it('I3: a readonly editor does NOT open the restyle popover on hr click', () => {
+    const { hr } = withHr();
+    editor.setReadOnly(true);
+    clickOn(hr);
+    expect(editor.getContainer().querySelector('.oe-hr-popover')).toBeNull();
+    expect(hr.classList.contains('oe-hr--selected')).toBe(false);
+  });
+
+  it('I3: _apply is a no-op in a readonly editor (rule style unchanged)', () => {
+    const { p, hr } = withHr();
+    clickOn(hr);                              // open while editable
+    editor.setReadOnly(true);                 // now go readonly
+    const before = hr.getAttribute('style') || '';
+    p._apply(hr, { color: 'rgb(255,0,0)' });
+    expect(hr.getAttribute('style') || '').toBe(before);   // unchanged
+  });
 });

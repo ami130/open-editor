@@ -11,8 +11,13 @@ import { buildAndInsertFigure } from './image-dom.js';
 import { processImageFile, fileSizeError } from './image-upload.js';
 import { promptForAlt } from './image-alt-prompt.js';
 import { placeCaretFromPoint } from './image-dom.js';
+import { imageError, imageProgress } from './image-feedback.js';
+import { ImageDropIndicator } from './image-drop-indicator.js';
 
 const DRAGOVER_CLASS = 'oe-editor--dragover';
+
+const isReadonly = (editor) => !!(editor && editor._state && editor._state.isReadOnly);
+const uploadDeadEnd = (config) => !config.imageUploadUrl && !config.imageAllowDataUri;
 
 /**
  * Returns true if the dataTransfer contains at least one image file.
@@ -37,21 +42,29 @@ function hasImageFiles(dataTransfer) {
  */
 export function installDragDrop(editor) {
   const edEl = editor.getEditorElement();
-  if (!edEl) return;
+  if (!edEl) return null;
 
-  // dragenter — show drop zone highlight
+  // IMG15: caret line showing where a dropped image will land. Returned to the
+  // plugin so its destroy() removes the overlay element.
+  const indicator = new ImageDropIndicator(editor);
+
+  // dragenter — show drop zone highlight. IMG7: a readonly editor accepts nothing.
   editor.on('dragenter', (e) => {
-    if (!hasImageFiles(e.dataTransfer)) return;
+    if (isReadonly(editor) || !hasImageFiles(e.dataTransfer)) return;
     e.preventDefault();
     edEl.classList.add(DRAGOVER_CLASS);
   });
 
   // dragover — must call preventDefault to allow drop
   editor.on('dragover', (e) => {
-    if (!hasImageFiles(e.dataTransfer)) return;
+    if (isReadonly(editor) || !hasImageFiles(e.dataTransfer)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     edEl.classList.add(DRAGOVER_CLASS);
+    // IMG15: live drop-point caret line.
+    if (typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+      indicator.update(e.clientX, e.clientY);
+    }
   });
 
   // dragleave — remove highlight only when leaving the editor entirely
@@ -59,18 +72,28 @@ export function installDragDrop(editor) {
     // relatedTarget check prevents flickering on child elements
     if (edEl.contains(e.relatedTarget)) return;
     edEl.classList.remove(DRAGOVER_CLASS);
+    indicator.hide();
   });
 
   // drop — process image files
   editor.on('drop', (e) => {
     if (!hasImageFiles(e.dataTransfer)) return;
+    indicator.hide();
+    // IMG7: never insert into a readonly editor. preventDefault so the browser
+    // doesn't navigate to / open the dropped file, then bail silently.
+    if (isReadonly(editor)) { e.preventDefault(); edEl.classList.remove(DRAGOVER_CLASS); return; }
     e.preventDefault();
     edEl.classList.remove(DRAGOVER_CLASS);
 
     const files = Array.from(e.dataTransfer.files || []).filter(
       (f) => f.type.startsWith('image/')
     );
-    if (!files.length) return;
+    if (!files.length) {
+      // IMG2a: the editor lit up "drop here" (Files present) but nothing was an
+      // image — tell the user instead of silently no-op-ing on a PDF/folder drop.
+      imageError(editor, 'Only image files can be dropped here.', 'plugin:image:drop:notimage');
+      return;
+    }
 
     // #1 fix: move the caret to WHERE the image was dropped, so it lands there
     // instead of at the stale text selection. If the point isn't in the
@@ -84,6 +107,8 @@ export function installDragDrop(editor) {
     // position — which depends on cursor state — stays deterministic).
     handleDroppedFiles(editor, files);
   });
+
+  return indicator;   // IMG15 — caller destroys it on plugin uninstall
 }
 
 async function handleDroppedFiles(editor, files) {
@@ -97,27 +122,44 @@ async function handleDroppedFile(editor, file) {
   const doc    = editor._wrapper && editor._wrapper.ownerDocument || document;
 
   const sizeErr = fileSizeError(file, config);
-  if (sizeErr) {
-    editor.emit('error', { error: new Error(sizeErr), context: 'plugin:image:drop:size' });
+  if (sizeErr) { imageError(editor, sizeErr, 'plugin:image:drop:size'); return; }  // IMG5
+
+  // IMG6: unembeddable (no upload server / no data-URI) → warn. After size so the
+  // "too large" error wins for oversized files.
+  if (uploadDeadEnd(config)) {
+    imageError(editor,
+      'Dropping an image needs image uploads or inline embedding to be enabled ' +
+      '(imageUploadUrl or imageAllowDataUri).', 'plugin:image:drop:deadend');
     return;
   }
 
+  // IMG8: show a sticky progress toast while an upload is in flight (no dialog here).
+  // #9: an AbortController lets the toast's × cancel an in-flight upload.
+  const uploading = !!config.imageUploadUrl;
+  const ctrl = uploading && typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const prog = uploading
+    ? imageProgress(editor, 'Uploading image…', ctrl ? () => ctrl.abort() : null)
+    : null;
   try {
-    const result = await processImageFile(file, config, null, null, doc);
-    if (!result) return;
-    // imageRequireAlt: drag-drop has no metadata step, so prompt for alt before
-    // inserting rather than silently shipping an alt-less image.
+    const result = await processImageFile(file, config,
+      prog ? (pct) => prog.update(`Uploading image… ${pct}%`) : null,
+      ctrl ? ctrl.signal : null, doc);
+    if (!result) { if (prog) prog.close(); return; }
+    // imageRequireAlt: drag-drop has no metadata step, so prompt for alt first.
     let alt;
     if (config.imageRequireAlt) {
       alt = await promptForAlt(editor);
-      if (alt === null) return; // user cancelled → don't insert
+      if (alt === null) { if (prog) prog.close(); return; } // cancelled
     }
     buildAndInsertFigure(editor, result, {
       width:  result.width  || undefined,
       height: result.height || undefined,
       ...(alt ? { alt } : {}),
     }, config, doc, 'plugin:image:drop');
+    if (prog) prog.success('Image added');
   } catch (err) {
-    editor.emit('error', { error: err, context: 'plugin:image:drop' });
+    if (prog) prog.close();
+    imageError(editor, err && err.message ? err.message : 'Dropping the image failed.',
+      'plugin:image:drop');   // IMG5
   }
 }

@@ -253,6 +253,42 @@ export const IMAGE_CSS = `
   min-height: 40px;
   border-radius: 3px;
 }
+/* IMG4 (a11y authoring): flag an image that is MISSING alt text with a small
+   corner badge, so authors SEE the accessibility gap even when imageRequireAlt
+   is off. Editor-only (the figure is a live island; getHTML never carries the
+   badge). :has() targets the img's alt state; the badge is a ::after on the
+   figure. Hidden in print via the print stylesheet's chrome-suppression. */
+.oe-figure:has(> img:not([alt]))::after,
+.oe-figure:has(> img[alt=""])::after,
+.oe-figure:has(> picture > img:not([alt]))::after,
+.oe-figure:has(> picture > img[alt=""])::after {
+  content: 'ALT?';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  padding: 1px 6px;
+  font: 700 10px/1.4 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--oe-inverse-fg);
+  background: var(--oe-c-warning);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  pointer-events: none;
+}
+@media print { .oe-figure::after { display: none !important; } }
+/* IMG15 — drop-position caret line shown while dragging an image file over the
+   editor. Positioned by image-drop-indicator.js relative to the wrapper. */
+.oe-img-drop-indicator {
+  position: absolute;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--oe-primary);
+  box-shadow: 0 0 0 1px var(--oe-primary);
+  pointer-events: none;
+  z-index: 6;
+}
+.oe-img-drop-indicator[hidden] { display: none; }
 .oe-figure figcaption {
   font-size: 0.82em;
   color: var(--oe-fg-muted);

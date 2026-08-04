@@ -85,7 +85,16 @@ export function applyLinkAttrs(a, attrs = {}) {
   if (!a) return;
   const { href, title, target, nofollow, className, ariaLabel, color } = attrs;
 
-  if (href != null && isAllowedLinkHref(href)) a.setAttribute('href', href.trim());
+  if (href != null && isAllowedLinkHref(href)) {
+    a.setAttribute('href', href.trim());
+  } else {
+    // L5: heal an already-present dangerous href on edit. If we're not setting a
+    // new valid href, the anchor's EXISTING one must still clear the allowlist —
+    // otherwise a bad href planted by some other route (old paste, programmatic
+    // DOM) survives an edit. Strip it so the link is never a live bad target.
+    const cur = a.getAttribute('href');
+    if (cur != null && !isAllowedLinkHref(cur)) a.removeAttribute('href');
+  }
 
   if (title != null && title !== '') a.setAttribute('title', title);
   else a.removeAttribute('title');
@@ -148,6 +157,13 @@ export function wrapSelectionInLink(editor, attrs = {}, text) {
   const a = createAnchor(doc, attrs);
   sel.insertAtCursor(a);
 
+  // L3: a selection that overlaps an existing link would otherwise produce nested
+  // (<a><a>…</a></a>) or straddling anchors — invalid HTML that persists through
+  // save and makes clicks ambiguous. De-nest: unwrap any <a> descendants that
+  // ended up INSIDE the new anchor, and unwrap the new anchor out of any OUTER
+  // <a> it landed inside. The new link's href wins for the whole selection.
+  _deNestAnchors(a);
+
   // A range that spans whole block(s) (e.g. select-all) makes insertAtCursor
   // wrap block elements: <a><p>…</p></a>. That is invalid — an inline <a> may
   // not contain a block — and the sanitizer's normalizeStructure would unwrap
@@ -163,6 +179,32 @@ export function wrapSelectionInLink(editor, attrs = {}, text) {
     eff.textContent = text;
   }
   return eff;
+}
+
+/**
+ * L3: ensure `a` is neither nested inside another <a> nor contains any <a>.
+ * Unwraps inner anchors (keeping their children) and, if `a` sits inside an outer
+ * anchor, unwraps that outer one so `a` becomes a sibling in the outer's place.
+ */
+function _deNestAnchors(a) {
+  if (!a || a.nodeType !== 1) return;
+  // 1) Flatten any <a> descendants inside the new anchor.
+  const inner = a.querySelectorAll ? a.querySelectorAll('a') : [];
+  for (const child of Array.from(inner)) {
+    const p = child.parentNode;
+    if (!p) continue;
+    while (child.firstChild) p.insertBefore(child.firstChild, child);
+    p.removeChild(child);
+  }
+  // 2) If the new anchor is inside an OUTER <a>, unwrap the outer one.
+  const outer = a.parentNode && a.parentNode.closest ? a.parentNode.closest('a') : null;
+  if (outer && outer !== a) {
+    const op = outer.parentNode;
+    if (op) {
+      while (outer.firstChild) op.insertBefore(outer.firstChild, outer);
+      op.removeChild(outer);
+    }
+  }
 }
 
 const _BLOCK = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -209,6 +251,12 @@ function _fixBlockWrapping(a, doc) {
 export function updateLink(a, attrs = {}, newText) {
   if (!a) return;
   applyLinkAttrs(a, attrs);
+  // Only rewrite the text when the user ACTUALLY changed it. The dialog prefills
+  // the Text field with the link's current textContent, so a URL-only edit sends
+  // back the same string — comparing against textContent means we leave the anchor
+  // untouched and PRESERVE inner markup (e.g. <strong>) instead of flattening it to
+  // a bare text node. Only a genuine text change (which is inherently plain text)
+  // replaces the children.
   if (newText != null && newText !== '' && a.textContent !== newText) {
     a.textContent = newText;
   }

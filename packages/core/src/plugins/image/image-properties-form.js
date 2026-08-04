@@ -74,9 +74,14 @@ export function buildImagePropsForm(doc, figure, availableClasses) {
   form.appendChild(wTitle);
 
   // ── Size: width / height + lock aspect ───────────────────────────────────────
+  // IMG16: seed ONLY from an EXPLICIT size (inline style or width/height attr) —
+  // NOT from naturalWidth/Height. Pre-filling natural pixels made merely opening
+  // + Apply on a responsive image bake in fixed dimensions (killing max-width:100%
+  // responsiveness) and could fight a prior edge-resize's auto height. Empty =
+  // "no explicit size" → Apply leaves it responsive unless the user types a value.
   const sizeRow = el(doc, 'div', { className: 'oe-img-props__row' });
-  const startW = pxValue(img && (img.style.width || img.getAttribute('width') || (img.naturalWidth || '')));
-  const startH = pxValue(img && (img.style.height || img.getAttribute('height') || (img.naturalHeight || '')));
+  const startW = pxValue(img && (img.style.width || img.getAttribute('width') || ''));
+  const startH = pxValue(img && (img.style.height || img.getAttribute('height') || ''));
   const { wrap: wW, input: inW } = numRow(doc, 'oe-imgp-w', 'Width', startW);
   const { wrap: wH, input: inH } = numRow(doc, 'oe-imgp-h', 'Height', startH);
   sizeRow.appendChild(wW);

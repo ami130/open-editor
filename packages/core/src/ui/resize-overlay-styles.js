@@ -96,6 +96,18 @@ export const RESIZE_OVERLAY_CSS = `
 .oe-resize-handle--e:hover,
 .oe-resize-handle--w:hover { transform: translateY(-50%) scaleX(1.5); background: var(--oe-primary); }
 
+/* IMG21: on TOUCH (coarse pointer) the 8–14px handles are far below the 44px
+   target guideline. Extend the invisible HIT AREA via a ::before that overhangs
+   the handle, so a finger can grab it — without visually enlarging the handle. */
+@media (pointer: coarse) {
+  .oe-resize-handle::before {
+    content: '';
+    position: absolute;
+    inset: -15px;              /* ~30px of extra reach around a ~14px handle → ~44px */
+    border-radius: inherit;
+  }
+}
+
 /* Dimension badge shown during drag */
 .oe-resize-badge {
   position: absolute;

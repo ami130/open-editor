@@ -78,3 +78,109 @@ describe('ImageSelectionManager — undo/redo/setHTML clear a stale selection', 
     expect(() => editor.emit('setHTML', { html: '<p><br></p>' })).not.toThrow();
   });
 });
+
+// ─── IMG1-3: keyboard accessibility ──────────────────────────────────────────
+describe('image keyboard a11y (IMG1-3)', () => {
+  it('the figure is keyboard-focusable (tabindex=0) with a role + label', () => {
+    const fig = createFigure('https://x.com/a.png', { alt: 'A cat' }, {}, document);
+    expect(fig.getAttribute('tabindex')).toBe('0');
+    expect(fig.getAttribute('role')).toBe('group');
+    expect(fig.getAttribute('aria-label')).toBe('Image: A cat');
+  });
+
+  it('an alt-less image gets a "no description" aria-label', () => {
+    const fig = createFigure('https://x.com/a.png', {}, {}, document);
+    expect(fig.getAttribute('aria-label')).toBe('Image (no description)');
+  });
+
+  it('tabindex/role are EDITING affordances — stripped from getHTML output', () => {
+    editor.setHTML('');
+    const fig = createFigure('https://x.com/a.png', { alt: 'x' }, {}, document);
+    editor.getEditorElement().appendChild(fig);
+    const html = editor.getHTML();
+    expect(html).not.toMatch(/tabindex/);
+    expect(html).not.toMatch(/role="group"/);
+  });
+
+  it('focusin on a figure selects it (Tab-to-select)', () => {
+    const fig = insertFig();
+    const e = new FocusEvent('focusin', { bubbles: true });
+    Object.defineProperty(e, 'target', { value: fig, enumerable: true });
+    editor.getEditorElement().dispatchEvent(e);
+    expect(mgr.getSelected()).toBe(fig);
+  });
+
+  it('Enter on a selected figure opens properties', () => {
+    const fig = insertFig();
+    mousedownOn(fig);
+    let opened = null;
+    mgr.onEditProps = (f) => { opened = f; };
+    const handled = mgr.onKeyDown({ key: 'Enter', preventDefault() {} });
+    expect(handled).toBe(true);
+    expect(opened).toBe(fig);
+  });
+
+  it('ArrowRight resizes the selected image (width grows, aspect kept)', () => {
+    const fig = insertFig();
+    const img = fig.querySelector('img');
+    img.setAttribute('width', '100'); img.setAttribute('height', '50');
+    mousedownOn(fig);
+    const handled = mgr.onKeyDown({ key: 'ArrowRight', shiftKey: true, preventDefault() {} });
+    expect(handled).toBe(true);
+    expect(parseInt(img.getAttribute('width'), 10)).toBeGreaterThan(100);
+  });
+
+  it('Escape deselects and returns focus to the editor', () => {
+    const fig = insertFig();
+    mousedownOn(fig);
+    const handled = mgr.onKeyDown({ key: 'Escape', preventDefault() {} });
+    expect(handled).toBe(true);
+    expect(mgr.getSelected()).toBeNull();
+  });
+});
+
+// ─── IMG20: type-to-replace a selected image ─────────────────────────────────
+describe('image type-to-replace (IMG20)', () => {
+  it('typing a printable char over a selected image replaces it with that text', () => {
+    const fig = insertFig();
+    mousedownOn(fig);
+    const handled = mgr.onKeyDown({ key: 'x', preventDefault() {}, ctrlKey: false, metaKey: false, altKey: false });
+    expect(handled).toBe(true);
+    expect(root.querySelector('figure')).toBeNull();     // image gone
+    expect(root.textContent).toContain('x');             // replaced by the char
+  });
+
+  it('a modifier combo (Ctrl+C) over a selected image does NOT replace it', () => {
+    const fig = insertFig();
+    mousedownOn(fig);
+    const handled = mgr.onKeyDown({ key: 'c', preventDefault() {}, ctrlKey: true, metaKey: false, altKey: false });
+    expect(handled).toBe(false);
+    expect(root.querySelector('figure')).not.toBeNull(); // still there
+  });
+});
+
+// ─── IMG17: focusCaption (caption action-bar button target) ──────────────────
+import { focusCaption } from '../src/plugins/image/image-keyboard-resize.js';
+
+describe('focusCaption (IMG17)', () => {
+  it('creates a figcaption when the figure has none, and focuses it', () => {
+    const fig = insertFig();
+    // Simulate older pasted content: strip the auto-created caption.
+    const existing = fig.querySelector('figcaption');
+    if (existing) existing.remove();
+    expect(fig.querySelector('figcaption')).toBeNull();
+
+    const ok = focusCaption(editor, fig);
+    expect(ok).toBe(true);
+    const cap = fig.querySelector('figcaption');
+    expect(cap).not.toBeNull();
+    expect(cap.getAttribute('contenteditable')).toBe('true');
+    expect(cap.hasAttribute('data-oe-caption')).toBe(true);
+  });
+
+  it('reuses the existing caption instead of creating a second one', () => {
+    const fig = insertFig();
+    focusCaption(editor, fig);
+    expect(fig.querySelectorAll('figcaption').length).toBe(1);
+  });
+});

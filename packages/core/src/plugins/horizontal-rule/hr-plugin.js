@@ -21,6 +21,7 @@
  */
 import { injectHrStyles } from './hr-styles.js';
 import { buildHrPopover } from './hr-popover.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
 
 const SELECTED = 'oe-hr--selected';
 
@@ -72,10 +73,23 @@ export function createHorizontalRulePlugin() {
       this._editor = null;
     },
 
+    /** I3: the restyle popover mutates via a direct-DOM path that bypasses
+     *  CommandManager, so it must enforce readonly + the insert.hr gate itself —
+     *  otherwise a readonly (or un-licensed) editor can still recolor a rule. */
+    _canRestyle() {
+      const ed = this._editor;
+      if (!ed) return false;
+      if (ed.isReadOnly && ed.isReadOnly()) return false;
+      const feature = featureForCommand('insertHorizontalRule');
+      if (feature && ed.isFeatureGranted && !ed.isFeatureGranted(feature)) return false;
+      return true;
+    },
+
     _onClick(e) {
       const hr = e.target && e.target.closest ? e.target.closest('hr') : null;
       if (!hr || !isDecorativeHr(hr)) return; // click elsewhere in the editor: the
       // document-level outside-listener handles closing; don't double-handle here.
+      if (!this._canRestyle()) return;   // readonly / ungated → leave the rule alone
       e.preventDefault(); // an <hr> can't hold a caret; select it instead
       this._select(hr);
     },
@@ -178,6 +192,7 @@ export function createHorizontalRulePlugin() {
 
     /** Apply one border-top property, preserving the others; snapshot + signal. */
     _apply(hr, { color, style, width }) {
+      if (!this._canRestyle()) return;   // I3: re-check (state may have changed since open)
       const cur = this._read(hr);
       const next = { color: color || cur.color, style: style || cur.style, width: width || `${cur.widthPx}px` };
       hr.style.borderTop = `${next.width} ${next.style} ${next.color}`;
@@ -188,6 +203,9 @@ export function createHorizontalRulePlugin() {
       if (ed) {
         ed.history && ed.history.takeSnapshot && ed.history.takeSnapshot();
         ed.emit('afterCommand', { command: 'hrStyle', args: [next] });
+        // I3: this direct-DOM mutation bypasses CommandManager, so notify onChange
+        // ourselves (like the todo-list/code-block plugins do).
+        if (typeof ed._onChangeFn === 'function') ed._onChangeFn();
       }
       this._reposition(); // a thicker rule shifts the anchor
     },
@@ -199,8 +217,21 @@ export function createHorizontalRulePlugin() {
       try { cs = win.getComputedStyle(hr); } catch { /* jsdom */ }
       const width = hr.style.borderTopWidth || cs.borderTopWidth || '2px';
       const widthPx = Math.max(1, parseInt(width, 10) || 2);
+      // H5: default the color to the THEME'S rule color, not a hardcoded gray.
+      // Prefer the inline color, then the computed border color; if neither is a
+      // real color (jsdom, or a transparent computed value), resolve the theme
+      // token --oe-chrome-border so changing only the line STYLE never drifts the
+      // color to an off-theme gray (its light value #e6e9f0 is the last resort).
+      const isRealColor = (c) => !!c && c !== 'transparent' && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c);
+      let color = hr.style.borderTopColor;
+      if (!isRealColor(color)) color = cs.borderTopColor;
+      if (!isRealColor(color)) {
+        let token = '';
+        try { token = (cs.getPropertyValue && cs.getPropertyValue('--oe-chrome-border') || '').trim(); } catch { /* jsdom */ }
+        color = token || '#e6e9f0';
+      }
       return {
-        color: hr.style.borderTopColor || cs.borderTopColor || '#9ca3af',
+        color,
         style: (hr.style.borderTopStyle && hr.style.borderTopStyle !== 'none') ? hr.style.borderTopStyle : 'solid',
         widthPx,
       };

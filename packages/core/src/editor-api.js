@@ -65,6 +65,7 @@ export const editorApiMixin = {
 
     this._state.isDirty = false;
     this._state.html = this.getHTML();
+    this._state.savedHtml = this._state.html;   // new committed baseline for isDirty
 
     // Clear the autosave draft only when autosave uses localStorage (truthiness
     // alone could remove an unrelated 'oe-draft' key).
@@ -96,7 +97,7 @@ export const editorApiMixin = {
     } catch (err) {
       this.emit('error', { error: err, context: 'reset' });
       try { this._setRawHTML('<p><br></p>'); } catch { /* last resort */ }
-      if (this._state) { this._state.isDirty = false; this._state.html = ''; }
+      if (this._state) { this._state.isDirty = false; this._state.html = ''; this._state.savedHtml = ''; }
       return false;
     }
   },
@@ -251,8 +252,7 @@ export const editorApiMixin = {
       this._wrapper.parentNode.removeChild(this._wrapper);
     }
 
-    // Remove global style tag only when last instance is destroyed.
-    // _removeGlobalStyles() is defined in editor.js where _instanceCount lives.
+    // Remove global style tag only on last-instance destroy (defined in editor.js).
     this._removeGlobalStyles();
 
     // Tear down subsystems in reverse-init order: plugins first, then chrome, history, commands, UI.

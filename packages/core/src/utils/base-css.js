@@ -283,12 +283,23 @@ export const BASE_CSS = `
     margin: 14px 0;
     opacity: 0.6;
   }
+  /* Native Ctrl+P of the embedded editor (editor.print() ships its own copy of
+     these rules for the popup). Zero the dashed screen marker + click-padding so
+     it collapses to a true break with no visible line, and emit the real break. */
   @media print {
-    .oe-editor hr.oe-page-break { border: 0; break-after: page; page-break-after: always; }
+    .oe-editor hr.oe-page-break {
+      border: 0; height: 0; padding: 0; margin: 0;
+      break-after: page; page-break-after: always;
+    }
+    .oe-editor hr { padding: 0; cursor: auto; }
+    .oe-editor .oe-hr--selected { outline: 0 !important; }
   }
 
   /* Links */
   .oe-editor a { color: var(--oe-link); text-decoration: underline; }
+  /* L10: a visible focus ring for content links (keyboard nav in readonly/preview
+     and AT). Uses the theme link hue so it reads in both light and dark. */
+  .oe-editor a:focus-visible { outline: 2px solid var(--oe-link); outline-offset: 2px; border-radius: 2px; }
 
   /* 14.12 — bidi: isolate each block's embedding so a mixed LTR/RTL paragraph
      doesn't reorder neighbouring blocks. plaintext lets each block pick its own

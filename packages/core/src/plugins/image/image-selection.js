@@ -5,8 +5,9 @@
  * Exported as a plain object so the plugin entry point can call install/destroy
  * directly, and onKeyDown can be forwarded from the plugin's onKeyDown hook.
  */
-import { applyAlignment, wrapInLink } from './image-dom.js';
-import { ensureEditorFloor } from '../../editing/block-editing.js';
+import { keyboardResizeImage, replaceFigureWithText, deleteFigureFromDoc } from './image-keyboard-resize.js';
+import { promptImageLink } from './image-link-prompt.js';
+import { handleImageContextMenu, openImageMenuForSelected } from './image-context-menu.js';
 
 const SELECTED_CLASS = 'oe-figure--selected';
 
@@ -36,9 +37,8 @@ export class ImageSelectionManager {
     this._onSelChange = () => this._handleSelectionChange();
     editor.on('selectionChange', this._onSelChange);
 
-    // undo/redo/setHTML replace innerHTML wholesale — the selected figure's
-    // DOM node is destroyed, so a stale reference must be dropped (mirrors
-    // media-selection.js's identical fix).
+    // undo/redo/setHTML replace innerHTML wholesale — the selected figure's DOM
+    // node is destroyed, so drop the stale reference (mirrors media-selection.js).
     this._onContentReplaced = () => this._deselectAll();
     editor.on('undo', this._onContentReplaced);
     editor.on('redo', this._onContentReplaced);
@@ -54,6 +54,14 @@ export class ImageSelectionManager {
       // 9.1 — double-click a figure opens Image Properties (config-gated).
       this._onDblClick = (e) => this._handleDblClick(e);
       editorEl.addEventListener('dblclick', this._onDblClick);
+      // IMG1-3 (a11y): Tab-focusing an image island selects it (keyboard entry).
+      this._onFocusIn = (e) => this._handleFocusIn(e);
+      editorEl.addEventListener('focusin', this._onFocusIn);
+      // TOUCH (#7): a tap on a phone only synthesizes a delayed, easily-preempted
+      // mousedown on a contenteditable=false island, so selection was unreliable.
+      // Handle touchend directly to select the tapped figure (mirrors _handleClick).
+      this._onTouchEnd = (e) => this._handleTouchEnd(e);
+      editorEl.addEventListener('touchend', this._onTouchEnd);
     } else {
       editor.on('contextmenu', this._onContextMenu);
       this._contextMenuTarget = null;
@@ -73,6 +81,16 @@ export class ImageSelectionManager {
     if (typeof this.onEditProps === 'function') this.onEditProps(fig);
   }
 
+  // IMG1-3 (a11y): keyboard-focusing the figure selects it (not when focusing the
+  // editable figcaption — that's captioning).
+  _handleFocusIn(e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('[data-oe-caption]')) return;          // captioning, not selecting
+    const fig = t.closest('[data-oe-island="image"]');
+    if (fig && fig !== this._selectedFigure) this._selectFigure(fig);
+  }
+
   destroy() {
     if (this._editor) {
       this._editor.off('mousedown',       this._onEditorClick);
@@ -83,6 +101,8 @@ export class ImageSelectionManager {
       if (this._contextMenuTarget) {
         this._contextMenuTarget.removeEventListener('contextmenu', this._onContextMenu);
         if (this._onDblClick) this._contextMenuTarget.removeEventListener('dblclick', this._onDblClick);
+        if (this._onFocusIn) this._contextMenuTarget.removeEventListener('focusin', this._onFocusIn);
+        if (this._onTouchEnd) this._contextMenuTarget.removeEventListener('touchend', this._onTouchEnd);
       } else {
         this._editor.off('contextmenu', this._onContextMenu);
       }
@@ -103,17 +123,45 @@ export class ImageSelectionManager {
       this._deleteSelected();
       return true;
     }
-    // Arrow keys: deselect and let default cursor movement proceed
+    // IMG1-3 (a11y): Enter opens Image Properties.
+    if (e.key === 'Enter' && typeof this.onEditProps === 'function') {
+      e.preventDefault();
+      this.onEditProps(this._selectedFigure);
+      return true;
+    }
+    // A11Y (#6): ContextMenu key / Shift+F10 opens the actions menu (align, link,
+    // properties, delete) — the keyboard equivalent of the mouse-only action bar
+    // and right-click menu. The menu itself is arrow/Enter/Escape navigable.
+    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      if (this._openContextMenuForSelected()) { e.preventDefault(); return true; }
+    }
+    // IMG1-3 (a11y): arrow keys RESIZE the selected image (Shift = 10px, else 1px).
     if (e.key.startsWith('Arrow')) {
+      if (this._keyboardResize(e)) { e.preventDefault(); return true; }
       this._deselectAll();
       return false;
     }
-    // Escape: deselect
+    // Escape: deselect and return focus to the editable so typing continues.
     if (e.key === 'Escape') {
+      const wasSelected = this._selectedFigure;
       this._deselectAll();
-      return true;
+      const el = this._editor && this._editor.getEditorElement && this._editor.getEditorElement();
+      if (el && el.focus) el.focus();
+      return !!wasSelected;
+    }
+    // IMG20: a printable key over a selected image REPLACES it with that text
+    // (Docs/Word). Ignore modifier combos + non-printing keys.
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const fig = this._selectedFigure;
+      this._deselectAll();
+      if (replaceFigureWithText(this._editor, fig, e.key)) { e.preventDefault(); return true; }
     }
     return false;
+  }
+
+  // Keyboard resize of the selected image (delegates to image-keyboard-resize.js).
+  _keyboardResize(e) {
+    return keyboardResizeImage(this._editor, this._selectedFigure, e);
   }
 
   // ─── Selected figure accessor ────────────────────────────────────────────────
@@ -138,6 +186,22 @@ export class ImageSelectionManager {
     this._selectFigure(fig);
   }
 
+  // TOUCH (#7): select the tapped figure. Ignore multi-touch (pinch-zoom) and taps
+  // inside the editable caption (that should place the text caret, not select).
+  _handleTouchEnd(e) {
+    if (e.touches && e.touches.length > 1) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || e.target;
+    const target = (t && t.target) || e.target;
+    const node = target && target.closest ? target
+      : (target && target.parentElement) || null;
+    if (!node || !node.closest) return;
+    if (node.closest('[data-oe-caption]')) return;   // caption edit, not select
+    const fig = node.closest('[data-oe-island="image"]');
+    if (!fig) return;
+    e.preventDefault();                              // stop the synthetic click/caret
+    this._selectFigure(fig);
+  }
+
   _handleSelectionChange() {
     if (!this._selectedFigure) return;
     const ed = this._editor;
@@ -157,43 +221,10 @@ export class ImageSelectionManager {
     this._deselectAll();
   }
 
-  _handleContextMenu(e) {
-    const fig = e.target && e.target.closest
-      ? e.target.closest('[data-oe-island="image"]')
-      : null;
-    if (!fig) return;
+  _handleContextMenu(e) { handleImageContextMenu(this, e); }
 
-    e.preventDefault();
-    this._selectFigure(fig);
-
-    const ed = this._editor;
-    if (!ed || !ed.ui || !ed.ui.contextMenu) return;
-
-    // Position relative to the editor wrapper
-    const wRect = ed._wrapper.getBoundingClientRect();
-    const x = e.clientX - wRect.left;
-    const y = e.clientY - wRect.top;
-
-    ed.ui.contextMenu.show(x, y, this._buildContextMenuItems(fig));
-  }
-
-  _buildContextMenuItems(fig) {
-    return [
-      { label: 'Float left',   action: () => { applyAlignment(fig, 'left');   this._emit(); } },
-      { label: 'Center',       action: () => { applyAlignment(fig, 'center'); this._emit(); } },
-      { label: 'Float right',  action: () => { applyAlignment(fig, 'right');  this._emit(); } },
-      { label: 'Inline',       action: () => { applyAlignment(fig, 'inline'); this._emit(); } },
-      { separator: true },
-      // 9.1 — full properties dialog
-      { label: 'Image properties…', action: () => {
-        if (typeof this.onEditProps === 'function') this.onEditProps(fig);
-      } },
-      // 9.16 — wrap in link
-      { label: 'Add / edit link…', action: () => this._promptLink(fig) },
-      { separator: true },
-      { label: 'Delete image',  action: () => this._deleteSelected() },
-    ];
-  }
+  // A11Y (#6): keyboard-invoked actions menu for the selected figure.
+  _openContextMenuForSelected() { return openImageMenuForSelected(this); }
 
   /** Public: remove a figure via the standard delete path (used by 9.1 Delete). */
   deleteFigure(fig) {
@@ -202,40 +233,7 @@ export class ImageSelectionManager {
   }
 
   _promptLink(fig) {
-    const ed = this._editor;
-    if (!ed || !ed.ui || !ed.ui.modal) return;
-    const doc  = ed._wrapper.ownerDocument;
-
-    const wrap  = doc.createElement('div');
-    wrap.className = 'oe-img-dialog__field';
-    const lbl  = doc.createElement('label');
-    lbl.textContent = 'Link URL';
-    lbl.setAttribute('for', 'oe-img-link-url');
-    lbl.className = 'oe-img-dialog__label';
-    const inp  = doc.createElement('input');
-    inp.id = 'oe-img-link-url';
-    inp.type = 'url';
-    inp.className = 'oe-img-dialog__input';
-    inp.placeholder = 'https://…';
-    // Pre-fill existing link if present
-    const existingA = fig.querySelector('img')  && fig.querySelector('img').closest('a');
-    if (existingA) inp.value = existingA.href;
-    wrap.appendChild(lbl);
-    wrap.appendChild(inp);
-
-    ed.ui.modal.open({
-      title:   'Image link',
-      body:    wrap,
-      buttons: [
-        { label: 'Cancel', value: null },
-        { label: 'Apply',  value: 'apply', variant: 'primary' },
-      ],
-    }).then((val) => {
-      if (val === 'apply' && inp.value.trim()) {
-        wrapInLink(fig, inp.value.trim());
-        this._emit();
-      }
-    });
+    promptImageLink(this._editor, fig, () => this._emit());
   }
 
   _selectFigure(fig) {
@@ -262,38 +260,12 @@ export class ImageSelectionManager {
   _deleteSelected() {
     const fig = this._selectedFigure;
     if (!fig) return;
-    const ed = this._editor;
-    // Snapshot BEFORE mutation so undo can return to pre-delete state
-    if (ed) ed.history && ed.history.takeSnapshot();
     this._deselectAll();
-    // Place cursor on the previous sibling or parent before removing figure
-    if (ed) {
-      try {
-        const doc  = fig.ownerDocument;
-        const prev = fig.previousElementSibling;
-        const next = fig.nextElementSibling;
-        const range = doc.createRange();
-        if (prev) {
-          range.setStartAfter(prev);
-        } else if (next) {
-          range.setStart(next, 0);
-        } else {
-          range.setStart(fig.parentNode, 0);
-        }
-        range.collapse(true);
-        const domSel = doc.getSelection ? doc.getSelection() : null;
-        if (domSel) { domSel.removeAllRanges(); domSel.addRange(range); }
-      } catch { /* selection placement failure is non-fatal */ }
-    }
-    fig.parentNode && fig.parentNode.removeChild(fig);
-    // Restore canonical floor if editor is now empty
-    if (ed) {
-      ensureEditorFloor(ed);
-      ed.emit('afterCommand', { command: 'deleteImage', args: [] });
-    }
+    deleteFigureFromDoc(this._editor, fig);   // caret placement + floor + snapshot
   }
 
-  _emit() {
-    this._editor && this._editor.emit('afterCommand', { command: 'imageAligned', args: [] });
+  _emit(announce) {
+    this._editor && this._editor.emit('afterCommand',
+      { command: 'imageAligned', args: [], announce: announce || 'Alignment changed' });
   }
 }

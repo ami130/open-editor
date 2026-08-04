@@ -57,6 +57,14 @@ export function createFigure(src, opts = {}, config = {}, doc = document) {
   figure.className = 'oe-figure';
   figure.setAttribute('contenteditable', 'false');
   figure.setAttribute('data-oe-island', 'image');
+  // IMG1-3 (a11y): make the island keyboard-focusable so Tab reaches it and it
+  // can be selected/edited/deleted/resized from the keyboard. tabindex/role/
+  // aria-label are EDITING affordances — the figure sanitizer allowlist omits
+  // them, so getHTML() strips them and saved content stays clean.
+  figure.setAttribute('tabindex', '0');
+  figure.setAttribute('role', 'group');
+  figure.setAttribute('aria-roledescription', 'image');
+  figure.setAttribute('aria-label', opts.alt ? `Image: ${opts.alt}` : 'Image (no description)');
 
   const img = doc.createElement('img');
   img.src = safeSrc;

@@ -66,6 +66,17 @@ describe('ImageActionBar', () => {
     expect(deleted).toBe(f);
   });
 
+  it('IMG17: caption button invokes onCaption with the figure', () => {
+    const f = fig();
+    let captioned = null;
+    bar.onCaption = (x) => { captioned = x; };
+    editor.emit('imageSelected', { figure: f });
+    const btn = q('[aria-label="Add / edit caption"]');
+    expect(btn).not.toBeNull();
+    btn.click();
+    expect(captioned).toBe(f);
+  });
+
   it('destroy removes the bar element and event listeners', () => {
     const el = bar.getElement();
     bar.destroy();

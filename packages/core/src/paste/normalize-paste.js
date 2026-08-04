@@ -162,6 +162,39 @@ export function unwrapBareWrappers(html, ctx) {
   return root.innerHTML;
 }
 
+// ── H4 — map manual page breaks (Word / Google Docs / LibreOffice) to the
+//        editor's own <hr class="oe-page-break"> BEFORE inline styles are
+//        stripped. Source-agnostic (runs for every paste) since the markers can
+//        appear in plain HTML too. Recognised forms:
+//          <br style="page-break-before:always"> / mso-special-character:page-break
+//          <div|p style="page-break-before|after:always">…</div>
+const PAGE_BREAK_STYLE = /page-break-(?:before|after)\s*:\s*always|mso-special-character\s*:\s*page-break/i;
+export function convertPageBreaks(html, ctx) {
+  if (typeof html !== 'string' || !PAGE_BREAK_STYLE.test(html)) return html;
+  const doc = getDoc(ctx);
+  if (!doc) return html;
+  const root = doc.createElement('div');
+  root.innerHTML = html;
+  const marked = Array.from(root.querySelectorAll('[style]')).filter(
+    (el) => PAGE_BREAK_STYLE.test(el.getAttribute('style') || '')
+  );
+  for (const el of marked) {
+    const hr = doc.createElement('hr');
+    hr.className = 'oe-page-break';
+    const tag = el.tagName.toLowerCase();
+    const empty = !el.textContent.replace(/ /g, '').trim();
+    if ((tag === 'br' || empty) && el.parentNode) {
+      el.parentNode.replaceChild(hr, el);           // bare marker → become the hr
+    } else if (el.parentNode) {
+      // content block carrying page-break-before → hr BEFORE it; drop only the
+      // break declaration, keep the block's text and remaining styles.
+      el.setAttribute('style', (el.getAttribute('style') || '').replace(PAGE_BREAK_STYLE, ''));
+      el.parentNode.insertBefore(hr, el);
+    }
+  }
+  return root.innerHTML;
+}
+
 // ── 12.3 — strip leftover inline styles (configurable) ───────────────────────
 export function stripInlineStyles(html, ctx) {
   if (typeof html !== 'string' || html === '') return html;
@@ -172,7 +205,14 @@ export function stripInlineStyles(html, ctx) {
   if (!doc) return html;
   const root = doc.createElement('div');
   root.innerHTML = html;
-  root.querySelectorAll('[style]').forEach((el) => el.removeAttribute('style'));
+  root.querySelectorAll('[style]').forEach((el) => {
+    // H3: a decorative <hr>'s entire appearance lives in its inline border-top
+    // style — stripping it reverts the rule to the default line on paste. Keep
+    // style on <hr> so a restyled rule survives a copy/paste round-trip. (The
+    // sanitizer already vets hr style values, and its class is never stripped.)
+    if (el.tagName === 'HR') return;
+    el.removeAttribute('style');
+  });
   return root.innerHTML;
 }
 
@@ -184,6 +224,7 @@ export function stripInlineStyles(html, ctx) {
  */
 export function normalizePaste(html, ctx) {
   let out = normalizeEncoding(html, ctx);
+  out = convertPageBreaks(out, ctx);   // H4: page-break markers → hr BEFORE strip
   out = stripInlineStyles(out, ctx);   // strip first so wrappers become bare
   out = unwrapBareWrappers(out, ctx);  // then unwrap now-meaningless spans/fonts
   out = removeEmptyInline(out, ctx);

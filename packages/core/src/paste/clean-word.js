@@ -97,6 +97,7 @@ function listParagraphOf(node, root) {
   return null;
 }
 
+
 export function cleanWord(html, ctx) {
   if (typeof html !== 'string' || html === '') return html;
   const doc = getDoc(ctx);
@@ -104,6 +105,7 @@ export function cleanWord(html, ctx) {
 
   const root = doc.createElement('div');
   root.innerHTML = html;
+
 
   // 1) Remove fake list-bullet spans — but first record ordered/unordered onto
   //    the owning list paragraph so 12.D can rebuild the right list type.

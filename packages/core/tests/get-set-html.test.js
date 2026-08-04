@@ -227,3 +227,55 @@ describe('2.27 — scroll position preserved across setHTML()', () => {
     expect(editor.getEditorElement().scrollTop).toBe(100);
   });
 });
+
+// ─── Empty pending-format husk pruning on getHTML() output ───────────────────
+describe('getHTML prunes empty formatting husks (pending-format, no typing)', () => {
+  let target, editor;
+  beforeEach(() => { target = makeTarget(); editor = new OpenEditor(target); });
+  afterEach(() => cleanup(editor, target));
+
+  function caret(node, off) {
+    const r = document.createRange(); r.setStart(node, off); r.collapse(true);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  }
+  // Kept as a selection helper alongside caret(); prefixed per the unused-var
+  // convention (/^_/) until a test needs it.
+  function _selAll(node) {
+    const r = document.createRange(); r.selectNodeContents(node);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  }
+
+  it('caret bold with no typing → no empty <strong> in output', () => {
+    editor.setHTML('<p>hello</p>');
+    caret(editor.getEditorElement().querySelector('p').firstChild, 2);
+    editor.commands.execute('bold');
+    expect(editor.getHTML()).toBe('<p>hello</p>');      // was: <p>he<strong></strong>llo</p>
+  });
+
+  it('caret color with no typing → no empty color <span> in output', () => {
+    editor.setHTML('<p>hello</p>');
+    caret(editor.getEditorElement().querySelector('p').firstChild, 2);
+    editor.commands.execute('textColor', 'rgb(255,0,0)');
+    expect(editor.getHTML()).toBe('<p>hello</p>');      // was: <p>he<span style="color:...">\u200B</span>llo</p>
+  });
+
+  it('does NOT prune a formatting element that has real content', () => {
+    editor.setHTML('<p><strong>bold</strong> plain</p>');
+    expect(editor.getHTML()).toBe('<p><strong>bold</strong> plain</p>');
+  });
+
+  it('does NOT prune an empty <a> bookmark (anchors are not formatting tags)', () => {
+    editor.setHTML('<p>a<a id="mark"></a>b</p>');
+    expect(editor.getHTML()).toContain('id="mark"');   // <a> is never a husk
+  });
+
+  it('does NOT prune an empty span that wraps media (e.g. <br>)', () => {
+    editor.setHTML('<p><span><br></span>after</p>');
+    expect(editor.getHTML()).toContain('<br>');
+  });
+
+  it('prunes nested empty husks bottom-up (<strong><em></em></strong>)', () => {
+    editor.setHTML('<p>x<strong><em></em></strong>y</p>');
+    expect(editor.getHTML()).toBe('<p>xy</p>');
+  });
+});

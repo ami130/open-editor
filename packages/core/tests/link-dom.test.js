@@ -176,6 +176,32 @@ describe('wrapSelectionInLink', () => {
     // No anchor may directly contain a block element.
     expect(root.querySelector('a p')).toBeNull();
   });
+
+  // L3: overlapping an existing link must NOT produce nested/overlapping anchors.
+  it('selection entirely inside an existing link does not nest <a> inside <a>', () => {
+    root.innerHTML = '<p>a <a href="https://old.com">one two three</a> b</p>';
+    const linkText = root.querySelector('a').firstChild; // "one two three"
+    const range = document.createRange();
+    range.setStart(linkText, 4); range.setEnd(linkText, 7); // "two"
+    const sel = editor.selection.getWindow().getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    wrapSelectionInLink(editor, { href: 'https://new.com' });
+    expect(root.querySelector('a a')).toBeNull();          // no nesting
+    expect(root.innerHTML).not.toContain('<a href="https://new.com"><a');
+  });
+
+  it('selection straddling a link boundary does not create overlapping anchors', () => {
+    root.innerHTML = '<p>before <a href="https://old.com">linked</a> after</p>';
+    const p = root.querySelector('p');
+    const range = document.createRange();
+    // From inside "before" through into the link text.
+    range.setStart(p.firstChild, 3);                       // inside "before"
+    range.setEnd(root.querySelector('a').firstChild, 4);   // inside "link|ed"
+    const sel = editor.selection.getWindow().getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    wrapSelectionInLink(editor, { href: 'https://new.com' });
+    expect(root.querySelector('a a')).toBeNull();          // never nested
+  });
 });
 
 describe('updateLink', () => {

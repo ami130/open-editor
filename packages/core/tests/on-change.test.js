@@ -95,6 +95,48 @@ describe('2.6 — onChange debounced event', () => {
     target.parentNode && target.parentNode.removeChild(target);
   });
 
+  // ─── I1: toolbar COMMANDS must fire onChange (they mutate the DOM directly,
+  //         bypassing the browser `input` event) ────────────────────────────
+  function selectAll(ed) {
+    const p = ed.getEditorElement().querySelector('p');
+    const r = document.createRange(); r.selectNodeContents(p);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  }
+  function caretStart(ed) {
+    const p = ed.getEditorElement().querySelector('p');
+    const r = document.createRange(); r.setStart(p.firstChild, 0); r.collapse(true);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  }
+
+  for (const [name, run] of [
+    ['bold', (ed) => { selectAll(ed); ed.commands.execute('bold'); }],
+    ['textColor', (ed) => { selectAll(ed); ed.commands.execute('textColor', 'rgb(255,0,0)'); }],
+    ['fontSize', (ed) => { selectAll(ed); ed.commands.execute('fontSize', '24px'); }],
+    ['alignCenter', (ed) => { caretStart(ed); ed.commands.execute('alignCenter'); }],
+    ['ul', (ed) => { caretStart(ed); ed.commands.execute('ul'); }],
+    ['blockquote', (ed) => { caretStart(ed); ed.commands.execute('blockquote'); }],
+    ['insertPageBreak', (ed) => { caretStart(ed); ed.commands.execute('insertPageBreak'); }],
+  ]) {
+    it(`command "${name}" fires onChange (debounced)`, () => {
+      editor.setHTML('<p>hello</p>');
+      const fn = vi.fn();
+      editor.on('onChange', fn);
+      run(editor);
+      expect(fn).not.toHaveBeenCalled();     // debounced, not yet
+      vi.advanceTimersByTime(400);
+      expect(fn).toHaveBeenCalled();          // I1: fires (was: never)
+    });
+  }
+
+  it('command mutation marks the editor dirty', () => {
+    editor.setHTML('<p>hello</p>');
+    expect(editor._state.isDirty).toBe(false);
+    selectAll(editor);
+    editor.commands.execute('bold');
+    vi.advanceTimersByTime(400);
+    expect(editor._state.isDirty).toBe(true);
+  });
+
   it('respects custom debounce interval from config', () => {
     cleanup(editor, target);
     const t2 = makeTarget();
@@ -164,10 +206,12 @@ describe('16.A1 — config.onChange accepts a callback', () => {
     target = makeTarget();
     editor = new OpenEditor(target, { onChange: () => { throw new Error('boom'); } });
     editor.on('onChange', evt);
+    // Make a REAL content change so isDirty is meaningfully expected to flip.
+    editor.getEditorElement().innerHTML = '<p>edited</p>';
     editor.getEditorElement().dispatchEvent(new Event('input'));
     vi.advanceTimersByTime(400);
     expect(evt).toHaveBeenCalledOnce();       // event still fired
-    expect(editor._state.isDirty).toBe(true); // state still updated
+    expect(editor._state.isDirty).toBe(true); // state still updated (content differs from baseline)
   });
 });
 
@@ -279,5 +323,59 @@ describe('2.13 — maxLength enforcement', () => {
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
     editor.getEditorElement().dispatchEvent(event);
     expect(preventDefaultSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Dirty tracking reflects a saved baseline (not "any change fired") ────────
+describe('isDirty() / markClean() — baseline-based dirty tracking', () => {
+  let target, editor;
+  beforeEach(() => { vi.useFakeTimers(); target = makeTarget(); editor = new OpenEditor(target); editor.setHTML('<p>hello</p>'); });
+  afterEach(() => { vi.useRealTimers(); cleanup(editor, target); });
+
+  function selAll() {
+    const p = editor.getEditorElement().querySelector('p');
+    const r = document.createRange(); r.selectNodeContents(p);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  }
+
+  it('fresh editor is not dirty', () => {
+    expect(editor.isDirty()).toBe(false);
+  });
+
+  it('a real edit becomes dirty; undo back to original becomes CLEAN again', () => {
+    selAll(); editor.commands.execute('bold');
+    vi.advanceTimersByTime(400);
+    expect(editor.isDirty()).toBe(true);         // content diverged
+    expect(editor._state.isDirty).toBe(true);
+    editor.commands.execute('undo');
+    vi.advanceTimersByTime(400);
+    expect(editor.getHTML()).toBe('<p>hello</p>');
+    expect(editor.isDirty()).toBe(false);        // back to baseline → clean (was: wrongly dirty)
+    expect(editor._state.isDirty).toBe(false);
+  });
+
+  it('markClean() adopts current content as the new baseline', () => {
+    selAll(); editor.commands.execute('bold');
+    vi.advanceTimersByTime(400);
+    expect(editor.isDirty()).toBe(true);
+    editor.markClean();
+    expect(editor.isDirty()).toBe(false);        // current content is now "saved"
+    // undoing away from the new baseline is dirty again
+    editor.commands.execute('undo');
+    vi.advanceTimersByTime(400);
+    expect(editor.isDirty()).toBe(true);
+  });
+
+  it('setHTML resets the baseline (loaded content is clean)', () => {
+    selAll(); editor.commands.execute('bold');
+    vi.advanceTimersByTime(400);
+    expect(editor.isDirty()).toBe(true);
+    editor.setHTML('<p>fresh doc</p>');
+    expect(editor.isDirty()).toBe(false);
+  });
+
+  it('isDirty() is accurate immediately (before the debounce flushes)', () => {
+    editor.getEditorElement().innerHTML = '<p>typed</p>';   // direct mutation, no debounce yet
+    expect(editor.isDirty()).toBe(true);                    // computed from current DOM
   });
 });

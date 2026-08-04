@@ -75,6 +75,34 @@ describe('heading commands isActive', () => {
     }
     cleanup(editor, target);
   });
+
+  // ─── I9: converting a bare-text blockquote to a heading acts IN PLACE ────────
+  it('I9: heading on a bare-text blockquote converts its content (no stray heading)', () => {
+    const { editor, target } = makeEditorWith('<blockquote>quote text</blockquote>');
+    const bq = editor.getEditorElement().querySelector('blockquote');
+    setCursor(bq.firstChild, 0);
+    editor.commands.execute('h2');
+    const root = editor.getEditorElement();
+    // the <h2> lives INSIDE the quote, wrapping its text; NO empty heading at root
+    expect(root.querySelector('blockquote > h2')).not.toBeNull();
+    expect(root.querySelector('blockquote > h2').textContent).toBe('quote text');
+    expect(root.children.length).toBe(1);                    // only the blockquote
+    cleanup(editor, target);
+  });
+
+  // ─── I10: block-tag conversion carries dir/lang/align across ────────────────
+  it('I10: converting a paragraph to a heading preserves dir/lang/align', () => {
+    const { editor, target } = makeEditorWith('<p dir="rtl" lang="ar" align="center" style="color:red">نص</p>');
+    setCursor(editor.getEditorElement().querySelector('p').firstChild, 0);
+    editor.commands.execute('h2');
+    const h2 = editor.getEditorElement().querySelector('h2');
+    expect(h2).not.toBeNull();
+    expect(h2.getAttribute('dir')).toBe('rtl');
+    expect(h2.getAttribute('lang')).toBe('ar');
+    expect(h2.getAttribute('align')).toBe('center');
+    expect(h2.style.color).toBe('red');
+    cleanup(editor, target);
+  });
 });
 
 describe('blockquote command', () => {
@@ -201,6 +229,59 @@ describe('alignment commands', () => {
     const p = editor.getEditorElement().querySelector('p');
     setCursor(p.firstChild, 0);
     expect(editor.commands.isActive('alignCenter')).toBe(false);
+    cleanup(editor, target);
+  });
+
+  // ─── A1: multi-block selection aligns EVERY selected block ───────────────────
+  it('A1: aligns ALL blocks in a multi-paragraph selection (not just the first)', () => {
+    const { editor, target } = makeEditorWith('<p>one</p><p>two</p><p>three</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[2].firstChild, 3);   // span all three
+    editor.commands.execute('alignCenter');
+    expect(ps[0].style.textAlign).toBe('center');
+    expect(ps[1].style.textAlign).toBe('center');
+    expect(ps[2].style.textAlign).toBe('center');
+    cleanup(editor, target);
+  });
+
+  it('A1: a mixed selection becomes uniformly aligned, then toggles all off', () => {
+    const { editor, target } = makeEditorWith('<p style="text-align:center">one</p><p>two</p>');
+    const ps = editor.getEditorElement().querySelectorAll('p');
+    setRange(ps[0].firstChild, 0, ps[1].firstChild, 3);
+    editor.commands.execute('alignCenter');       // not all set → set all to center
+    expect(ps[0].style.textAlign).toBe('center');
+    expect(ps[1].style.textAlign).toBe('center');
+    editor.commands.execute('alignCenter');       // all set → clear all
+    expect(ps[0].style.textAlign).toBe('');
+    expect(ps[1].style.textAlign).toBe('');
+    cleanup(editor, target);
+  });
+
+  it('A1: aligns every selected list item', () => {
+    const { editor, target } = makeEditorWith('<ul><li>a</li><li>b</li></ul>');
+    const lis = editor.getEditorElement().querySelectorAll('li');
+    setRange(lis[0].firstChild, 0, lis[1].firstChild, 1);
+    editor.commands.execute('alignRight');
+    expect(lis[0].style.textAlign).toBe('right');
+    expect(lis[1].style.textAlign).toBe('right');
+    cleanup(editor, target);
+  });
+
+  // ─── A2: RTL default — an unset RTL block is right-aligned, not left ──────────
+  it('A2: alignLeft is NOT active on an unset RTL block (its default is right)', () => {
+    const { editor, target } = makeEditorWith('<p dir="rtl">مرحبا</p>');
+    const p = editor.getEditorElement().querySelector('p');
+    setCursor(p.firstChild, 0);
+    expect(editor.commands.isActive('alignLeft')).toBe(false);   // was wrongly true
+    expect(editor.commands.isActive('alignRight')).toBe(true);   // RTL default
+    cleanup(editor, target);
+  });
+
+  it('A2: alignLeft IS active on an unset LTR block (unchanged default)', () => {
+    const { editor, target } = makeEditorWith('<p>hello</p>');
+    const p = editor.getEditorElement().querySelector('p');
+    setCursor(p.firstChild, 0);
+    expect(editor.commands.isActive('alignLeft')).toBe(true);
     cleanup(editor, target);
   });
 });

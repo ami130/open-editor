@@ -8,6 +8,10 @@
 export class EditorState {
   constructor() {
     this.html = '';
+    // The last COMMITTED content (set on load / setHTML / markClean). isDirty is
+    // derived by comparing the current html against this baseline, so undoing all
+    // the way back to the saved state correctly reads as NOT dirty.
+    this.savedHtml = '';
     this.isFocused = false;
     this.isReadOnly = false;
     this.isDirty = false;

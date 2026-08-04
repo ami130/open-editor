@@ -66,6 +66,13 @@ export const LINK_CSS = `
 }
 .oe-link-popover__btn svg { width: 16px; height: 16px; display: block; }
 .oe-link-popover__btn--unlink:hover { background: var(--oe-inverse-danger-bg); color: var(--oe-inverse-danger-fg); }
+.oe-link-popover__btn:disabled { opacity: 0.4; cursor: default; }
+/* L7: give popover buttons a ~44px touch target on coarse pointers (mobile),
+   without enlarging the compact desktop bubble. */
+@media (pointer: coarse) {
+  .oe-link-popover__btn { width: 40px; height: 40px; }
+  .oe-link-popover__btn svg { width: 20px; height: 20px; }
+}
 
 /* ── Dialog form ───────────────────────────────────────────────────────────── */
 .oe-link-dialog {
@@ -103,6 +110,11 @@ export const LINK_CSS = `
   padding: 8px 10px;
 }
 .oe-link-dialog__error--hidden { display: none !important; }
+/* L10: live URL hint under the field (neutral tone; error color when invalid). */
+.oe-link-dialog__hint { font-size: 12px; color: var(--oe-fg-muted); margin-top: 4px; min-height: 1em; }
+.oe-link-dialog input[aria-invalid="true"] { border-color: var(--oe-danger); }
+/* When the field is invalid, tint its sibling hint red (hint lives in the same wrap). */
+.oe-img-dialog__field:has(input[aria-invalid="true"]) .oe-link-dialog__hint { color: var(--oe-danger); }
 `;
 
 export function injectLinkStyles(doc) {

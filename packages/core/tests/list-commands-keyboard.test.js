@@ -67,6 +67,33 @@ describe('Tab inside list (T8)', () => {
   });
 });
 
+describe('Shift+Tab outdent (L11 + L12)', () => {
+  it('L11: Shift+Tab outdents from the MIDDLE of the line (not only li-start)', () => {
+    const { editor, target } = makeEditorWith('<ul><li>one<ul><li>hello</li></ul></li></ul>');
+    const nested = editor.getEditorElement().querySelector('li ul li, li ol li');
+    setCursor(nested.firstChild, 3);            // caret mid-word ("hel|lo")
+    const consumed = handleListTab(editor, true);
+    expect(consumed).toBe(true);                // outdent fired despite mid-text caret
+    expect(editor.getEditorElement().querySelectorAll('ul > li').length).toBe(2);
+    expect(editor.getEditorElement().querySelector('li ul li, li ol li')).toBeNull();
+    cleanup(editor, target);
+  });
+
+  it('L12: outdent inside a list-in-table-in-list does NOT strand an <li> under <td>', () => {
+    const { editor, target } = makeEditorWith(
+      '<ul><li><table><tbody><tr><td><ul><li>x</li></ul></td></tr></tbody></table></li></ul>'
+    );
+    const innerLi = editor.getEditorElement().querySelector('td li');
+    setCursor(innerLi.firstChild, 0);
+    handleListTab(editor, true);                 // Shift+Tab (outdent) inside the cell
+    const td = editor.getEditorElement().querySelector('td');
+    // No <li> may be a DIRECT child of the <td> (that would be invalid HTML).
+    const strandedLi = Array.from(td.children).some((c) => c.tagName === 'LI');
+    expect(strandedLi).toBe(false);
+    cleanup(editor, target);
+  });
+});
+
 describe('Enter on empty list item exits list (T9)', () => {
   it('inserts <p> after list and removes the empty <li>', () => {
     const { editor, target } = makeEditorWith('<ul><li>item</li><li></li></ul>');
