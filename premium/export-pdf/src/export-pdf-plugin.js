@@ -32,13 +32,21 @@ export function rawExportPdfSpec(config = {}) {
     if (!editor || editor._destroyed || typeof window === 'undefined') return false;
     const opts = resolveOptions(override);
     const title = opts.title || (editor._config && editor._config.documentTitle) || 'Document';
-    const html = editor.getHTML ? editor.getHTML() : '';
+    let html = editor.getHTML ? editor.getHTML() : '';
+    // ALWAYS sanitize here, independent of the editor's own `sanitize` config
+    // flag. getHTML() skips sanitization when a host sets `sanitize: false`
+    // (e.g. to preserve custom in-editor markup) — but this document is about
+    // to be written wholesale into a fresh popup via document.write(), so it
+    // must be safe regardless of that unrelated, editor-scoped choice.
+    if (editor._sanitizeHTML) html = editor._sanitizeHTML(html);
     const doc = buildPrintDocument(html, { ...opts, title });
 
     // Same mechanism as the free print(): a blank popup we fully own, so no
     // editor CSS leaks in and the print stylesheet is authoritative. Fail
     // gracefully on popup-block / CSP-blocked write (mirrors editor-view.js).
-    const win = window.open('', '_blank', 'width=820,height=640');
+    // noopener: this popup only ever holds content we write ourselves — no
+    // legitimate reason to keep a `window.opener` back-reference.
+    const win = window.open('', '_blank', 'width=820,height=640,noopener');
     if (!win) {
       editor.emit('exportPdfBlocked', { reason: 'popup-blocked' });
       // The single most common silent failure — now visible + actionable.

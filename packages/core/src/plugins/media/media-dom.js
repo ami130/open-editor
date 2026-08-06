@@ -19,6 +19,13 @@ export function buildEmbed(editor, spec) {
   fig.setAttribute('contenteditable', 'false');
   fig.setAttribute('data-oe-island', 'video');
   fig.setAttribute('data-provider', spec.provider);
+  // A11Y: tabindex/role/aria-label make the island keyboard-reachable/selectable
+  // (mirrors image-dom.js). These are editing affordances the figure sanitizer
+  // allowlist omits, so getHTML() strips them and saved content stays clean.
+  fig.setAttribute('tabindex', '0');
+  fig.setAttribute('role', 'group');
+  fig.setAttribute('aria-roledescription', 'video');
+  fig.setAttribute('aria-label', `${spec.provider} video`);
   const frame = doc.createElement('iframe');
   frame.setAttribute('src', spec.src);
   frame.setAttribute('sandbox', EMBED_SANDBOX);   // mandatory, minimal

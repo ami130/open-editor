@@ -71,13 +71,17 @@ export function mergeCells(table, cells) {
 
   survivor.innerHTML = parts.length ? parts.join('<br>') : '<br>';
 
-  // Remove any rows that ended up with no cells. Track how many of the rows the
-  // merge rectangle covered are actually removed — a merge that consumes ENTIRE
-  // rows deletes them, so the survivor must NOT keep a rowspan that points at
-  // rows that no longer exist (that produces malformed HTML — the bug this fixes).
+  // Remove rows that the merge fully consumed — but ONLY rows WITHIN the merge
+  // rectangle [minR, maxR]. A row outside the rectangle that happens to be empty
+  // (ragged/imported input, or fully covered by an unrelated rowspan) must NOT be
+  // counted, or the survivor's rowspan comes out wrong and the grid goes
+  // non-rectangular. Snapshot the rectangle's rows BEFORE removal (indices shift
+  // as we delete), map them to DOM rows via the original matrix.
+  const allRows = tableRows(table);
   let removedRows = 0;
-  for (const tr of tableRows(table)) {
-    if (tr.cells.length === 0 && tr.parentNode) {
+  for (let r = bounds.minR; r <= bounds.maxR; r++) {
+    const tr = allRows[r];
+    if (tr && tr.cells.length === 0 && tr.parentNode) {
       tr.parentNode.removeChild(tr);
       removedRows++;
     }

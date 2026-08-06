@@ -131,6 +131,13 @@ export function createButton(editor, item, locale, doc, hooks = {}) {
       const ro = editor.isReadOnly && editor.isReadOnly();
       if (ro && !item.readOnlyExempt) enabled = false;
     }
+    // S2: while Source view is open, formatting has nothing to act on (the
+    // WYSIWYG surface is hidden) — disable every button except the source
+    // toggle itself and explicitly source-safe ones (readOnlyExempt covers the
+    // same "doesn't touch content" buttons, e.g. preview/fullscreen/print).
+    if (editor._sourceViewActive && item.name !== 'source' && !item.readOnlyExempt) {
+      enabled = false;
+    }
     el.disabled = !enabled;
     el.classList.toggle('oe-tb__btn--disabled', !enabled);
   }

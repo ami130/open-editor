@@ -110,16 +110,19 @@ export function buildCharGrid(doc, items, onPick, opts = {}) {
     // While searching, ignore the active category and search ALL items.
     const visible = items.filter((it) =>
       (!cats || query ? true : it.cat === activeCat) && matches(it, query));
-    for (const it of visible) {
+    visible.forEach((it, i) => {
       const cell = el(doc, 'button', 'oe-chargrid__cell', it.ch);
       cell.type = 'button';
       cell.title = it.label || it.ch;
       cell.setAttribute('aria-label', it.label || it.ch);
+      // SC1: roving tabindex — only the first cell is a tab-stop; arrow keys move
+      // focus between cells (see the grid keydown handler below).
+      cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
       cell.addEventListener('click', () => onPick(it.ch));
       cell.addEventListener('mouseenter', () => showItem(it));
       cell.addEventListener('focus', () => showItem(it));
       grid.appendChild(cell);
-    }
+    });
     if (!visible.length) {
       grid.appendChild(el(doc, 'div', 'oe-chargrid__empty', opts.emptyText || 'No matches'));
       showItem(null);
@@ -127,6 +130,38 @@ export function buildCharGrid(doc, items, onPick, opts = {}) {
       showItem(visible[0]);
     }
   }
+
+  // SC1: 2D keyboard navigation over the button cells. Columns are derived from
+  // the rendered layout (first row's cell count) so it tracks the responsive grid.
+  function cellsPerRow(cells) {
+    if (cells.length < 2) return cells.length || 1;
+    const top = cells[0].offsetTop;
+    let n = 1;
+    while (n < cells.length && cells[n].offsetTop === top) n++;
+    return n;
+  }
+  grid.addEventListener('keydown', (e) => {
+    const cells = Array.from(grid.querySelectorAll('.oe-chargrid__cell'));
+    if (!cells.length) return;
+    let idx = cells.indexOf(doc.activeElement);
+    if (idx === -1) idx = 0;
+    const cols = cellsPerRow(cells);
+    let next;
+    switch (e.key) {
+      case 'ArrowRight': next = Math.min(cells.length - 1, idx + 1); break;
+      case 'ArrowLeft':  next = Math.max(0, idx - 1); break;
+      case 'ArrowDown':  next = Math.min(cells.length - 1, idx + cols); break;
+      case 'ArrowUp':    next = Math.max(0, idx - cols); break;
+      case 'Home':       next = 0; break;
+      case 'End':        next = cells.length - 1; break;
+      default: return;   // let other keys (Enter/Space on a button) pass through
+    }
+    e.preventDefault();
+    if (next === idx) return;
+    cells[idx].setAttribute('tabindex', '-1');
+    cells[next].setAttribute('tabindex', '0');
+    cells[next].focus();
+  });
 
   render();
   return { node: root, focus: () => { if (input) input.focus(); } };

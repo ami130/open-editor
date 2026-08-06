@@ -223,7 +223,12 @@ function iconMenuItem(editor, mark, opt) {
   const val = typeof opt === 'string' ? opt : opt.value;
   return {
     label: (typeof opt === 'object' && opt.label) || val,
-    action: () => { applyPresentation(mark, val, mark.getAttribute('data-oe-color')); if (editor._onChangeFn) editor._onChangeFn(); },
+    action: () => {
+      editor.history && editor.history.takeSnapshot();
+      applyPresentation(mark, val, mark.getAttribute('data-oe-color'));
+      editor.emit('afterCommand', { command: 'bookmarkIcon', args: [] });
+      if (editor._onChangeFn) editor._onChangeFn();
+    },
   };
 }
 
@@ -231,7 +236,12 @@ function colorMenuItem(editor, mark, opt) {
   const val = typeof opt === 'string' ? opt : opt.value;
   return {
     label: (typeof opt === 'object' && opt.label) || val,
-    action: () => { applyPresentation(mark, mark.getAttribute('data-oe-icon'), val); if (editor._onChangeFn) editor._onChangeFn(); },
+    action: () => {
+      editor.history && editor.history.takeSnapshot();
+      applyPresentation(mark, mark.getAttribute('data-oe-icon'), val);
+      editor.emit('afterCommand', { command: 'bookmarkColor', args: [] });
+      if (editor._onChangeFn) editor._onChangeFn();
+    },
   };
 }
 

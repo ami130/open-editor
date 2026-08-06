@@ -67,3 +67,23 @@ describe('Phase 2.1 — main toolbar gating', () => {
     expect(names).toContain('textColor');
   });
 });
+
+describe('S2 — toolbar disables formatting while Source view is active', () => {
+  it('disables bold but keeps the source toggle itself enabled', async () => {
+    const { createSourcePlugin } = await import('../src/plugins/source/source-plugin.js');
+    editor = mount({});
+    editor.plugins.install(createSourcePlugin());
+    editor.setHTML('<p>hi</p>');
+    const source = editor.plugins.get('source');
+    const boldCtrl = (editor.toolbar._controls || []).find((c) => c.item && c.item.name === 'bold');
+    const sourceCtrl = (editor.toolbar._controls || []).find((c) => c.item && c.item.name === 'source');
+    expect(boldCtrl.el.disabled).toBe(false);
+    source.toggle(); // enter source mode
+    editor.toolbar._syncNow(); // toolbar sync is rAF-scheduled; force it now
+    expect(boldCtrl.el.disabled).toBe(true);
+    expect(sourceCtrl.el.disabled).toBe(false); // must stay clickable to exit
+    source.toggle(); // exit
+    editor.toolbar._syncNow();
+    expect(boldCtrl.el.disabled).toBe(false);
+  });
+});

@@ -38,6 +38,15 @@ export function createFormatPainterPlugin() {
       this._editor = editor;
       this._onMouseUp = () => this._maybeApply();
       editor.on('mouseup', this._onMouseUp); // auto-cleaned by PluginManager
+      // FP2: also paint on a KEYBOARD selection (Shift+Arrow etc.) — mouseup never
+      // fires for keyboard users, so the painter was mouse-only. keyup gives the
+      // post-selection state. We only act on a non-collapsed range in _maybeApply.
+      this._onKeyUp = (e) => {
+        if (!this._armed) return;
+        // Only the selection-extending keys; ignore the arming/typing keys.
+        if (e.key && (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End')) this._maybeApply();
+      };
+      editor.on('keyup', this._onKeyUp);
     },
 
     destroy() {
@@ -59,8 +68,15 @@ export function createFormatPainterPlugin() {
     },
 
     onKeyDown(e) {
+      if (!this._armed) return false;
       // Escape disarms an active painter.
-      if (this._armed && e.key === 'Escape') { this._disarm(); return true; }
+      if (e.key === 'Escape') { this._disarm(); return true; }
+      // FP3: typing a character cancels the armed painter (Word behavior) — an
+      // armed painter left over while the user types would otherwise repaint on
+      // their NEXT mouse-select unexpectedly. Ignore pure modifier/navigation keys.
+      if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        this._disarm(); // don't consume — let the character type normally
+      }
       return false;
     },
 
@@ -78,6 +94,10 @@ export function createFormatPainterPlugin() {
     // On the next selection (mouseup) apply the captured format to it.
     _maybeApply() {
       if (!this._armed || !this._editor) return;
+      // FP3: never mutate a read-only document. `mouseup` is emitted unconditionally
+      // (unlike keydown, which the dispatcher gates on !readOnly), so an armed
+      // painter could otherwise edit a readonly doc on mouse-select. Disarm + bail.
+      if (this._editor._state && this._editor._state.isReadOnly) { this._disarm(); return; }
       const info = this._editor.selection && this._editor.selection.get();
       if (!info || info.collapsed) return; // need a real selection to paint onto
       const sticky = this._sticky;

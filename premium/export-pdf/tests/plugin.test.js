@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createExportPdfPlugin, FEATURE_ID } from '../src/index.js';
 import { PluginManager } from '../../../packages/core/src/plugins/plugin-manager.js';
+import { OpenEditor } from '../../../packages/core/src/editor.js';
 
 const ALLOW = { manager: { gate: () => ({ allowed: true, reason: 'granted' }) } };
 const DENY  = { manager: { gate: () => ({ allowed: false, reason: 'no-license' }) } };
@@ -131,6 +132,44 @@ describe('export-pdf — granted', () => {
     expect(editor.exportPdf).toBeTypeOf('function');
     plugin.destroy();
     expect(editor.exportPdf).toBeUndefined();
+  });
+});
+
+describe('export-pdf audit fixes — always sanitize + noopener', () => {
+  // AUDIT FIX: exportPdf() trusted getHTML() unconditionally; if a host set
+  // `sanitize: false`, unsanitized HTML was written straight into the popup
+  // via document.write(). This is a real script-execution path since a
+  // window.open('', ...) popup runs in the same origin.
+  it('strips a script tag from the exported document even with sanitize:false', () => {
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    const editor = new OpenEditor(target, { sanitize: false });
+    editor._setRawHTML('<p>hi</p><script>window.__pwned = true;</script>');
+    opened = stubWindowOpen();
+    createExportPdfPlugin(ALLOW).install(editor);
+    editor.exportPdf();
+    expect(opened.writes[0]).not.toContain('<script>');
+    expect(opened.writes[0]).not.toContain('__pwned');
+    editor.destroy(); target.remove();
+  });
+
+  it('is a no-op-safe fallback (does not throw) when the host editor has no _sanitizeHTML', () => {
+    // The plugin's own test-double editor (makeEditor() above) has no
+    // _sanitizeHTML — confirms the `if (editor._sanitizeHTML)` guard doesn't
+    // break the plugin against a minimal/mock editor shape.
+    const editor = makeEditor('<h1>Title</h1><p>Hi</p>');
+    opened = stubWindowOpen();
+    createExportPdfPlugin(ALLOW).install(editor);
+    expect(() => editor.exportPdf()).not.toThrow();
+    expect(opened.writes[0]).toContain('<h1>Title</h1>');
+  });
+
+  it('opens the popup with noopener', () => {
+    const editor = makeEditor();
+    opened = stubWindowOpen();
+    createExportPdfPlugin(ALLOW).install(editor);
+    editor.exportPdf();
+    expect(opened.spy.mock.calls[0][2]).toContain('noopener');
   });
 });
 

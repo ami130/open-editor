@@ -84,4 +84,20 @@ test.describe('Phase 19.5 — Export to PDF', () => {
     await page.keyboard.type(' still editable');
     await expect(page.locator('.oe-editor')).toContainText('still editable');
   });
+
+  // AUDIT FIX: exportPdf() trusted getHTML() unconditionally — with the host
+  // editor configured `sanitize: false`, unsanitized HTML (including a live
+  // <script>) was written straight into the print popup via document.write().
+  test('exportPdf() strips a script tag even when the editor has sanitize:false', async ({ page }) => {
+    await page.evaluate(() => window.__premium.apply(['export.pdf']));
+    await page.evaluate(() => {
+      const ed = window.__openEditorInstance;
+      ed._config.sanitize = false;
+      ed._setRawHTML('<p>hi</p><script>window.__pwned = true;<\/script>');
+    });
+    await page.evaluate(() => window.__openEditorInstance.exportPdf());
+    const doc = await page.evaluate(() => window.__pdf.writes[0]);
+    expect(doc).not.toContain('<script>');
+    expect(doc).not.toContain('__pwned');
+  });
 });

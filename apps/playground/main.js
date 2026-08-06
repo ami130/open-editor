@@ -1,4 +1,4 @@
-import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createCodeBlockPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin, createSpeechPlugin, createHorizontalRulePlugin } from 'openeditor-text';
+import { OpenEditor, VERSION, createImagePlugin, createLinkPlugin, createTablePlugin, createSpellcheckPlugin, createSpecialCharsPlugin, createEmojiPlugin, createPreviewPlugin, createFormatPainterPlugin, createResizeEditorPlugin, createFindReplacePlugin, createMediaPlugin, createSourcePlugin, createSlashCommandPlugin, createAutoformatPlugin, createMentionsPlugin, createBlockDragPlugin, createTodoListPlugin, createBookmarkPlugin, createSpeechPlugin, createHorizontalRulePlugin } from 'openeditor-text';
 import { localeEs, localeFr, localeDe, localeAr } from 'openeditor-text';
 
 // Fixture user list for the @mentions e2e (16.6.5) — a real async source.
@@ -111,7 +111,9 @@ editor.plugins.install(createFormatPainterPlugin());
 editor.plugins.install(createResizeEditorPlugin());
 editor.plugins.install(createFindReplacePlugin());
 editor.plugins.install(createMediaPlugin());
-editor.plugins.install(createCodeBlockPlugin());
+// Code block plugin intentionally NOT installed in the playground — the default
+// audience isn't writing code. The plugin remains available (createCodeBlockPlugin)
+// for integrators who want it; just re-add the install line to enable it.
 editor.plugins.install(createSourcePlugin());
 editor.plugins.install(createSlashCommandPlugin());
 editor.plugins.install(createAutoformatPlugin());

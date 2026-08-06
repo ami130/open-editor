@@ -21,10 +21,23 @@
  */
 import { getParentBlock } from '../../selection/range-utils.js';
 import { CommandManager } from '../../commands/command-manager.js';
+import { featureForCommand } from '../../entitlements/feature-catalog.js';
 import { injectTodoListStyles } from './todo-list-styles.js';
 import {
   createTodoList, isTodoItem, toggleChecked, normalizeTodoList, markAsTodoItem,
 } from './todo-list-dom.js';
+
+/** Readonly + entitlement guard shared by the checkbox click, Ctrl+Enter
+ *  toggle, and the toolbar button — all mutate content via a direct-DOM path
+ *  that bypasses CommandManager's own gating, so each must check for itself
+ *  (mirrors hr-plugin.js's _canRestyle). */
+function canToggle(editor) {
+  if (!editor) return false;
+  if (editor.isReadOnly && editor.isReadOnly()) return false;
+  const feature = featureForCommand('todoList');
+  if (feature && editor.isFeatureGranted && !editor.isFeatureGranted(feature)) return false;
+  return true;
+}
 
 const TODO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>
@@ -148,12 +161,34 @@ export function createTodoListPlugin() {
         // text itself must place the caret normally, not toggle the box.
         if (e.clientX - rect.left > 20) return;
         e.preventDefault();
-        editor.history && editor.history.takeSnapshot();
-        toggleChecked(li);
-        editor.emit('afterCommand', { command: 'toggleTodoItem', args: [] });
-        if (editor._onChangeFn) editor._onChangeFn();
+        this._toggle(li);
       };
       editor.getEditorElement().addEventListener('mousedown', this._onClick);
+
+      // A11Y: the checkbox span is now tabindex=0 (todo-list-dom.js) — Enter
+      // or Space while it's focused must toggle it, same as clicking. Without
+      // this a keyboard/screen-reader user could Tab to the box but never
+      // activate it.
+      this._onCheckboxKeyDown = (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const box = e.target && e.target.closest ? e.target.closest('.oe-todo-check') : null;
+        if (!box) return;
+        const li = box.closest('li[data-todo]');
+        if (!li) return;
+        e.preventDefault();
+        this._toggle(li);
+      };
+      editor.getEditorElement().addEventListener('keydown', this._onCheckboxKeyDown);
+    },
+
+    /** Shared toggle path for mouse click, keyboard activation, and Ctrl+Enter. */
+    _toggle(li) {
+      const editor = this._editor;
+      if (!canToggle(editor)) return;
+      editor.history && editor.history.takeSnapshot();
+      toggleChecked(li);
+      editor.emit('afterCommand', { command: 'toggleTodoItem', args: [] });
+      if (editor._onChangeFn) editor._onChangeFn();
     },
 
     destroy() {
@@ -162,6 +197,7 @@ export function createTodoListPlugin() {
         this._editor.off('setHTML', this._onSetHTML);
         const root = this._editor.getEditorElement();
         if (root) root.removeEventListener('mousedown', this._onClick);
+        if (root) root.removeEventListener('keydown', this._onCheckboxKeyDown);
         this._editor.commands.unregister('todoList');
         this._editor.commands.unregister('todoListChecked');
       }
@@ -174,7 +210,7 @@ export function createTodoListPlugin() {
         tooltip: 'To-do list',
         onClick: () => {
           const editor = this._editor;
-          if (!editor) return;
+          if (!canToggle(editor)) return;
           editor.history && editor.history.takeSnapshot();
           if (insertTodoList(editor)) {
             editor.emit('afterCommand', { command: 'insertTodoList', args: [] });
@@ -196,10 +232,7 @@ export function createTodoListPlugin() {
       // CKEditor's shortcut for the same action. Consumes the key.
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        editor.history && editor.history.takeSnapshot();
-        toggleChecked(li);
-        editor.emit('afterCommand', { command: 'toggleTodoItem', args: [] });
-        if (editor._onChangeFn) editor._onChangeFn();
+        this._toggle(li);
         return true;
       }
 

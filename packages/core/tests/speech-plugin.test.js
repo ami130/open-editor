@@ -165,4 +165,40 @@ describe('dictation flow (fake SpeechRecognition present)', () => {
     expect(chip).toBeTruthy();
     expect(chip.textContent.toLowerCase()).toContain('microphone');
   });
+
+  // AUDIT FIX: _insert() had no isReadOnly() guard — every other insert-plugin
+  // in the codebase (bookmark/link/todo-list/hr/format-painter) checks this,
+  // speech didn't. PROVEN before the fix: a recognized phrase landed in the
+  // DOM even while the editor was readonly.
+  it('a recognized phrase is NOT inserted while the editor is readonly', () => {
+    const { instances } = installFakeSpeech();
+    const p = createSpeechPlugin();
+    p.install(editor);
+    const before = editor.getHTML();
+    btns(p)[0].onClick();
+    editor.setReadOnly(true);
+    instances[0]._emit('should not appear');
+    expect(editor.getHTML()).toBe(before);
+    editor.setReadOnly(false);
+  });
+
+  // AUDIT FIX: _insert() never called takeSnapshot() before mutating, so undo
+  // granularity was an accident of default snapshot timing rather than a clean
+  // per-phrase step (unlike emoji-plugin.js/special-chars-plugin.js, which both
+  // explicitly snapshot before inserting). PROVEN before the fix: two dictated
+  // phrases needed TWO separate undos to fully remove.
+  it('each recognized phrase is its own clean undo step', () => {
+    const { instances } = installFakeSpeech();
+    const p = createSpeechPlugin();
+    p.install(editor);
+    btns(p)[0].onClick();
+    instances[0]._emit('first phrase');
+    const afterFirst = editor.getHTML();
+    instances[0]._emit('second phrase');
+    expect(editor.getHTML()).toContain('first phrase');
+    expect(editor.getHTML()).toContain('second phrase');
+    editor.undo();
+    expect(editor.getHTML()).toBe(afterFirst);
+    expect(editor.getHTML()).not.toContain('second phrase');
+  });
 });

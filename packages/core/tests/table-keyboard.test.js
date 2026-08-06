@@ -220,17 +220,23 @@ describe('handleTableKey — arrow navigation (11.5)', () => {
     expect(handleTableKey(editor, key('ArrowUp'))).toBe(true);
     expect(currentCellOf()).toBe(cells[1]); // row0 col1
   });
-  it('ArrowUp at the top row returns false (no cell above)', () => {
+  // T10: at the table edge, an arrow ESCAPES the table (creating a <p> when the
+  // table is the first/last block) so the user is never stuck inside it.
+  it('ArrowUp at the top row escapes the table into a <p> above it', () => {
     const t = seedTable(2, 2);
     const cells = t.querySelectorAll('td');
     caretIn(cells[0], 0);
-    expect(handleTableKey(editor, key('ArrowUp'))).toBe(false);
+    expect(handleTableKey(editor, key('ArrowUp'))).toBe(true);
+    const before = t.previousElementSibling;
+    expect(before && before.tagName.toLowerCase()).toBe('p');
   });
-  it('ArrowDown at the bottom row returns false', () => {
+  it('ArrowDown at the bottom row escapes the table into a <p> below it', () => {
     const t = seedTable(2, 2);
     const cells = t.querySelectorAll('td');
     caretIn(cells[2], 0);
-    expect(handleTableKey(editor, key('ArrowDown'))).toBe(false);
+    expect(handleTableKey(editor, key('ArrowDown'))).toBe(true);
+    const after = t.nextElementSibling;
+    expect(after && after.tagName.toLowerCase()).toBe('p');
   });
   it('ArrowRight at cell END jumps to the next cell', () => {
     const t = seedTable(1, 2);

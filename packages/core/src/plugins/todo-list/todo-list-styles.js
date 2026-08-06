@@ -59,6 +59,14 @@ li[data-todo] > .oe-todo-check {
   height: 16px;
   cursor: pointer;
 }
+/* A11Y: visible focus ring for keyboard users tabbing to the checkbox — it has
+   no other visual state change on focus, so without this Tab lands here with
+   no indication at all (WCAG 2.4.7). Matches bookmark-styles.js's pattern. */
+li[data-todo] > .oe-todo-check:focus-visible {
+  outline: 2px solid var(--oe-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 `;
 
 export function injectTodoListStyles(doc) {

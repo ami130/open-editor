@@ -11,10 +11,16 @@
  * DOM mutation lives in table-dom.js and is expressed in terms of this model.
  */
 
-/** Read a positive integer span attribute (colspan/rowspan), defaulting to 1. */
+// Upper bound on a single colspan/rowspan. Real tables never approach this; the
+// cap stops a pasted/imported cell with colspan="99999" from making buildMatrix
+// allocate a giant grid and every structural op loop over it (freeze / OOM).
+const MAX_SPAN = 1000;
+
+/** Read a positive integer span attribute (colspan/rowspan), 1..MAX_SPAN. */
 function span(cell, attr) {
   const v = parseInt(cell.getAttribute(attr) || '1', 10);
-  return Number.isFinite(v) && v > 0 ? v : 1;
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  return v > MAX_SPAN ? MAX_SPAN : v;
 }
 export function colSpan(cell) { return span(cell, 'colspan'); }
 export function rowSpan(cell) { return span(cell, 'rowspan'); }

@@ -144,9 +144,22 @@ export function createSpeechPlugin(config = {}) {
     _insert(text) {
       const editor = this._editor;
       if (!editor) return;
+      // A readonly editor must never be mutated — insertAtCursor is a raw DOM
+      // primitive with no readonly awareness of its own (unlike commands routed
+      // through CommandManager.execute, which enforces this centrally). Every
+      // other insert-plugin in the codebase (bookmark, link, todo-list, hr,
+      // format-painter…) guards this explicitly; speech must too. Recognition
+      // itself keeps running (stopping it is a separate, larger UX decision) —
+      // this just makes each recognized phrase a no-op while readonly.
+      if (editor.isReadOnly && editor.isReadOnly()) return;
       // Normalize spacing: a single leading space so dictated phrases don't fuse
       // onto the previous word, trimmed of trailing whitespace from the provider.
       const clean = ` ${String(text).replace(/\s+/g, ' ').trim()}`;
+      // Snapshot BEFORE the mutation so undo removes exactly one dictated phrase
+      // per undo step (mirrors emoji-plugin.js/special-chars-plugin.js) — without
+      // this, undo granularity was an accident of default snapshot timing, and a
+      // long dictation session needed one undo per recognized phrase to unwind.
+      editor.history && editor.history.takeSnapshot();
       if (editor.selection && typeof editor.selection.insertAtCursor === 'function') {
         editor.selection.insertAtCursor(clean);
       } else if (editor.commands && typeof editor.commands.execute === 'function') {

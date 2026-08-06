@@ -76,6 +76,7 @@ export const es = {
   bookmarkName: 'Nombre',
   bookmarkNameInvalid: 'Usa letras, números y guiones; empieza con una letra.',
   bookmarkNameTaken: 'Ese nombre ya se usa en este documento.',
+  bookmarkNameRequired: 'Introduce un nombre para este marcador.',
   bookmarkEdit: 'Editar marcador',
   bookmarkCopyLink: 'Copiar enlace (#nombre)',
   bookmarkIcon: 'Icono',

@@ -31,7 +31,11 @@ export function createEmojiPlugin() {
 
     install(editor) {
       this._editor = editor;
-      const doc = (typeof document !== 'undefined') ? document : null;
+      // E2: in iframe mode the editable + caret live in editor._iframeDoc, so the
+      // autocomplete popup and its styles must go THERE (the caret rect is in the
+      // iframe's coordinate space). Using top `document` put the popup in the wrong
+      // doc → mispositioned/invisible. Mirrors the toolbar path + mentions plugin.
+      const doc = editor._iframeDoc || (typeof document !== 'undefined' ? document : null);
       if (doc) injectCharStyles(doc);
       // 17.5.6 — inline :shortcode suggestions (same dataset as the grid).
       if (doc) {

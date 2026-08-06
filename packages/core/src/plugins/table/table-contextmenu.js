@@ -34,6 +34,14 @@ export function buildTableMenuItems(editor, cell, selectedCells = []) {
   const coordsOf = () => cellCoords(buildMatrix(table), cell) || { row: 0, col: 0 };
 
   const run = (fn, command) => {
+    // READONLY GUARD: every table structural/format op flows through here
+    // (insert/delete row+column, merge, split, styles, header toggles, caption,
+    // and both properties dialogs). They are reached by RIGHT-CLICK, not by a
+    // toolbar button — so the central readonly gate in toolbar-button.js never
+    // sees them, and the keydown dispatcher's !readOnly check doesn't apply
+    // either. Without this, a "read-only" table was fully editable via the
+    // context menu (proven live: Insert row below added a row in readonly).
+    if (editor.isReadOnly && editor.isReadOnly()) return;
     editor.history && editor.history.takeSnapshot();
     fn();
     editor.emit('afterCommand', { command, args: [] });
@@ -64,7 +72,7 @@ export function buildTableMenuItems(editor, cell, selectedCells = []) {
       label: 'Delete row',
       action: () => run(() => {
         const { rows } = matrixDimensions(buildMatrix(table));
-        if (rows <= 1) deleteTable(table);
+        if (rows <= 1) deleteTable(table, editor);
         else deleteRow(table, coordsOf().row);
       }, 'tableDeleteRow'),
     },
@@ -72,13 +80,13 @@ export function buildTableMenuItems(editor, cell, selectedCells = []) {
       label: 'Delete column',
       action: () => run(() => {
         const { cols } = matrixDimensions(buildMatrix(table));
-        if (cols <= 1) deleteTable(table);
+        if (cols <= 1) deleteTable(table, editor);
         else deleteColumn(table, coordsOf().col);
       }, 'tableDeleteColumn'),
     },
     { separator: true },
     ...buildFormatMenuItems(editor, table, cell, selectedCells, run),
     { separator: true },
-    { label: 'Delete table', action: () => run(() => deleteTable(table), 'tableDelete') },
+    { label: 'Delete table', action: () => run(() => deleteTable(table, editor), 'tableDelete') },
   ]);
 }

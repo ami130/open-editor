@@ -82,14 +82,18 @@ function normalizeNode(node) {
       continue;
     }
 
-    // Image islands: strip editing-only STATE classes that must never ship in
-    // saved output. `oe-figure--selected` is toggled on click/focus and would
-    // otherwise bake a selection ring into published content (the alignment
-    // classes oe-figure--left/right/center/inline ARE content and are kept).
-    // Runs on the detached serialization copy only, so the live DOM keeps its
-    // selection class while editing.
-    if (tag === 'figure' && child.classList) {
-      child.classList.remove('oe-figure--selected');
+    // Strip editing-only STATE classes that must never ship in saved output —
+    // toggled on click/focus, they'd otherwise bake a stale selection outline
+    // into published content. Content classes (figure alignment, table styling)
+    // are kept. Runs on the detached serialization copy only, so the live DOM
+    // keeps its selection class while editing.
+    //   figure  → oe-figure--selected (image island), oe-embed--selected (video island)
+    //   td/th   → oe-cell--selected  (table cell range selection)
+    if (child.classList) {
+      if (tag === 'figure') {
+        child.classList.remove('oe-figure--selected');
+        child.classList.remove('oe-embed--selected');
+      } else if (tag === 'td' || tag === 'th') child.classList.remove('oe-cell--selected');
       if (child.getAttribute('class') === '') child.removeAttribute('class');
     }
 

@@ -20,6 +20,10 @@ import { ImageResizeManager } from '../image/image-resize.js';
 // where the provider's own controls stay legible and clickable.
 const MIN_WIDTH = 160;
 const MIN_HEIGHT = 90;
+// Same ceiling as image-resize-compute.js's MAX_WIDTH/MAX_HEIGHT: stops a
+// runaway/glitched drag from serializing an absurd width into saved HTML.
+const MAX_WIDTH = 8000;
+const MAX_HEIGHT = 8000;
 
 export class MediaResizeManager {
   constructor() {
@@ -46,6 +50,13 @@ export class MediaResizeManager {
     editor.on('mediaSelected', this._onMediaSel);
     editor.on('mediaDeselected', this._onMediaDesel);
 
+    // STALE-FRAME FIX (ported from image-resize.js): align moves the figure
+    // via float (a POSITION change — no ResizeObserver ever fires for that).
+    // Without this, the overlay stays at the pre-alignment box until the next
+    // scroll/window-resize event.
+    this._onAfterCmd = () => { if (this._figure) this._reposition(); };
+    editor.on('afterCommand', this._onAfterCmd);
+
     this._onRepos = () => this._reposition();
     const doc = editor._wrapper && editor._wrapper.ownerDocument;
     if (doc && doc.defaultView) {
@@ -65,6 +76,7 @@ export class MediaResizeManager {
     if (ed) {
       ed.off('mediaSelected', this._onMediaSel);
       ed.off('mediaDeselected', this._onMediaDesel);
+      ed.off('afterCommand', this._onAfterCmd);
     }
     const doc = ed && ed._wrapper && ed._wrapper.ownerDocument;
     if (doc && doc.defaultView) {
@@ -197,8 +209,8 @@ export class MediaResizeManager {
     const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
     // Pin the driven axis; leave the auto axis null so aspect-ratio CSS follows.
     // The badge shows the aspect-derived value for the auto axis (no reflow).
-    const pinW = r.width  == null ? null : Math.max(MIN_WIDTH,  r.width);
-    const pinH = r.height == null ? null : Math.max(MIN_HEIGHT, r.height);
+    const pinW = r.width  == null ? null : Math.min(MAX_WIDTH,  Math.max(MIN_WIDTH,  r.width));
+    const pinH = r.height == null ? null : Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, r.height));
     this._applySize(pinW, pinH, this._drag.pos);
     this._reposition();
 
@@ -218,8 +230,8 @@ export class MediaResizeManager {
     if (!this._drag || !this._figure) { this._cancelDrag(); return; }
     const pt = pointFromEvent(e);
     const r = ImageResizeManager.computeResize(this._drag, pt.x, pt.y, e.shiftKey);
-    const pinW = r.width  == null ? null : Math.max(MIN_WIDTH,  r.width);
-    const pinH = r.height == null ? null : Math.max(MIN_HEIGHT, r.height);
+    const pinW = r.width  == null ? null : Math.min(MAX_WIDTH,  Math.max(MIN_WIDTH,  r.width));
+    const pinH = r.height == null ? null : Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, r.height));
     this._applySize(pinW, pinH, this._drag.pos);
 
     this._cancelDrag();

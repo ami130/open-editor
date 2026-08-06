@@ -27,6 +27,7 @@ const CSS = `
 .oe-find__btn:hover { background: var(--oe-panel-hover); }
 .oe-find__case--on { background: var(--oe-primary); border-color: var(--oe-primary); color: var(--oe-primary-fg); }
 .oe-find__word--on { background: var(--oe-primary); border-color: var(--oe-primary); color: var(--oe-primary-fg); }
+.oe-find__toggle--on { background: var(--oe-primary); border-color: var(--oe-primary); color: var(--oe-primary-fg); }
 .oe-find__close { font-size: 1.1em; line-height: 1; }
 `;
 

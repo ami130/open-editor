@@ -46,6 +46,13 @@ export function ensureCheckBox(li) {
     box.setAttribute('aria-label', 'To-do');
     li.insertBefore(box, li.firstChild);
   }
+  // A11Y: reachable by Tab and toggleable by Enter/Space (todo-list-plugin.js
+  // wires the keydown). Set unconditionally, not just on creation — a box that
+  // already existed (loaded from a legacy document saved before this fix, or
+  // any third-party HTML that pre-built the span) must still gain it, since
+  // the sanitizer's span allowlist doesn't include tabindex and would strip
+  // any prior value on the way in.
+  box.setAttribute('tabindex', '0');
   box.setAttribute('aria-checked', isChecked(li) ? 'true' : 'false');
   return box;
 }

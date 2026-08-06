@@ -25,7 +25,9 @@
   ],
   "scripts": {
     "build": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs",
+    "prepublishOnly": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs"
   },
   "peerDependencies": {
     "@angular/core": ">=17",

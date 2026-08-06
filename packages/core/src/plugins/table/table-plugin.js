@@ -16,6 +16,7 @@ import { handleTableKey }      from './table-keyboard.js';
 import { buildTableMenuItems } from './table-contextmenu.js';
 import { TableSelectionManager } from './table-selection.js';
 import { TableResizeManager } from './table-resize.js';
+import { serializeCellRange } from './table-copy.js';
 
 const INSERT_TABLE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <rect x="3" y="3" width="18" height="18" rx="1"/>
@@ -49,12 +50,51 @@ export function createTablePlugin() {
       // 11.6/11.7 — right-click inside a cell opens the table context menu.
       // editor.on() is auto-cleaned by PluginManager on uninstall.
       editor.on('contextmenu', (e) => this._onContextMenu(e));
+
+      // T6 — copy/cut a selected cell RANGE as a clean subtable (rich targets) +
+      // TSV (spreadsheets). Only claims the event when cells are actually selected;
+      // otherwise the browser's default copy runs.
+      const edEl = editor.getEditorElement && editor.getEditorElement();
+      if (edEl) {
+        this._onCopy = (e) => this._handleCopyCut(e, false);
+        this._onCut = (e) => this._handleCopyCut(e, true);
+        edEl.addEventListener('copy', this._onCopy);
+        edEl.addEventListener('cut', this._onCut);
+        this._copyTarget = edEl;
+      }
     },
 
     destroy() {
       if (this._selection) { this._selection.destroy(); this._selection = null; }
       if (this._resize)    { this._resize.destroy();    this._resize    = null; }
+      if (this._copyTarget) {
+        this._copyTarget.removeEventListener('copy', this._onCopy);
+        this._copyTarget.removeEventListener('cut', this._onCut);
+        this._copyTarget = null;
+      }
       this._editor = null;
+    },
+
+    // T6: write the selected cell range to the clipboard as HTML + TSV. On cut,
+    // also clear the cells' contents (snapshotted for undo). No-op (default copy)
+    // when no cell range is selected.
+    _handleCopyCut(e, isCut) {
+      const editor = this._editor;
+      const cells = this._selection ? this._selection.getSelectedCells() : [];
+      if (!editor || cells.length < 2 || !e.clipboardData) return;
+      const table = cells[0].closest && cells[0].closest('table');
+      if (!table) return;
+      const payload = serializeCellRange(table, cells);
+      if (!payload) return;
+      e.preventDefault();
+      e.clipboardData.setData('text/html', payload.html);
+      e.clipboardData.setData('text/plain', payload.tsv);
+      if (isCut) {
+        editor.history && editor.history.takeSnapshot();
+        for (const c of cells) c.innerHTML = '<br>';
+        editor.emit('afterCommand', { command: 'tableCutCells', args: [] });
+        if (editor._onChangeFn) editor._onChangeFn();
+      }
     },
 
     getToolbarButtons() {
@@ -73,7 +113,7 @@ export function createTablePlugin() {
     onKeyDown(e) {
       const editor = this._editor;
       if (!editor) return false;
-      return handleTableKey(editor, e);
+      return handleTableKey(editor, e, this._selection);
     },
 
     _onContextMenu(e) {

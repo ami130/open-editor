@@ -68,3 +68,55 @@ describe('17.5.6 — through a real editor', () => {
     expect(node.nodeValue.length).toBeGreaterThan(3); // emoji char present
   });
 });
+
+describe('17.5.6 — deep-audit fixes (E1/E3/E4)', () => {
+  let editor, target;
+  afterEach(() => {
+    if (editor && !editor.isDestroyed()) editor.destroy();
+    if (target && target.parentNode) target.remove();
+    editor = target = null;
+  });
+  function boot(html) {
+    target = document.createElement('div');
+    document.body.appendChild(target);
+    editor = new OpenEditor(target, {});
+    editor.plugins.install(createEmojiPlugin());
+    editor.setHTML(html);
+    return editor;
+  }
+
+  it('E1: an emoji insert is undoable in one step (restores :fire)', () => {
+    boot('<p>x</p>');
+    const node = editor.getEditorElement().querySelector('p').firstChild;
+    node.nodeValue = 'go :fire';
+    editor.selection.set(node, 8, node, 8);
+    editor.getEditorElement().dispatchEvent(new Event('input', { bubbles: true }));
+    const plugin = editor.plugins.get('emoji');
+    plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    expect(editor.getEditorElement().textContent).not.toContain(':fire');
+    editor.undo();
+    // Undo restores the pre-insert ":fire" text (was: skipped past it).
+    expect(editor.getEditorElement().textContent).toContain(':fire');
+  });
+
+  it('E3: does NOT open the popup inside a code block', () => {
+    boot('<pre><code>x</code></pre>');
+    const codeText = editor.getEditorElement().querySelector('code').firstChild;
+    codeText.nodeValue = 'x :fire';
+    editor.selection.set(codeText, 7, codeText, 7);
+    editor.getEditorElement().dispatchEvent(new Event('input', { bubbles: true }));
+    expect(document.querySelector('.oe-caret-popup:not([hidden])')).toBeNull();
+  });
+
+  it('E4: Tab accepts the active emoji (like Enter)', () => {
+    boot('<p>x</p>');
+    const node = editor.getEditorElement().querySelector('p').firstChild;
+    node.nodeValue = 'go :fire';
+    editor.selection.set(node, 8, node, 8);
+    editor.getEditorElement().dispatchEvent(new Event('input', { bubbles: true }));
+    const plugin = editor.plugins.get('emoji');
+    const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Tab', cancelable: true }));
+    expect(handled).toBe(true);
+    expect(node.nodeValue).not.toContain(':fire');
+  });
+});

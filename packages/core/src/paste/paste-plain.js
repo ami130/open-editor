@@ -34,10 +34,47 @@ export function escapeHtmlText(text) {
  *   <br> for every line break.
  * @returns {string}
  */
+/**
+ * T7: does the plain text look like a spreadsheet paste (TSV)? Requires ≥2 lines
+ * where at least one line contains a TAB — the shape Excel/Google Sheets put on
+ * the plain-text clipboard. (A single tab-less paragraph is NOT a table.)
+ */
+export function looksLikeTsv(text) {
+  const lines = String(text == null ? '' : text).replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  if (lines.length < 2) return false;
+  return lines.some((l) => l.includes('\t'));
+}
+
+/**
+ * T7: convert a TSV clipboard payload to a clean <table> HTML string. Rows split
+ * on newline, cells on TAB; the grid is padded to the widest row so it's
+ * rectangular. Cell text is HTML-escaped. First row is NOT auto-headered (Sheets
+ * doesn't distinguish); the user can toggle a header row after.
+ */
+export function tsvToTableHtml(text) {
+  const rows = String(text == null ? '' : text)
+    .replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n')
+    .map((line) => line.split('\t'));
+  const cols = rows.reduce((n, r) => Math.max(n, r.length), 0);
+  const body = rows.map((cells) => {
+    const tds = [];
+    for (let c = 0; c < cols; c++) {
+      const v = escapeHtmlText(cells[c] != null ? cells[c] : '');
+      tds.push(`<td>${v || '<br>'}</td>`);
+    }
+    return `<tr>${tds.join('')}</tr>`;
+  }).join('');
+  return `<table class="oe-table"><tbody>${body}</tbody></table>`;
+}
+
 export function plainTextToHtml(text, opts = {}) {
   const block = opts.block !== false;
   const src = String(text == null ? '' : text);
   if (src === '') return '';
+
+  // T7: a spreadsheet (TSV) paste becomes a real table instead of tab-run text —
+  // but only in paragraph (block) mode; <br>/force-plain mode keeps it literal.
+  if (block && opts.tsvTables !== false && looksLikeTsv(src)) return tsvToTableHtml(src);
 
   // Normalize line endings first so \r\n / \r behave like \n everywhere.
   const normalized = src.replace(/\r\n?/g, '\n');

@@ -79,7 +79,18 @@ export class HistoryManager {
     // the stack first, then steps back. Without this, the command layer's
     // isEnabled gate (command-manager.js) refuses `undo` during the first typing
     // burst and it never flushes — so typing-then-immediate-Ctrl+Z did nothing.
-    return this._index > 0 || this._idleTimer !== null;
+    if (this._index > 0) return true;
+    // ...but only if flushing would ACTUALLY push a new entry. When the pending
+    // snapshot is identical to the current top of stack, _push() dedups it, so
+    // _index never advances and the subsequent `_index--` is refused — the
+    // keypress was silently swallowed. Compare the live HTML to the stack top
+    // and report honestly instead (proven: canUndo() said true, undo() no-oped).
+    if (this._idleTimer === null) return false;
+    const editor = this._editor;
+    const el = editor && !editor.isDestroyed() && editor.getEditorElement();
+    if (!el) return false;
+    const top = this._stack[this._index];
+    return !top || top.html !== el.innerHTML;
   }
 
   canRedo() {

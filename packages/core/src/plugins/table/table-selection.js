@@ -115,6 +115,19 @@ export class TableSelectionManager {
 
   _end() { this._dragging = false; }
 
+  /**
+   * T8: keyboard range extension. Highlight the rectangle from `anchor` to
+   * `focus` (both DOM cells in the same table). The anchor is the fixed corner;
+   * repeated Shift+Arrow calls grow/shrink the rectangle from it.
+   */
+  extendTo(anchor, focus) {
+    const table = this._tableFrom(anchor);
+    if (!table || this._tableFrom(focus) !== table) return false;
+    this._table = table;
+    this._selectRange(anchor, focus);
+    return true;
+  }
+
   /** Highlight the rectangle covering both cells. */
   _selectRange(a, b) {
     const m = buildMatrix(this._table);

@@ -37,16 +37,9 @@ test.describe('Phase 13 — content plugins', () => {
     expect(xss).toBeUndefined();
   });
 
-  test('Code block button inserts a <pre><code> with a language class', async ({ page }) => {
-    await page.locator('[title="Code block"], [aria-label="Code block"]').first().click();
-    await page.waitForSelector('.oe-codeblock-dialog', { state: 'visible' });
-    await page.locator('.oe-codeblock-dialog__select').selectOption('javascript');
-    // scope to the modal footer — "Insert" also appears on other toolbar buttons
-    await page.locator('.oe-modal__btn', { hasText: 'Insert' }).click();
-    await page.waitForTimeout(60);
-    const hasCode = await page.evaluate(() => !!document.querySelector('.oe-editor pre > code.language-javascript'));
-    expect(hasCode).toBe(true);
-  });
+  // NOTE: the Code block button test was removed because the code-block plugin is
+  // intentionally no longer installed in the playground (non-technical audience).
+  // The plugin itself remains covered by packages/core unit tests.
 
   test('Special characters grid inserts a character', async ({ page }) => {
     await page.locator('[title="Special characters"], [aria-label="Special characters"]').first().click();

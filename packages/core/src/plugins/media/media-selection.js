@@ -9,6 +9,7 @@
  */
 import { applyAlignment } from './media-dom.js';
 import { ensureEditorFloor } from '../../editing/block-editing.js';
+import { keyboardResizeMedia } from './media-keyboard-resize.js';
 
 const SELECTED_CLASS = 'oe-embed--selected';
 
@@ -47,10 +48,20 @@ export class MediaSelectionManager {
     if (editorEl) {
       editorEl.addEventListener('contextmenu', this._onContextMenu);
       this._contextMenuTarget = editorEl;
+      // A11Y: Tab-focusing an embed island selects it (mirrors image-selection.js).
+      this._onFocusIn = (e) => this._handleFocusIn(e);
+      editorEl.addEventListener('focusin', this._onFocusIn);
     } else {
       editor.on('contextmenu', this._onContextMenu);
       this._contextMenuTarget = null;
     }
+  }
+
+  _handleFocusIn(e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const fig = t.closest('[data-oe-island="video"]');
+    if (fig && fig !== this._selectedFigure) this._selectFigure(fig);
   }
 
   destroy() {
@@ -62,6 +73,7 @@ export class MediaSelectionManager {
       this._editor.off('setHTML', this._onContentReplaced);
       if (this._contextMenuTarget) {
         this._contextMenuTarget.removeEventListener('contextmenu', this._onContextMenu);
+        if (this._onFocusIn) this._contextMenuTarget.removeEventListener('focusin', this._onFocusIn);
       } else {
         this._editor.off('contextmenu', this._onContextMenu);
       }
@@ -77,15 +89,39 @@ export class MediaSelectionManager {
       this._deleteSelected();
       return true;
     }
+    // A11Y: ContextMenu key / Shift+F10 opens the align/delete menu — the
+    // keyboard equivalent of right-click (mirrors image-selection.js #6).
+    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      if (this._openContextMenuForSelected()) { e.preventDefault(); return true; }
+    }
+    // A11Y: arrow keys RESIZE the selected embed (Shift = 10px, else 1px).
     if (e.key.startsWith('Arrow')) {
+      if (this._canMutate()
+        && keyboardResizeMedia(this._editor, this._selectedFigure, e)) { e.preventDefault(); return true; }
       this._deselectAll();
       return false;
     }
     if (e.key === 'Escape') {
+      const wasSelected = this._selectedFigure;
       this._deselectAll();
-      return true;
+      const el = this._editor && this._editor.getEditorElement && this._editor.getEditorElement();
+      if (el && el.focus) el.focus();
+      return !!wasSelected;
     }
     return false;
+  }
+
+  _openContextMenuForSelected() {
+    const fig = this._selectedFigure;
+    const ed = this._editor;
+    if (!fig || !ed || !ed.ui || !ed.ui.contextMenu || !ed._wrapper) return false;
+    try {
+      const fRect = fig.getBoundingClientRect();
+      const wRect = ed._wrapper.getBoundingClientRect();
+      ed.ui.contextMenu.show(fRect.left - wRect.left + 8, fRect.top - wRect.top + 8,
+        this._buildContextMenuItems(fig));
+      return true;
+    } catch { return false; }
   }
 
   getSelected() { return this._selectedFigure; }
@@ -127,12 +163,36 @@ export class MediaSelectionManager {
     ed.ui.contextMenu.show(x, y, this._buildContextMenuItems(fig));
   }
 
+  /**
+   * READONLY GUARD for every content-mutating path in this manager. Align and
+   * delete are reached by right-click / the floating action bar / a keypress on
+   * a selected island — none of which pass through the toolbar's readonly gate,
+   * so each must check for itself (proven live: a readonly embed could still be
+   * aligned and deleted).
+   */
+  _canMutate() {
+    const ed = this._editor;
+    return !!ed && !(ed.isReadOnly && ed.isReadOnly());
+  }
+
+  /** Align the figure as one clean undo step (snapshot before, afterCommand after). */
+  align(fig, alignment) {
+    if (!this._canMutate()) return;
+    const ed = this._editor;
+    // takeSnapshot BEFORE the mutation: _emit() only fires afterCommand (the
+    // POST-state snapshot), so without this the pre-align state relied on an
+    // incidental idle snapshot rather than an explicit one.
+    ed.history && ed.history.takeSnapshot();
+    applyAlignment(fig, alignment);
+    this._emit();
+  }
+
   _buildContextMenuItems(fig) {
     return [
-      { label: 'Float left',  action: () => { applyAlignment(fig, 'left');   this._emit(); } },
-      { label: 'Center',      action: () => { applyAlignment(fig, 'center'); this._emit(); } },
-      { label: 'Float right', action: () => { applyAlignment(fig, 'right');  this._emit(); } },
-      { label: 'Inline',      action: () => { applyAlignment(fig, 'inline'); this._emit(); } },
+      { label: 'Float left',  action: () => this.align(fig, 'left') },
+      { label: 'Center',      action: () => this.align(fig, 'center') },
+      { label: 'Float right', action: () => this.align(fig, 'right') },
+      { label: 'Inline',      action: () => this.align(fig, 'inline') },
       { separator: true },
       { label: 'Delete video', action: () => this._deleteSelected() },
     ];
@@ -140,6 +200,7 @@ export class MediaSelectionManager {
 
   /** Public: remove a figure via the standard delete path. */
   deleteFigure(fig) {
+    if (!this._canMutate()) return;
     if (fig && fig !== this._selectedFigure) this._selectFigure(fig);
     this._deleteSelected();
   }
@@ -165,6 +226,7 @@ export class MediaSelectionManager {
   }
 
   _deleteSelected() {
+    if (!this._canMutate()) return;
     const fig = this._selectedFigure;
     if (!fig) return;
     const ed = this._editor;

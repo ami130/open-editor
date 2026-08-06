@@ -76,6 +76,7 @@ export const fr = {
   bookmarkName: 'Nom',
   bookmarkNameInvalid: 'Utilisez lettres, chiffres et tirets ; commencez par une lettre.',
   bookmarkNameTaken: 'Ce nom est déjà utilisé dans ce document.',
+  bookmarkNameRequired: 'Saisissez un nom pour ce signet.',
   bookmarkEdit: 'Modifier le signet',
   bookmarkCopyLink: 'Copier le lien (#nom)',
   bookmarkIcon: 'Icône',

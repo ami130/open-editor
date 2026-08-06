@@ -2,15 +2,19 @@
  * source-plugin.js — Phase 13.1: toggle between WYSIWYG and raw-HTML source.
  *
  * SECURITY MODEL (the whole point): the textarea's raw content re-enters the
- * document ONLY via editor.setHTML(), which sanitizes. The plugin NEVER assigns
+ * document ONLY through the editor's sanitizer. The plugin NEVER assigns
  * innerHTML directly. So malicious HTML typed in source mode (a <script>, an
- * onerror handler, an unsafe iframe) is neutralized by the existing, hardened
- * setHTML path on the way back — nothing new to trust.
+ * onerror handler, an unsafe iframe) is neutralized on the way back — nothing
+ * new to trust.
  *
  * Enter:  getHTML() (sanitized on read) → beautify → show a <textarea>.
- * Exit:   setHTML(textarea.value) (sanitized on write) → restore WYSIWYG.
+ * Exit:   _sanitizeHTML(textarea.value) → editor._setRawHTML(clean) → restore
+ *         WYSIWYG. (NOT editor.setHTML() — that clears undo history; a direct
+ *         snapshot + setRawHTML keeps the source edit a normal undo step.)
  * While in source: the editable area is hidden and the textarea is the only
- * editing surface; formatting is meaningless so the wrapper gets a state class.
+ * editing surface; formatting is meaningless so the wrapper gets a state class
+ * (S1/S2: entry is refused in readonly, and the toolbar disables non-exempt
+ * buttons while in source mode via the same readonly-disable mechanism).
  *
  * Zero dependency: a plain <textarea> + the in-house beautifier + a pure
  * in-house HTML highlighter (source-highlight.js). No CDN, no Ace.
@@ -52,12 +56,24 @@ export function createSourcePlugin() {
       this._editor = editor;
       const doc = (typeof document !== 'undefined') ? document : null;
       if (doc) injectSourceStyles(doc);
+      // S3: also inject into the IFRAME document when the editor runs in one —
+      // the textarea/overlay are created there (editor._iframeDoc, see _enter),
+      // so without this the source view rendered unstyled (misaligned overlay,
+      // no monospace font, no syntax colors) whenever content lives in an iframe.
+      if (editor._iframeDoc && editor._iframeDoc !== doc) injectSourceStyles(editor._iframeDoc);
+      // S1: a readonly toggle WHILE source view is open must force-exit WITHOUT
+      // applying the textarea (the toolbar button already disables entry, but
+      // that's UI-only — this closes the gap for setReadOnly() called mid-session).
+      this._onReadOnlyChange = (e) => { if (e && e.readOnly && this._active) this._forceExit(); };
+      editor.on('readOnlyChange', this._onReadOnlyChange);
     },
 
     destroy() {
       // If torn down while in source mode, restore the editable area so the
       // editor isn't left hidden. Do NOT re-apply content (editor is going away).
       if (this._active) this._teardownTextarea();
+      if (this._editor && this._onReadOnlyChange) this._editor.off('readOnlyChange', this._onReadOnlyChange);
+      this._onReadOnlyChange = null;
       this._editor = null;
     },
 
@@ -78,6 +94,10 @@ export function createSourcePlugin() {
     _enter() {
       const editor = this._editor;
       if (!editor || this._active) return;
+      // S1: never open source view (an EDITING surface) while the editor is
+      // readonly — defense-in-depth beyond the toolbar button's disabled state,
+      // which only stops a mouse click, not a programmatic .toggle() call.
+      if (editor.isReadOnly && editor.isReadOnly()) return;
       const el = editor.getEditorElement();
       const wrapper = editor._wrapper;
       if (!el || !wrapper) return;
@@ -128,6 +148,7 @@ export function createSourcePlugin() {
 
       ta.focus();
       this._active = true;
+      editor._sourceViewActive = true; // S2: toolbar disables non-exempt buttons
       editor.emit('sourceEnter', { html: value });
       editor.emit('afterCommand', { command: 'sourceToggle', args: [true] });
     },
@@ -146,6 +167,7 @@ export function createSourcePlugin() {
       const entered = this._enterValue;
       this._teardownTextarea();
       this._active = false;
+      editor._sourceViewActive = false;
       const el = editor.getEditorElement();
 
       // Only apply the source text if the user actually EDITED it. If the
@@ -173,6 +195,20 @@ export function createSourcePlugin() {
       if (el && el.focus) el.focus();
       editor.emit('sourceExit', {});
       editor.emit('afterCommand', { command: 'sourceToggle', args: [false] });
+    },
+
+    // S1: exit WITHOUT applying the textarea's content — used when readonly is
+    // turned on mid-session. Unlike a normal _exit(), the in-progress edit is
+    // discarded rather than committed (readonly means it should never land).
+    _forceExit() {
+      this._teardownTextarea();
+      this._active = false;
+      this._enterValue = null;
+      const editor = this._editor;
+      if (editor) {
+        editor._sourceViewActive = false;
+        editor.emit('afterCommand', { command: 'sourceToggle', args: [false] });
+      }
     },
 
     // Remove the textarea (+ overlay/container) and restore the editable area.

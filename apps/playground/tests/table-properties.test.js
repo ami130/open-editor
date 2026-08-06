@@ -39,12 +39,18 @@ test('Table properties dialog applies a composed grid border + width', async ({ 
   await page.waitForTimeout(200);
 
   const tableStyle = await table.getAttribute('style');
-  console.log('TABLE STYLE:', tableStyle);
   expect(tableStyle).toContain('width: 80%');
-  const cellBorder = await cell.evaluate((c) => c.style.border);
-  console.log('CELL BORDER:', cellBorder);
-  expect(cellBorder).toContain('dashed');
-  expect(cellBorder).toContain('2px');
+  // T12: the grid border is driven by the table's --oe-table-border variable
+  // (NOT an inline per-cell border, which used to clobber Cell-properties work).
+  const tableVar = await table.evaluate((t) => t.style.getPropertyValue('--oe-table-border'));
+  expect(tableVar).toContain('dashed');
+  expect(tableVar).toContain('2px');
+  // The cell renders the grid via the var → its COMPUTED border reflects it,
+  // while its inline style.border stays empty.
+  const inlineBorder = await cell.evaluate((c) => c.style.border);
+  expect(inlineBorder).toBe('');
+  const computed = await cell.evaluate((c) => getComputedStyle(c).borderTopStyle);
+  expect(computed).toBe('dashed');
 });
 
 test('Cell properties dialog applies a per-side border + background to selected cell', async ({ page }) => {

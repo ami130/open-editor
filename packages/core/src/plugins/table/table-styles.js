@@ -15,7 +15,10 @@ const TABLE_CSS = `
 }
 .oe-editor table.oe-table td,
 .oe-editor table.oe-table th {
-  border: 1px solid var(--oe-border-strong);
+  /* T12: grid border comes from the table's --oe-table-border (set by Table
+     properties), falling back to the default. A per-cell inline border (set via
+     Cell properties) still wins, since inline style beats this rule. */
+  border: var(--oe-table-border, 1px solid var(--oe-border-strong));
   padding: 6px 8px;
   vertical-align: top;
   /* A readable column floor: with table-layout:fixed + width:100%, a 24px floor
@@ -25,6 +28,22 @@ const TABLE_CSS = `
      instead of squeezing. */
   min-width: 72px;
   word-break: break-word;
+  position: relative;   /* anchor the resize grab strip (T11) */
+}
+/* T11: a visible column-resize affordance. A thin strip on each cell's right
+   edge shows the col-resize cursor so the drag zone is discoverable (the JS
+   resize handler in table-resize.js already grabs within 6px of the border).
+   Not on the last column of a row (nothing to resize past the table edge). */
+.oe-editor table.oe-table td:not(:last-child)::after,
+.oe-editor table.oe-table th:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1;
 }
 .oe-editor table.oe-table th {
   background: var(--oe-panel-hover);

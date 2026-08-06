@@ -53,7 +53,18 @@ export class MediaActionBar {
     bar.hidden = true;
     bar.addEventListener('mousedown', (e) => e.preventDefault());
 
-    const align = (a) => { if (this._figure) { applyAlignment(this._figure, a); this._emit(); this._reposition(); } };
+    // Readonly guard + pre-mutation snapshot: this floating bar sits outside
+    // the toolbar's readonly gate, and _emit() only captures the POST-align
+    // state (see MediaSelectionManager.align for the same reasoning).
+    const align = (a) => {
+      const ed = this._editor;
+      if (!this._figure || !ed) return;
+      if (ed.isReadOnly && ed.isReadOnly()) return;
+      ed.history && ed.history.takeSnapshot();
+      applyAlignment(this._figure, a);
+      this._emit();
+      this._reposition();
+    };
     const bl = this._mkBtn(doc, ICON.left, 'Align left', '');
     const bc = this._mkBtn(doc, ICON.center, 'Center', '');
     const br = this._mkBtn(doc, ICON.right, 'Align right', '');

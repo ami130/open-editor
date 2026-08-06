@@ -95,7 +95,9 @@ export function createSlashCommandPlugin() {
         return true;
       });
       if (!this._popup.isOpen()) {
-        const range = document.createRange();
+        // IFRAME: build the Range from the caret node's OWN document — a Range
+        // from the outer document throws WrongDocumentError on an iframe node.
+        const range = (info.startNode.ownerDocument || document).createRange();
         range.setStart(info.startNode, info.startOffset);
         range.collapse(true);
         this._popup.open(range, items);
@@ -117,8 +119,13 @@ export function createSlashCommandPlugin() {
       // Delete the "/query" text so the command applies to a clean block.
       const node = this._triggerNode;
       const len = Math.min(this._triggerLen, node.nodeValue.length);
+      // UNDO: snapshot BEFORE stripping the trigger text. The command executed
+      // below takes its own snapshot, but by then the "/heading" text is already
+      // gone — so undo restored the block without ever restoring what was typed.
+      editor.history && editor.history.takeSnapshot();
       node.nodeValue = node.nodeValue.slice(len);
-      const range = document.createRange();
+      // IFRAME: use the node's own document (see _show above).
+      const range = (node.ownerDocument || document).createRange();
       range.setStart(node, 0);
       range.collapse(true);
       const win = (node.ownerDocument.defaultView) || (typeof window !== 'undefined' ? window : null);

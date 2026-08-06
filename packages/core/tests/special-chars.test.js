@@ -49,6 +49,25 @@ describe('buildCharGrid', () => {
     expect(picked).toBe('@');
   });
 
+  it('SC1: uses roving tabindex — only the first cell is a tab-stop', () => {
+    const { node } = buildCharGrid(document, items, () => {});
+    const cells = [...node.querySelectorAll('.oe-chargrid__cell')];
+    expect(cells[0].getAttribute('tabindex')).toBe('0');
+    expect(cells.slice(1).every((c) => c.getAttribute('tabindex') === '-1')).toBe(true);
+  });
+
+  it('SC1: ArrowRight moves the tab-stop to the next cell and focuses it', () => {
+    const { node } = buildCharGrid(document, items, () => {});
+    document.body.appendChild(node);
+    const cells = [...node.querySelectorAll('.oe-chargrid__cell')];
+    cells[0].focus();
+    node.querySelector('.oe-chargrid__grid')
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+    expect(cells[1].getAttribute('tabindex')).toBe('0');
+    expect(cells[0].getAttribute('tabindex')).toBe('-1');
+    node.remove();
+  });
+
   it('search filters by label, char, and keywords', () => {
     const { node } = buildCharGrid(document, items, () => {});
     const input = node.querySelector('.oe-chargrid__search');

@@ -7,7 +7,7 @@
 import { t } from '../../ui/toolbar/locale.js';
 import { createPickerEngine } from '../../ui/toolbar/color-picker-engine.js';
 import {
-  listBookmarks, removeBookmark, applyPresentation, readMarkerColor,
+  applyPresentation, readMarkerColor,
   NAME_RE, HEX_COLOR_RE,
 } from './bookmark-core.js';
 
@@ -128,9 +128,20 @@ export async function openBookmarkDialog(editor, existing, opts) {
 
   const validate = () => {
     const v = input.value.trim();
-    if (!v) { err.textContent = ''; return false; }
+    // A blank/whitespace-only name must show a visible error, not silently
+    // fail Save with no explanation (previously: empty error text + `return
+    // false`, so clicking Save appeared to do nothing).
+    if (!v) { err.textContent = t(locale, 'bookmarkNameRequired'); return false; }
     if (!NAME_RE.test(v)) { err.textContent = t(locale, 'bookmarkNameInvalid'); return false; }
-    if (listBookmarks(editor).some((b) => b.id === v && b !== existing)) {
+    // Collision check widened to ANY id-bearing element in the document, not
+    // just other bookmarks — a bookmark's id is a real DOM id (consumed as an
+    // anchor target by `#name` links), so it can silently collide with e.g. a
+    // manually-set image id and make a link jump to the wrong place. NAME_RE
+    // already restricts `v` to [A-Za-z][\w-]*, so no CSS-selector escaping is
+    // needed for the attribute-selector lookup.
+    const root = editor.getEditorElement();
+    const collision = root.querySelector(`[id="${v}"]`);
+    if (collision && collision !== existing) {
       err.textContent = t(locale, 'bookmarkNameTaken'); return false;
     }
     err.textContent = '';
@@ -152,7 +163,12 @@ export async function openBookmarkDialog(editor, existing, opts) {
   const choice = await modalPromise;
   if (colorEngine) colorEngine.deactivate();
 
-  if (choice === 'remove' && existing) { removeBookmark(editor, existing); return; }
+  // Route through the registered command (same path the context-menu's Remove
+  // uses) rather than calling removeBookmark() directly — CommandManager.execute
+  // is what actually fires 'afterCommand', which HistoryManager listens to for
+  // undo integration. A direct call here left dialog-triggered removal outside
+  // the undo system entirely (undo() would silently skip right past it).
+  if (choice === 'remove' && existing) { editor.commands.execute('removeBookmark', { mark: existing }); return; }
   if (choice !== 'save') return;
 
   const name = input.value.trim();
@@ -165,8 +181,15 @@ export async function openBookmarkDialog(editor, existing, opts) {
     : (colorEngine && colorDirty ? colorEngine.getHex() : colorState);
 
   if (existing) {
+    // Renaming/re-presenting an existing bookmark mutates the DOM directly
+    // (no CommandManager involved), which made it invisible to undo — a
+    // takeSnapshot() BEFORE the mutation, paired with an afterCommand emit
+    // AFTER, are both required for HistoryManager to capture this as its own
+    // undo step (mirrors insertBookmark's own undo-integration).
+    editor.history && editor.history.takeSnapshot();
     existing.id = name;
     applyPresentation(existing, iconState, finalColor);
+    editor.emit('afterCommand', { command: 'renameBookmark', args: [] });
     if (editor._onChangeFn) editor._onChangeFn();
   } else {
     editor.commands.execute('insertBookmark', { name, icon: iconState, color: finalColor, saved });

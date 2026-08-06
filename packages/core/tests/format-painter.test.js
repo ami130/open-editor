@@ -206,3 +206,35 @@ describe('format painter plugin state machine', () => {
     expect(() => editor.plugins.uninstall('formatPainter')).not.toThrow();
   });
 });
+
+describe('FP1 — style painting (color/font/size via <span style>)', () => {
+  it('applyFormat wraps selected text in a span carrying the captured styles', () => {
+    editor.setHTML('<p>hello world</p>');
+    const tn = editor.getEditorElement().querySelector('p').firstChild;
+    selectText(tn, 0, 5); // "hello"
+    const n = applyFormat(editor, { tags: [], styles: { color: 'rgb(255, 0, 0)', 'font-size': '20px' } });
+    expect(n).toBeGreaterThan(0);
+    const span = editor.getEditorElement().querySelector('span[style]');
+    expect(span).not.toBeNull();
+    expect(span.style.color).toBe('rgb(255, 0, 0)');
+    expect(span.style.fontSize).toBe('20px');
+    expect(span.textContent).toBe('hello');
+  });
+
+  it('hasFormat is true when only styles were captured (no tags)', () => {
+    expect(hasFormat({ tags: [], styles: { color: 'rgb(1, 2, 3)' } })).toBe(true);
+    expect(hasFormat({ tags: [], styles: {} })).toBe(false);
+    expect(hasFormat({ tags: ['strong'], styles: {} })).toBe(true);
+  });
+
+  it('does NOT paint block/layout — only the whitelisted text-presentation props', () => {
+    editor.setHTML('<p>abc</p>');
+    const tn = editor.getEditorElement().querySelector('p').firstChild;
+    selectText(tn, 0, 3);
+    // margin/display are not paintable → applyFormat ignores them (only color wraps).
+    applyFormat(editor, { tags: [], styles: { color: 'rgb(9, 9, 9)' } });
+    const span = editor.getEditorElement().querySelector('span[style]');
+    expect(span.style.margin).toBe('');
+    expect(span.style.color).toBe('rgb(9, 9, 9)');
+  });
+});

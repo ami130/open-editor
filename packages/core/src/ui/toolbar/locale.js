@@ -92,6 +92,7 @@ export const EN_LOCALE = {
   bookmarkName: 'Name',
   bookmarkNameInvalid: 'Use letters, numbers, and dashes; start with a letter.',
   bookmarkNameTaken: 'That name is already used in this document.',
+  bookmarkNameRequired: 'Enter a name for this bookmark.',
   bookmarkEdit: 'Edit bookmark',
   bookmarkCopyLink: 'Copy link (#name)',
   bookmarkIcon: 'Icon',

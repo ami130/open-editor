@@ -15,6 +15,7 @@
 import {
   buildMatrix, matrixDimensions, cellCoords, cellAt, tableRows, colSpan, rowSpan,
 } from './table-matrix.js';
+import { ensureEditorFloor } from '../../editing/block-editing.js';
 
 function setSpan(cell, attr, n) {
   if (n <= 1) cell.removeAttribute(attr);
@@ -164,6 +165,12 @@ export function deleteRow(table, refRow) {
           const ref = _insertRefInRow(m, nextTr, refRow + 1, origin.col + colSpan(cell));
           setSpan(cell, 'rowspan', rs - 1);
           nextTr.insertBefore(cell, ref);
+        } else {
+          // No next row (degenerate: a rowspan>1 whose origin is the LAST row, from
+          // malformed/imported HTML). Re-home the cell into the PREVIOUS row so its
+          // content survives instead of being dropped with the deleted row.
+          const prevTr = tableRows(table)[refRow - 1];
+          if (prevTr) { setSpan(cell, 'rowspan', 1); prevTr.appendChild(cell); }
         }
       } else if (origin.row < refRow && !moved.has(cell)) {
         moved.add(cell);
@@ -197,9 +204,32 @@ export function deleteColumn(table, refCol) {
   removeColFromColgroup(table, refCol);
 }
 
-/** Remove the whole table from the DOM. */
-export function deleteTable(table) {
-  if (table && table.parentNode) table.parentNode.removeChild(table);
+/**
+ * Remove the whole table from the DOM. When an editor is passed, place the caret
+ * on a sensible neighbour (previous / next block) and restore the empty-editor
+ * floor — otherwise deleting the only/last block leaves the caret in detached
+ * DOM with no editable target (mirrors the image delete path).
+ */
+export function deleteTable(table, editor) {
+  if (!table || !table.parentNode) return;
+  const prev = table.previousElementSibling;
+  const next = table.nextElementSibling;
+  const parent = table.parentNode;
+  const doc = table.ownerDocument;
+  table.parentNode.removeChild(table);
+  if (!editor) return;
+  ensureEditorFloor(editor);
+  // Caret to prev block end / next block start / the restored floor.
+  try {
+    const target = (prev && prev.parentNode) ? prev
+      : (next && next.parentNode) ? next
+      : (parent.firstElementChild || parent);
+    const range = doc.createRange();
+    if (target === prev) { range.selectNodeContents(prev); range.collapse(false); }
+    else { range.setStart(target, 0); range.collapse(true); }
+    const domSel = doc.getSelection ? doc.getSelection() : null;
+    if (domSel) { domSel.removeAllRanges(); domSel.addRange(range); }
+  } catch { /* selection placement is best-effort */ }
 }
 
 // Using the ORIGINAL matrix `m` (built once, before any mutation), find the DOM

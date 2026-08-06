@@ -8,6 +8,7 @@
 import { keyboardResizeImage, replaceFigureWithText, deleteFigureFromDoc } from './image-keyboard-resize.js';
 import { promptImageLink } from './image-link-prompt.js';
 import { handleImageContextMenu, openImageMenuForSelected } from './image-context-menu.js';
+import { applyAlignment } from './image-dom.js';
 
 const SELECTED_CLASS = 'oe-figure--selected';
 
@@ -151,7 +152,7 @@ export class ImageSelectionManager {
     }
     // IMG20: a printable key over a selected image REPLACES it with that text
     // (Docs/Word). Ignore modifier combos + non-printing keys.
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && this._canMutate()) {
       const fig = this._selectedFigure;
       this._deselectAll();
       if (replaceFigureWithText(this._editor, fig, e.key)) { e.preventDefault(); return true; }
@@ -160,7 +161,9 @@ export class ImageSelectionManager {
   }
 
   // Keyboard resize of the selected image (delegates to image-keyboard-resize.js).
+  // Guarded: this runs off a keypress on a selected island, not the toolbar.
   _keyboardResize(e) {
+    if (!this._canMutate()) return false;
     return keyboardResizeImage(this._editor, this._selectedFigure, e);
   }
 
@@ -226,13 +229,37 @@ export class ImageSelectionManager {
   // A11Y (#6): keyboard-invoked actions menu for the selected figure.
   _openContextMenuForSelected() { return openImageMenuForSelected(this); }
 
+  /**
+   * READONLY GUARD for every content-mutating path here. Align/delete/link are
+   * reached by right-click, the floating action bar, or a keypress on a selected
+   * island — none pass through the toolbar's readonly gate, so each checks itself.
+   */
+  _canMutate() {
+    const ed = this._editor;
+    return !!ed && !(ed.isReadOnly && ed.isReadOnly());
+  }
+
+  /** Align as one clean undo step (snapshot before, afterCommand after). */
+  align(fig, alignment, announce) {
+    if (!this._canMutate()) return;
+    const ed = this._editor;
+    // takeSnapshot BEFORE: _emit() only fires afterCommand (the POST-state
+    // snapshot), so the pre-align state otherwise relied on an incidental
+    // idle snapshot rather than an explicit one.
+    ed.history && ed.history.takeSnapshot();
+    applyAlignment(fig, alignment);
+    this._emit(announce);
+  }
+
   /** Public: remove a figure via the standard delete path (used by 9.1 Delete). */
   deleteFigure(fig) {
+    if (!this._canMutate()) return;
     if (fig && fig !== this._selectedFigure) this._selectFigure(fig);
     this._deleteSelected();
   }
 
   _promptLink(fig) {
+    if (!this._canMutate()) return;
     promptImageLink(this._editor, fig, () => this._emit());
   }
 
@@ -258,6 +285,7 @@ export class ImageSelectionManager {
   }
 
   _deleteSelected() {
+    if (!this._canMutate()) return;
     const fig = this._selectedFigure;
     if (!fig) return;
     this._deselectAll();

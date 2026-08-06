@@ -109,6 +109,11 @@ export function createAutoformatPlugin() {
       if (!granted(editor, match.command)) return false; // gated → leave marker as typed
 
       // Remove the marker text, then apply the block command to the now-clean block.
+      // UNDO: snapshot BEFORE the strip — commands.execute() snapshots too, but
+      // by then the typed marker ("# ", "- ", "1. ") is already gone, so undo
+      // could never restore what the user actually typed. Mirrors the explicit
+      // snapshot _tryTransformation already does above.
+      editor.history && editor.history.takeSnapshot();
       node.nodeValue = node.nodeValue.slice(match.matchLength);
       editor.selection.set(node, 0, node, 0);
       editor.commands.execute(match.command);
@@ -130,6 +135,9 @@ export function createAutoformatPlugin() {
       // follows the caret) exactly in place.
       const before = node.nodeValue.slice(0, match.start);
       const inner = node.nodeValue.slice(match.contentStart, match.contentEnd);
+      // UNDO: snapshot BEFORE stripping the markers (see _tryBlockPattern) —
+      // otherwise undo restores the formatting but never the typed "**"/"_".
+      editor.history && editor.history.takeSnapshot();
       node.nodeValue = before + inner + tailAfterCaret;
 
       const newContentStart = before.length;

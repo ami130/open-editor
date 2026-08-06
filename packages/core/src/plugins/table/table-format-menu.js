@@ -15,7 +15,7 @@
  * background, text color, h/v align — scoped to the selection). The simple
  * one-shot items (header toggle, caption, copy) stay as direct submenu entries.
  */
-import { toggleHeaderRow, setCaption, setTableStyleClass } from './table-format.js';
+import { toggleHeaderRow, toggleHeaderColumn, setCaption, setTableStyleClass } from './table-format.js';
 import { copyTable } from './table-copy.js';
 import { openTablePropertiesDialog, openCellPropertiesDialog } from './table-props-dialog.js';
 
@@ -37,6 +37,7 @@ export function buildFormatMenuItems(editor, table, cell, selectedCells, run) {
       { label: 'Style: Borderless', action: () => run(() => setTableStyleClass(table, 'borderless'), 'tableStyle') },
       { separator: true },
       { label: 'Toggle header row', action: () => run(() => toggleHeaderRow(table), 'tableHeaderToggle') },
+      { label: 'Toggle header column', action: () => run(() => toggleHeaderColumn(table), 'tableHeaderColToggle') },
       { label: 'Edit caption…', action: () => _editCaption(editor, table, run) },
       { label: 'Copy table',    action: () => copyTable(editor, table) },
     ],

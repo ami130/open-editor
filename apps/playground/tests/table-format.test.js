@@ -272,11 +272,10 @@ test.describe('Phase 11.D — Table format menu', () => {
     await page.locator('.oe-menu').getByText('Table properties…', { exact: true }).click();
     await page.waitForSelector('.oe-tprops', { state: 'visible' });
 
-    // enable striped + header color
+    // enable striped + header color — header color applies unconditionally on
+    // Apply (no separate opt-in checkbox), same as Border color / Stripe color.
     await page.locator('#oe-tprops-striped-rows').check();
     await page.locator('#oe-tprops-header-color').evaluate((i) => { i.value = '#112233'; });
-    // tick the header "apply" checkbox (prepended into its label)
-    await page.locator('.oe-tprops label:has-text("Header color") input[type=checkbox]').check();
     await page.locator('.oe-modal__btn--primary').click();
     await page.waitForTimeout(100);
 
@@ -310,16 +309,46 @@ test.describe('Phase 11.D — Table format menu', () => {
     };
     await openProps();
     await page.locator('#oe-tprops-header-color').evaluate((i) => { i.value = '#aa3344'; });
-    await page.locator('.oe-tprops label:has-text("Header color") input[type=checkbox]').check();
     await page.locator('.oe-modal__btn--primary').click();
     await page.waitForTimeout(100);
 
-    // REOPEN — the header color field must now show the applied color, and its
-    // apply-checkbox must be pre-checked (bug #3: was resetting to default).
+    // REOPEN — the header color field must now show the applied color
+    // (bug #3: was resetting to default).
     await openProps();
     const seededColor = await page.locator('#oe-tprops-header-color').inputValue();
     expect(seededColor.toLowerCase()).toBe('#aa3344');
-    const applyChecked = await page.locator('.oe-tprops label:has-text("Header color") input[type=checkbox]').isChecked();
-    expect(applyChecked).toBe(true);
+  });
+
+  // ── User-reported bug: "table properties header color not working" ──
+  // Root cause: an unlabeled "apply" checkbox silently gated the color field,
+  // unchecked by default — a user who just picks a color and clicks Apply (the
+  // ONLY thing a real user would do, with no idea a hidden checkbox exists)
+  // saw nothing happen. Fixed: no checkbox exists anymore; picking a color and
+  // clicking Apply is now sufficient, exactly like Border color already was.
+  test('picking a header color and clicking Apply — with NO other interaction — colors the header', async ({ page }) => {
+    await seedTable(page, 3, 2);
+    await page.locator('.oe-editor td').first().click({ button: 'right' });
+    await page.waitForSelector('.oe-menu', { state: 'visible' });
+    await page.locator('.oe-menu').getByText('Table format', { exact: true }).hover();
+    await page.waitForTimeout(80);
+    await page.locator('.oe-menu').getByText('Toggle header row', { exact: true }).click();
+    await page.waitForTimeout(80);
+
+    await page.locator('.oe-editor td').first().click({ button: 'right' });
+    await page.waitForSelector('.oe-menu', { state: 'visible' });
+    await page.locator('.oe-menu').getByText('Table format', { exact: true }).hover();
+    await page.waitForTimeout(80);
+    await page.locator('.oe-menu').getByText('Table properties…', { exact: true }).click();
+    await page.waitForSelector('.oe-tprops', { state: 'visible' });
+
+    // Exactly what a real user does: set the color, click Apply. Nothing else.
+    await page.locator('#oe-tprops-header-color').evaluate((i) => { i.value = '#654321'; });
+    await page.locator('.oe-modal__btn--primary').click();
+    await page.waitForTimeout(100);
+
+    const thBg = await page.evaluate(() =>
+      document.querySelector('.oe-editor table th').style.backgroundColor);
+    expect(thBg).toBeTruthy();
+    expect(thBg).toBe('rgb(101, 67, 33)'); // #654321
   });
 });

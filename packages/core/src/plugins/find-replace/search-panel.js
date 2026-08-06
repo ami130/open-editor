@@ -34,6 +34,14 @@ export function buildSearchPanel(doc, handlers = {}) {
   });
 
   const count = el(doc, 'span', 'oe-find__count', '0/0');
+  // FR5 a11y: announce match-count changes ("3/12", "0/0") to screen readers.
+  count.setAttribute('role', 'status');
+  count.setAttribute('aria-live', 'polite');
+  // FR1: a visible toggle to REVEAL the replace row from find mode. Without it, a
+  // user who opened Find (toolbar / Ctrl+F) had no reachable way to replace.
+  const repToggle = el(doc, 'button', 'oe-find__btn oe-find__toggle', '⇄');
+  repToggle.type = 'button'; repToggle.title = 'Toggle replace';
+  repToggle.setAttribute('aria-label', 'Toggle replace'); repToggle.setAttribute('aria-pressed', 'false');
   // LOW a11y fix: title alone is an inconsistent accessible-name source across
   // screen readers — add explicit aria-label to every icon-only button.
   const prev = el(doc, 'button', 'oe-find__btn', '‹'); prev.type = 'button'; prev.title = 'Previous'; prev.setAttribute('aria-label', 'Previous match');
@@ -61,7 +69,7 @@ export function buildSearchPanel(doc, handlers = {}) {
   next.addEventListener('click', () => h.onNext && h.onNext());
   close.addEventListener('click', () => h.onClose && h.onClose());
 
-  findRow.append(findInput, count, prev, next, caseBtn, wordBtn, close);
+  findRow.append(findInput, count, prev, next, caseBtn, wordBtn, repToggle, close);
   root.appendChild(findRow);
 
   // ── Replace row (hidden until replace mode) ─────────────────────────────────
@@ -70,19 +78,60 @@ export function buildSearchPanel(doc, handlers = {}) {
   replaceInput.type = 'text';
   replaceInput.setAttribute('placeholder', 'Replace with');
   replaceInput.setAttribute('aria-label', 'Replace with');
+  // FR2: Enter in the replace field triggers Replace (Ctrl/Cmd+Enter = Replace
+  // All); Escape closes — previously this field had no key handling, so the
+  // natural "type replacement, press Enter" did nothing.
+  replaceInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) { h.onReplaceAll && h.onReplaceAll(replaceInput.value); }
+      else { h.onReplace && h.onReplace(replaceInput.value); }
+    }
+    if (e.key === 'Escape') { e.preventDefault(); h.onClose && h.onClose(); }
+  });
+  // FR5 a11y: label the text-only action buttons.
   const repBtn = el(doc, 'button', 'oe-find__btn', 'Replace'); repBtn.type = 'button';
-  const repAllBtn = el(doc, 'button', 'oe-find__btn', 'All'); repAllBtn.type = 'button'; repAllBtn.title = 'Replace all';
+  repBtn.title = 'Replace'; repBtn.setAttribute('aria-label', 'Replace current match');
+  const repAllBtn = el(doc, 'button', 'oe-find__btn', 'All'); repAllBtn.type = 'button';
+  repAllBtn.title = 'Replace all'; repAllBtn.setAttribute('aria-label', 'Replace all matches');
   repBtn.addEventListener('click', () => h.onReplace && h.onReplace(replaceInput.value));
   repAllBtn.addEventListener('click', () => h.onReplaceAll && h.onReplaceAll(replaceInput.value));
   repRow.append(replaceInput, repBtn, repAllBtn);
   root.appendChild(repRow);
+
+  let replaceShown = false;
+  function setReplaceVisible(on) {
+    replaceShown = !!on;
+    // Inline 'flex' when shown — clearing to '' would fall back to the stylesheet's
+    // `.oe-find__row--replace { display: none }` and stay hidden (the row is a
+    // flex row like the find row). This was the "can't reach Replace" root cause.
+    repRow.style.display = replaceShown ? 'flex' : 'none';
+    repToggle.classList.toggle('oe-find__toggle--on', replaceShown);
+    repToggle.setAttribute('aria-pressed', String(replaceShown));
+  }
+  // FR1: the toggle flips the replace row and moves focus into it when shown.
+  repToggle.addEventListener('click', () => {
+    setReplaceVisible(!replaceShown);
+    if (replaceShown) { try { replaceInput.focus(); } catch { /* ignore */ } }
+    else { try { findInput.focus(); } catch { /* ignore */ } }
+  });
+  // FR2: Ctrl/Cmd+H reveals the replace row even when focus is INSIDE the panel
+  // (the editor's global Ctrl+H only fires while the editable is focused, and the
+  // panel steals focus on open — so without this the shortcut was dead here).
+  root.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault();
+      setReplaceVisible(true);
+      try { replaceInput.focus(); } catch { /* ignore */ }
+    }
+  });
 
   return {
     node: root,
     findInput,
     replaceInput,
     setCount(cur, total) { count.textContent = `${cur}/${total}`; },
-    setReplaceVisible(on) { repRow.style.display = on ? '' : 'none'; },
+    setReplaceVisible,
     focusFind() { try { findInput.focus(); findInput.select(); } catch { /* ignore */ } },
   };
 }

@@ -4,15 +4,16 @@
  * image-selection.js to keep it under the 300-line limit. Each function takes the
  * ImageSelectionManager (`mgr`) so it can reuse its select/emit/link/delete paths.
  */
-import { applyAlignment } from './image-dom.js';
 
 /** Build the menu item list bound to the given manager + figure. */
 export function buildImageMenuItems(mgr, fig) {
   return [
-    { label: 'Float left',   action: () => { applyAlignment(fig, 'left');   mgr._emit('Aligned left'); } },
-    { label: 'Center',       action: () => { applyAlignment(fig, 'center'); mgr._emit('Centered'); } },
-    { label: 'Float right',  action: () => { applyAlignment(fig, 'right');  mgr._emit('Aligned right'); } },
-    { label: 'Inline',       action: () => { applyAlignment(fig, 'inline'); mgr._emit('Inline'); } },
+    // Routed through mgr.align() so the readonly guard + pre-mutation snapshot
+    // apply (this menu bypasses the toolbar's central readonly gate).
+    { label: 'Float left',   action: () => mgr.align(fig, 'left',   'Aligned left') },
+    { label: 'Center',       action: () => mgr.align(fig, 'center', 'Centered') },
+    { label: 'Float right',  action: () => mgr.align(fig, 'right',  'Aligned right') },
+    { label: 'Inline',       action: () => mgr.align(fig, 'inline', 'Inline') },
     { separator: true },
     { label: 'Image properties…', action: () => {
       if (typeof mgr.onEditProps === 'function') mgr.onEditProps(fig);

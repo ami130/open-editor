@@ -76,6 +76,7 @@ export const de = {
   bookmarkName: 'Name',
   bookmarkNameInvalid: 'Buchstaben, Zahlen und Bindestriche; mit einem Buchstaben beginnen.',
   bookmarkNameTaken: 'Dieser Name wird in diesem Dokument bereits verwendet.',
+  bookmarkNameRequired: 'Geben Sie einen Namen für dieses Lesezeichen ein.',
   bookmarkEdit: 'Lesezeichen bearbeiten',
   bookmarkCopyLink: 'Link kopieren (#name)',
   bookmarkIcon: 'Symbol',

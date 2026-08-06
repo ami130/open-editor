@@ -74,8 +74,17 @@ export const editorViewMixin = {
 
   print() {
     if (this._destroyed || typeof window === 'undefined') return;
-    const html = this.getHTML();
-    const win = window.open('', '_blank', 'width=800,height=600');
+    // ALWAYS sanitize here, independent of `_config.sanitize` — getHTML() skips
+    // it when a host opts out (e.g. to preserve custom in-editor markup), but
+    // this document is about to be written wholesale into a fresh popup via
+    // document.write(), so it must be safe regardless of that unrelated choice.
+    let html = this.getHTML();
+    if (this._sanitizeHTML) html = this._sanitizeHTML(html);
+    // noopener: the popup only ever holds content this method writes itself, so
+    // there's no legitimate reason for it to hold a `window.opener` back-reference
+    // — dropping it removes a script-execution blast-radius path in the (already
+    // narrow, config-only) case a host disables output sanitization.
+    const win = window.open('', '_blank', 'width=800,height=600,noopener');
     if (!win) return; // popup blocked — fail gracefully
     try {
       // H2: ship the editor's full stylesheet (theme tokens + BASE_CSS, content

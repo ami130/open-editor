@@ -77,6 +77,7 @@ export const ar = {
   bookmarkName: 'الاسم',
   bookmarkNameInvalid: 'استخدم أحرفًا وأرقامًا وشرطات، وابدأ بحرف.',
   bookmarkNameTaken: 'هذا الاسم مُستخدم بالفعل في هذا المستند.',
+  bookmarkNameRequired: 'أدخل اسمًا لهذه الإشارة المرجعية.',
   bookmarkEdit: 'تحرير الإشارة المرجعية',
   bookmarkCopyLink: 'نسخ الرابط (#الاسم)',
   bookmarkIcon: 'أيقونة',

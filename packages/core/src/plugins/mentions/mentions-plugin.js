@@ -84,7 +84,10 @@ export function createMentionsPlugin() {
       this._triggerLen = 1 + trigger.query.length;
 
       if (!this._popup.isOpen()) {
-        const range = document.createRange();
+        // IFRAME: the caret node lives in the editor's document, which is the
+        // iframe document in iframe mode. A Range created from the OUTER
+        // document throws WrongDocumentError on setStart with an iframe node.
+        const range = (info.startNode.ownerDocument || document).createRange();
         range.setStart(info.startNode, info.startOffset);
         range.collapse(true);
         this._popup.open(range, []);
@@ -116,11 +119,20 @@ export function createMentionsPlugin() {
     _applyPick(item) {
       const editor = this._editor;
       if (!editor || !this._triggerNode) return;
+      // READONLY GUARD: this plugin is driven by input/selectionChange events and
+      // a popup click — never by a toolbar button — so it bypasses the central
+      // readonly gate entirely and must check for itself.
+      if (editor.isReadOnly && editor.isReadOnly()) { this._close(); return; }
       const node = this._triggerNode;
       const doc = node.ownerDocument;
       const atIndex = this._triggerAtIndex;
       const len = Math.min(this._triggerLen, node.nodeValue.length - atIndex);
       const tail = node.nodeValue.slice(atIndex + len);
+      // UNDO: snapshot BEFORE the raw nodeValue write. That write fires no
+      // `input` event, so without an explicit snapshot the pre-mention state
+      // (including the typed "@query" text) was never captured and undo would
+      // skip straight past the whole insertion. Mirrors emoji-autocomplete's E1.
+      editor.history && editor.history.takeSnapshot();
       node.nodeValue = node.nodeValue.slice(0, atIndex);
 
       const win = doc.defaultView || (typeof window !== 'undefined' ? window : null);
@@ -136,6 +148,9 @@ export function createMentionsPlugin() {
       // Restore whatever text followed the "@query" (usually empty) right after
       // the inserted node, with the caret placed after it — same as emoji/chars.
       if (tail) editor.selection.insertAtCursor(tail);
+      // afterCommand completes the two-snapshot undo pairing (HistoryManager
+      // snapshots the POST-state on this event) and lets toolbars re-sync.
+      editor.emit('afterCommand', { command: 'insertMention', args: [] });
       if (editor._onChangeFn) editor._onChangeFn();
     },
 

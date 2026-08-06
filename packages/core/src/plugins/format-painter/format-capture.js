@@ -50,16 +50,54 @@ function activeTag(editor, tag) {
     n.nodeType === 1 && n.tagName.toLowerCase() === tag);
 }
 
+// Inline CSS properties Format Painter copies (color/size/font/highlight/…) via
+// a <span style>. Read from the COMPUTED style at the caret so a value inherited
+// from an ancestor <span style> is captured even without a tag. Deliberately
+// EXCLUDES font-weight / font-style / text-decoration — those are the bold /
+// italic / underline / strike the TAG path (PAINTABLE) already copies; capturing
+// them as styles too would double-wrap (<strong><span style=font-weight>). Kept
+// to text presentation only — no layout/box props — so paint can't distort layout.
+const PAINTABLE_STYLES = [
+  'color', 'background-color', 'font-family', 'font-size',
+  'letter-spacing', 'text-transform',
+];
+
+/** Read the paintable inline styles active at the caret, as a {prop:value} map. */
+function captureStyles(editor) {
+  const info = selInfo(editor);
+  const startEl = info && info.startNode
+    ? (info.startNode.nodeType === 1 ? info.startNode : info.startNode.parentElement) : null;
+  const root = editor.getEditorElement && editor.getEditorElement();
+  if (!startEl || !root || !root.contains(startEl)) return {};
+  const win = (startEl.ownerDocument && startEl.ownerDocument.defaultView) || (typeof window !== 'undefined' ? window : null);
+  // The editable's OWN computed style is the "unformatted" baseline — only copy a
+  // property when the caret's value differs from it (else we'd bake the default
+  // color/font onto every paint).
+  let base;
+  try { base = win && win.getComputedStyle(root); } catch { base = null; }
+  let cs;
+  try { cs = win && win.getComputedStyle(startEl); } catch { cs = null; }
+  if (!cs) return {};
+  const out = {};
+  for (const prop of PAINTABLE_STYLES) {
+    const v = cs.getPropertyValue(prop);
+    if (!v) continue;
+    if (base && base.getPropertyValue(prop) === v) continue; // same as default → skip
+    out[prop] = v;
+  }
+  return out;
+}
+
 /**
  * Capture the inline formats active at the current caret.
- * @returns {{ tags: string[] }} the set of paintable tags that are active.
+ * @returns {{ tags: string[], styles: object }} active paintable tags + styles.
  */
 export function captureFormat(editor) {
   const tags = [];
   for (const { tag } of PAINTABLE) {
     if (activeTag(editor, tag)) tags.push(tag);
   }
-  return { tags };
+  return { tags, styles: captureStyles(editor) };
 }
 
 /**
@@ -157,10 +195,44 @@ export function applyFormat(editor, captured) {
     }
     if (wrappedAny) applied++;
   }
+
+  // FP1: paint captured inline STYLES (color/font/size/highlight/…) by wrapping
+  // each selected text node in a <span style>. Gated on the color/font features
+  // so an unlicensed color can't be painted. Existing spans get the props merged.
+  const styles = captured.styles && typeof captured.styles === 'object' ? captured.styles : {};
+  const styleProps = Object.keys(styles);
+  if (styleProps.length && styleAllowed(editor)) {
+    for (const textNode of targets) {
+      let host = textNode.parentNode;
+      // Reuse a wrapping <span> if the text node is its only child; else make one.
+      if (!(host && host.tagName && host.tagName.toLowerCase() === 'span'
+            && host.childNodes.length === 1)) {
+        const span = doc.createElement('span');
+        textNode.parentNode.insertBefore(span, textNode);
+        span.appendChild(textNode);
+        host = span;
+      }
+      for (const p of styleProps) host.style.setProperty(p, styles[p]);
+    }
+    applied++;
+  }
   return applied;
 }
 
-/** True when a captured format carries at least one paintable tag. */
+// FP1 gating: painting color/background needs text.color; font props need
+// text.font. Allow when either is granted (or gating unavailable). Conservative:
+// if neither is granted, skip all style painting.
+function styleAllowed(editor) {
+  if (!editor.isFeatureGranted) return true;
+  const color = featureForCommand('foreColor') || 'text.color';
+  const font = featureForCommand('fontName') || 'text.font';
+  return editor.isFeatureGranted(color) || editor.isFeatureGranted(font);
+}
+
+/** True when a captured format carries at least one paintable tag OR style. */
 export function hasFormat(captured) {
-  return !!captured && Array.isArray(captured.tags) && captured.tags.length > 0;
+  if (!captured) return false;
+  const hasTags = Array.isArray(captured.tags) && captured.tags.length > 0;
+  const hasStyles = captured.styles && Object.keys(captured.styles).length > 0;
+  return !!(hasTags || hasStyles);
 }

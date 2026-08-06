@@ -164,3 +164,48 @@ describe('source plugin — lifecycle safety', () => {
     expect(ta()).toBeNull();
   });
 });
+
+describe('S1 — readonly guard', () => {
+  it('does not enter source view when the editor is readonly', () => {
+    const p = createSourcePlugin(); p.install(editor);
+    editor.setReadOnly(true);
+    p.toggle();
+    expect(p._active).toBe(false);
+    expect(ta()).toBeNull();
+  });
+
+  it('force-exits (discarding the edit) if readonly turns on mid-session', () => {
+    const p = createSourcePlugin(); p.install(editor);
+    editor.getEditorElement().innerHTML = '<p>hi</p>';
+    p.toggle();
+    expect(p._active).toBe(true);
+    ta().value = '<p>EDITED</p>';
+    editor.setReadOnly(true);
+    expect(p._active).toBe(false);
+    expect(ta()).toBeNull();
+    // The edit was discarded, not applied.
+    expect(editor.getHTML()).not.toContain('EDITED');
+  });
+});
+
+describe('S2 — toolbar buttons disabled while in source mode', () => {
+  it('sets editor._sourceViewActive on enter/exit', () => {
+    const p = createSourcePlugin(); p.install(editor);
+    editor.getEditorElement().innerHTML = '<p>hi</p>';
+    p.toggle();
+    expect(editor._sourceViewActive).toBe(true);
+    p.toggle();
+    expect(editor._sourceViewActive).toBe(false);
+  });
+});
+
+describe('S3 — iframe style injection', () => {
+  it('injects source styles into editor._iframeDoc when present', () => {
+    const p = createSourcePlugin();
+    const fakeIframeDoc = document.implementation.createHTMLDocument('');
+    editor._iframeDoc = fakeIframeDoc;
+    p.install(editor);
+    expect(fakeIframeDoc.getElementById('oe-source-styles')).not.toBeNull();
+    editor._iframeDoc = null;
+  });
+});

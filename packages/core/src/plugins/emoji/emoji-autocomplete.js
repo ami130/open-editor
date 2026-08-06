@@ -10,6 +10,7 @@
 import { createCaretPopup } from '../../ui/caret-popup.js';
 import { injectCaretPopupStyles } from '../../ui/caret-popup-styles.js';
 import { gatherTextBeforeCaret, mergeTextRun } from '../../utils/text-run.js';
+import { getClosestTag } from '../../selection/range-utils.js';
 
 const QUERY_RE = /^[a-z0-9_+-]{2,}$/i;
 const MAX_RESULTS = 8;
@@ -59,6 +60,11 @@ export function installEmojiAutocomplete(plugin, editor, dataset, doc) {
     const { node, colonIndex } = trigger;
     const info = editor.selection && editor.selection.get();
     let caret = (info && info.startNode === node) ? info.startOffset : node.nodeValue.length;
+    // E1: snapshot BEFORE the mutation so the emoji insert is ONE atomic undo
+    // step. A direct node.nodeValue write fires no `input` event, so without this
+    // the debounced idle snapshot never runs and Ctrl+Z skips the whole insert
+    // (same class of bug fixed for image/link direct-DOM ops).
+    if (editor.history && editor.history.takeSnapshot) editor.history.takeSnapshot();
     // Fold fragmented siblings into the caret node first — colonIndex is an
     // offset into the merged run (see gatherTextBeforeCaret).
     const { prefixNodes } = gatherTextBeforeCaret(node, caret);
@@ -68,12 +74,23 @@ export function installEmojiAutocomplete(plugin, editor, dataset, doc) {
     editor.selection.set(node, pos, node, pos);
     close();
     if (editor._onChangeFn) editor._onChangeFn();
+    // Trailing afterCommand captures the POST-insert state so undo/redo step
+    // through the emoji cleanly (mirrors deleteFigureFromDoc / replaceFigureWithText).
+    if (typeof editor.emit === 'function') {
+      editor.emit('afterCommand', { command: 'insertEmoji', args: [] });
+    }
   }
 
   function check() {
     if (editor._isComposing) return;
     const info = editor.selection && editor.selection.get();
     if (!info || !info.collapsed) { close(); return; }
+    // E3: a ":shortcode" is literal text inside code/pre, and would extend a link
+    // — never autocomplete there. (Mirrors the link/mention plugins' guards.)
+    const root = editor.getEditorElement && editor.getEditorElement();
+    const n = info.startNode;
+    if (root && n && (getClosestTag(n, 'code', root) || getClosestTag(n, 'pre', root)
+        || getClosestTag(n, 'a', root))) { close(); return; }
     const hit = detectEmojiTrigger(info.startNode, info.startOffset);
     if (!hit) { close(); return; }
     const items = filterEmojis(dataset, hit.query);
@@ -89,18 +106,26 @@ export function installEmojiAutocomplete(plugin, editor, dataset, doc) {
 
   const onInput = () => check();
   editor.on('input', onInput);
+  // E4: re-check on caret moves too, so arrowing / clicking away from the
+  // `:query` closes the popup instead of leaving a stale one that would pick into
+  // the wrong spot on a later Enter. Only matters while the popup is open.
+  const onSelChange = () => { if (popup.isOpen()) check(); };
+  editor.on('selectionChange', onSelChange);
 
   plugin._acKeyDown = (e) => {
     if (!popup.isOpen()) return false;
     if (e.key === 'ArrowDown') { e.preventDefault(); popup.moveActive(1); return true; }
     if (e.key === 'ArrowUp') { e.preventDefault(); popup.moveActive(-1); return true; }
-    if (e.key === 'Enter') { e.preventDefault(); popup.pickActive(); return true; }
+    // Enter OR Tab accepts the active item (Tab-to-accept matches typical
+    // autocomplete; without it Tab pulled focus into the popup buttons).
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); popup.pickActive(); return true; }
     if (e.key === 'Escape') { e.preventDefault(); close(); return true; }
     return false;
   };
 
   return function destroy() {
     editor.off('input', onInput);
+    editor.off('selectionChange', onSelChange);
     popup.destroy();
     plugin._acKeyDown = null;
   };

@@ -39,6 +39,29 @@ export function toggleHeaderRow(table) {
   return makeHeader;
 }
 
+/**
+ * T14 (a11y) — Toggle the first COLUMN between row-headers (<th scope="row">) and
+ * body cells (<td>), so tables that need row headers are accessible. Mirrors
+ * toggleHeaderRow but on each row's first cell. Returns true if now a header col.
+ */
+export function toggleHeaderColumn(table) {
+  const rows = tableRows(table);
+  if (!rows.length) return false;
+  const firsts = rows.map((r) => r.cells[0]).filter(Boolean);
+  if (!firsts.length) return false;
+  const makeHeader = firsts.some((c) => c.tagName.toLowerCase() === 'td');
+  for (const cell of firsts) {
+    if (makeHeader && cell.tagName.toLowerCase() === 'td') {
+      retag(cell, 'th').setAttribute('scope', 'row');
+    } else if (!makeHeader && cell.tagName.toLowerCase() === 'th') {
+      // Don't demote a cell that is ALSO in the header row (scope="col" corner).
+      const td = retag(cell, 'td');
+      td.removeAttribute('scope');
+    }
+  }
+  return makeHeader;
+}
+
 /** 11.11/11.17 — set a CSS property on each cell; empty value clears it. */
 export function setCellStyle(cells, prop, value) {
   const list = Array.from(cells instanceof Set ? cells : cells || []);
@@ -80,11 +103,15 @@ export function setTableStyle(table, opts = {}) {
   if (!table) return;
   if ('width' in opts) table.style.width = opts.width || '';
   if ('border' in opts) {
-    // Apply the border to the table AND every cell so it reads as a grid.
+    // T12: apply the grid border via a CSS variable on the table (the stylesheet
+    // maps --oe-table-border onto cells) INSTEAD of writing inline border on every
+    // cell. Writing inline per-cell used to clobber any per-cell border a user set
+    // via Cell properties; a variable lets an explicit per-cell inline border win
+    // (inline style on the cell beats the var-based rule) while still theming the
+    // whole grid in one shot. Empty clears the variable.
     table.style.border = opts.border || '';
-    for (const tr of tableRows(table)) {
-      for (const cell of Array.from(tr.cells)) cell.style.border = opts.border || '';
-    }
+    if (opts.border) table.style.setProperty('--oe-table-border', opts.border);
+    else table.style.removeProperty('--oe-table-border');
   }
   if ('align' in opts) {
     const a = opts.align;

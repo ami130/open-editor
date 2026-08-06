@@ -80,6 +80,11 @@ export class TableResizeManager {
   // A mousedown counts as a resize grab only when the pointer is within EDGE px
   // of a cell's RIGHT border (so normal cell clicks are unaffected).
   _start(e) {
+    // Column resize is a raw mousedown on the editable, outside both the
+    // toolbar gate and the keydown dispatcher — so it must check readonly
+    // itself (a readonly table's columns were otherwise freely resizable).
+    const ed = this._editor;
+    if (ed && ed.isReadOnly && ed.isReadOnly()) return;
     const cell = e.target && e.target.closest ? e.target.closest('td, th') : null;
     if (!cell) return;
     const table = cell.closest('table');
@@ -96,7 +101,10 @@ export class TableResizeManager {
     const colIndex = at.col + colSpan(cell) - 1;
     if (colIndex < 0 || colIndex >= cols(table).length - 1) return;
     e.preventDefault();
-    this._drag = { table, colIndex, startX: px, tableWidth: table.getBoundingClientRect().width };
+    // `snapped` defers the history snapshot until the FIRST actual move — a
+    // mousedown on the border seam that never drags must not push a spurious
+    // (no-op) undo entry (T11).
+    this._drag = { table, colIndex, startX: px, tableWidth: table.getBoundingClientRect().width, snapped: false };
     const doc = this._el.ownerDocument;
     this._onMove = (mv) => this._move(mv);
     this._onUp = () => this._cancel();
@@ -104,13 +112,18 @@ export class TableResizeManager {
     doc.addEventListener('mouseup', this._onUp);
     doc.addEventListener('touchmove', this._onMove, { passive: false });
     doc.addEventListener('touchend', this._onUp);
-    if (this._editor.history) this._editor.history.takeSnapshot();
   }
 
   _move(e) {
     if (!this._drag) return;
     if (e.cancelable && e.touches) e.preventDefault();
     const dx = this._point(e).x - this._drag.startX;
+    // Snapshot on the first real movement (see _start): captures the pre-resize
+    // widths exactly once per gesture, and only when a resize actually happens.
+    if (!this._drag.snapped) {
+      this._drag.snapped = true;
+      if (this._editor.history) this._editor.history.takeSnapshot();
+    }
     resizeColumn(this._drag.table, this._drag.colIndex, dx, this._drag.tableWidth);
   }
 
@@ -124,7 +137,9 @@ export class TableResizeManager {
       doc.removeEventListener('mouseup', this._onUp);
       doc.removeEventListener('touchend', this._onUp);
     }
-    if (this._drag && this._editor) {
+    // Only fire change/afterCommand when a resize ACTUALLY happened (snapped) —
+    // a bare mousedown-then-up on the seam should be a no-op, not a change event.
+    if (this._drag && this._drag.snapped && this._editor) {
       this._editor.emit('afterCommand', { command: 'tableResizeColumn', args: [] });
       if (this._editor._onChangeFn) this._editor._onChangeFn();
     }

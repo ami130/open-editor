@@ -12,6 +12,53 @@
  *                          boolean; never throws.
  */
 import { copyToClipboard } from '../../utils/clipboard.js';
+import { buildMatrix, cellCoords } from './table-matrix.js';
+
+/**
+ * T6: build a standalone <table> HTML string + a TSV string from a selected cell
+ * RANGE (the rectangle bounding the given cells). Returns { html, tsv } — html for
+ * rich targets (Word/another editor), tsv for spreadsheets/plain-text. Editor-only
+ * classes and caret-placeholder <br>s are stripped, mirroring serializeTable.
+ */
+export function serializeCellRange(table, cells) {
+  if (!table || !cells || !cells.length) return null;
+  const m = buildMatrix(table);
+  let minR = Infinity, minC = Infinity, maxR = -1, maxC = -1;
+  for (const cell of cells) {
+    const co = cellCoords(m, cell);
+    if (!co) continue;
+    if (co.row < minR) minR = co.row;
+    if (co.col < minC) minC = co.col;
+    if (co.row > maxR) maxR = co.row;
+    if (co.col > maxC) maxC = co.col;
+  }
+  if (maxR < 0) return null;
+  const doc = table.ownerDocument;
+  const out = doc.createElement('table');
+  const tbody = doc.createElement('tbody');
+  const tsvRows = [];
+  const seen = new Set();
+  for (let r = minR; r <= maxR; r++) {
+    const tr = doc.createElement('tr');
+    const tsvCells = [];
+    for (let c = minC; c <= maxC; c++) {
+      const src = m[r] && m[r][c];
+      if (!src) { tsvCells.push(''); continue; }
+      // A spanning cell appears once (at its origin) — skip its repeats.
+      if (seen.has(src)) continue;
+      seen.add(src);
+      const clone = src.cloneNode(true);
+      clone.querySelectorAll && clone.classList && clone.classList.remove('oe-cell--selected');
+      if (clone.childNodes.length === 1 && clone.firstChild.nodeName === 'BR') clone.removeChild(clone.firstChild);
+      tr.appendChild(clone);
+      tsvCells.push((src.textContent || '').replace(/\s+/g, ' ').trim());
+    }
+    if (tr.children.length) tbody.appendChild(tr);
+    tsvRows.push(tsvCells.join('\t'));
+  }
+  out.appendChild(tbody);
+  return { html: out.outerHTML, tsv: tsvRows.join('\n') };
+}
 
 /** Clean, standalone HTML string for the table (no editor-only cruft). */
 export function serializeTable(table) {

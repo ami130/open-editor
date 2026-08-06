@@ -81,7 +81,29 @@ export function createSpecialCharsPlugin() {
       const ch = picked != null ? picked : result;
       if (!ch) return;
 
-      if (bookmark && editor.selection) editor.selection.restore(bookmark);
+      // SC2: restore the pre-dialog caret. When there was none (the toolbar button
+      // was the user's first interaction, so the editor was never focused), the
+      // char would otherwise land nowhere / at a stale spot — so focus the editor
+      // and drop the caret at the end of its content as a sensible fallback.
+      const root = editor.getEditorElement && editor.getEditorElement();
+      const validCaret = bookmark && editor.selection
+        && (() => { try { return editor.selection.restore(bookmark); } catch { return false; } })();
+      const caretInEditor = () => {
+        const sel = editor.selection && editor.selection.get();
+        return !!(sel && sel.startNode && root && root.contains(sel.startNode));
+      };
+      if (!validCaret || !caretInEditor()) {
+        if (editor.focus) editor.focus();
+        if (root) {
+          try {
+            const range = doc.createRange();
+            range.selectNodeContents(root);
+            range.collapse(false); // end of content
+            const dsel = doc.getSelection ? doc.getSelection() : null;
+            if (dsel) { dsel.removeAllRanges(); dsel.addRange(range); }
+          } catch { /* selection unavailable */ }
+        }
+      }
       escapeLinkBoundary(editor); // don't silently extend a link the caret is inside
       editor.history && editor.history.takeSnapshot();
       if (editor.selection && typeof editor.selection.insertAtCursor === 'function') {

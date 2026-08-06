@@ -61,8 +61,26 @@ function field(doc, labelText, type, opts = {}) {
  */
 export function composeBorder(width, style, color) {
   if (style === 'none' || !width) return '';
-  const w = /^\d+$/.test(String(width)) ? `${width}px` : String(width);
+  // T13: clamp the border width to a sane 0..40px so a typo (9999) can't render a
+  // monster border. A bare number is px; a unit'd value passes through as-is.
+  let w;
+  if (/^\d+$/.test(String(width))) {
+    w = `${Math.min(40, Math.max(0, parseInt(width, 10)))}px`;
+  } else {
+    w = String(width);
+  }
   return `${w} ${style} ${color || 'currentColor'}`.trim();
+}
+
+/**
+ * T13: accept only a valid CSS length/percentage for table width; anything else
+ * (bare "80", "abc") returns '' so a malformed value clears width instead of
+ * silently writing an invalid inline style the browser drops with no feedback.
+ */
+export function sanitizeCssLength(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (s === '') return '';
+  return /^\d+(\.\d+)?(px|%|em|rem|vw|ch)$/i.test(s) ? s : '';
 }
 
 function buildBorderFields(doc, defaults = {}) {
@@ -82,6 +100,9 @@ function buildBorderFields(doc, defaults = {}) {
  */
 export function openTablePropertiesDialog(editor, table, run) {
   if (!editor.ui || !editor.ui.modal) return;
+  // Don't even open an editing dialog in readonly — `run` refuses the mutation
+  // anyway, but opening a form whose Apply silently does nothing reads as broken.
+  if (editor.isReadOnly && editor.isReadOnly()) return;
   const doc = (editor._wrapper && editor._wrapper.ownerDocument) || document;
   const form = el(doc, 'div', 'oe-tprops');
 
@@ -106,12 +127,13 @@ export function openTablePropertiesDialog(editor, table, run) {
   stripedF.input.checked = st.striped;
   const stripeColorF = field(doc, 'Stripe color', 'color',
     { value: cssColorToHex(readStripe(table)) || '#f1f5f9' });
-  // Seed the header color from the table's current <th> background (bug #3), and
-  // pre-check "apply" when one exists so reopening + Apply keeps it.
+  // Seed the header color from the table's current <th> background (bug #3) so
+  // reopening the dialog shows what's already applied. Applies unconditionally
+  // on Apply, same as Border color / Stripe color in this same dialog — an
+  // earlier "opt-in" checkbox gated this behind an unlabeled, easy-to-miss
+  // control that silently no-opped a color pick with no visible cue why.
   const seedHeader = readHeaderColor(table);
   const headerBgF = field(doc, 'Header color', 'color', { value: seedHeader || '#e2e8f0' });
-  const applyHeader = el(doc, 'input'); applyHeader.type = 'checkbox'; applyHeader.checked = !!seedHeader;
-  headerBgF.row.querySelector('label').prepend(applyHeader);
 
   const border = buildBorderFields(doc);
   form.append(
@@ -130,7 +152,7 @@ export function openTablePropertiesDialog(editor, table, run) {
     if (v !== 'apply') return;
     run(() => {
       setTableStyle(table, {
-        width: widthF.input.value.trim(),
+        width: sanitizeCssLength(widthF.input.value),
         align: alignF.input.value,
         border: composeBorder(border.width.input.value, border.style.input.value, border.color.input.value),
       });
@@ -142,7 +164,7 @@ export function openTablePropertiesDialog(editor, table, run) {
       if (stripedF.input.checked !== getTableStyleState(table).striped) setTableStyleClass(table, 'striped');
       if (stripedF.input.checked) setStripeColor(table, stripeColorF.input.value);
       else setStripeColor(table, '');
-      if (applyHeader.checked) setHeaderColor(table, headerBgF.input.value);
+      setHeaderColor(table, headerBgF.input.value);
     }, 'tableProperties');
   });
 }
@@ -183,6 +205,8 @@ function readHeaderColor(table) {
  */
 export function openCellPropertiesDialog(editor, table, cells, run) {
   if (!editor.ui || !editor.ui.modal) return;
+  // Same as the table dialog: refuse to open while readonly (see above).
+  if (editor.isReadOnly && editor.isReadOnly()) return;
   const doc = (editor._wrapper && editor._wrapper.ownerDocument) || document;
   const form = el(doc, 'div', 'oe-tprops');
 
@@ -217,15 +241,6 @@ export function openCellPropertiesDialog(editor, table, cells, run) {
     ],
     value: seedVAlign,
   });
-  // Checkboxes let the user opt in to only the fields they want to change, so
-  // the color inputs (which always have SOME value) don't clobber unset cells.
-  // Pre-check them when the cell ALREADY has that color, so reopening + Apply
-  // preserves the existing design instead of silently wiping it (bug #3).
-  const applyBg = el(doc, 'input'); applyBg.type = 'checkbox'; applyBg.checked = !!seedBg;
-  const applyFg = el(doc, 'input'); applyFg.type = 'checkbox'; applyFg.checked = !!seedFg;
-  bgF.row.querySelector('label').prepend(applyBg);
-  fgF.row.querySelector('label').prepend(applyFg);
-
   form.append(
     sideF.row, border.width.row, border.style.row, border.color.row,
     el(doc, 'div', 'oe-tprops__sep'), bgF.row, fgF.row,
@@ -241,8 +256,11 @@ export function openCellPropertiesDialog(editor, table, cells, run) {
     run(() => {
       setCellBorder(cells, sideF.input.value,
         composeBorder(border.width.input.value, border.style.input.value, border.color.input.value));
-      if (applyBg.checked) setCellBackground(cells, bgF.input.value);
-      if (applyFg.checked) setCellTextColor(cells, fgF.input.value);
+      // Applies unconditionally, same as border color above — an earlier
+      // "opt-in" checkbox gated this behind an unlabeled, easy-to-miss control
+      // that silently no-opped a color pick with no visible cue why.
+      setCellBackground(cells, bgF.input.value);
+      setCellTextColor(cells, fgF.input.value);
       if (hAlignF.input.value) setCellAlign(cells, hAlignF.input.value);
       if (vAlignF.input.value) setCellVAlign(cells, vAlignF.input.value);
     }, 'cellProperties');

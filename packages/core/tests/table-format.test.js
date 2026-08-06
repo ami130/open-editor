@@ -113,11 +113,21 @@ describe('setTableStyle', () => {
     expect(t.style.marginLeft).toBe('auto');
     expect(t.style.marginRight).toBe('auto');
   });
-  it('border applies to table and all cells', () => {
+  it('border applies to the table and drives cells via --oe-table-border (T12)', () => {
     const t = makeTable([['a', 'b'], ['c', 'd']]);
     setTableStyle(t, { border: '1px solid #ccc' });
     expect(t.style.border).toContain('solid');
-    t.querySelectorAll('td').forEach((c) => expect(c.style.border).toContain('solid'));
+    // T12: cells render the grid via the CSS variable, NOT an inline per-cell
+    // border (which used to clobber user-set Cell-properties borders).
+    expect(t.style.getPropertyValue('--oe-table-border')).toContain('solid');
+    t.querySelectorAll('td').forEach((c) => expect(c.style.border).toBe(''));
+  });
+  it('a per-cell inline border survives a later table-wide border (T12)', () => {
+    const t = makeTable([['a', 'b']]);
+    const cell = t.querySelector('td');
+    cell.style.border = '3px dashed red';           // user set via Cell properties
+    setTableStyle(t, { border: '1px solid #ccc' });  // table-wide grid border
+    expect(cell.style.border).toContain('dashed');   // NOT clobbered
   });
 });
 

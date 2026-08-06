@@ -135,9 +135,19 @@ export function createFindReplacePlugin() {
       let selfMatches = 0;
       if (q) { let i = 0; while ((i = hay.indexOf(q, i)) !== -1) { selfMatches++; i += q.length; } }
       if (this._matches.length) {
-        this._index = Math.min(replacedIndex + selfMatches, this._matches.length - 1);
+        // The replaced occurrence is gone, so the NEXT match to visit now sits at
+        // `replacedIndex + selfMatches` (skip any occurrences the replacement text
+        // itself introduced). If that runs off the end (we replaced at/near the
+        // last match), WRAP to 0 — clamping to length-1 wrongly jumped backward to
+        // an already-visited match, so some matches were never reached (FR3).
+        const nextRaw = replacedIndex + selfMatches;
+        this._index = nextRaw < this._matches.length ? nextRaw : 0;
         this._render();
       }
+      // FR4: emit afterCommand so single Replace is a clean one-step undo, matching
+      // Replace-All (previously only takeSnapshot ran, leaving the post-state
+      // uncaptured until an unrelated command/idle snapshot fired).
+      this._editor.emit('afterCommand', { command: 'replace', args: [] });
     },
 
     _replaceAll(replacement) {
