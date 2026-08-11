@@ -65,6 +65,44 @@ never serialised. A new editor option needs **no loader release** to be usable.
 | `name` | — | Form field name for the fallback textarea |
 | `onError` | — | Called with any load failure |
 
+## Storing images and content
+
+Everything below is your infrastructure — the editor never stores content.
+These are ordinary editor options, forwarded untouched through the loader
+(including functions, which are passed by reference, never serialised).
+
+```js
+await createEditor('#app', {
+  endpoint: '…',
+
+  // Images → your API, which decides folder vs database.
+  imageUploadUrl: 'https://api.you/upload',
+  imageUploadHeaders: { Authorization: `Bearer ${token}` },
+
+  // Content → wherever you like, on every edit.
+  onChange: ({ html }) => save(html),
+});
+```
+
+For **S3/R2 pre-signed uploads, Cloudinary, or any two-step flow** that a
+single POST URL cannot express, take the upload over entirely — the file can go
+straight to storage without passing through your server:
+
+```js
+imageUploadHandler: async (file, { signal, onProgress }) => {
+  const { uploadUrl, publicUrl } = await fetch('/api/sign', {
+    method: 'POST', body: JSON.stringify({ name: file.name }), signal,
+  }).then((r) => r.json());
+  await fetch(uploadUrl, { method: 'PUT', body: file, signal });
+  onProgress(100);
+  return publicUrl;
+},
+```
+
+`imageUploadHandler` wins over `imageUploadUrl` when both are set. Pass `signal`
+to your requests so cancel works, and call `onProgress` so the progress bar
+moves. Full reference: [Image uploads](https://openeditor.dev/docs/IMAGE-UPLOAD).
+
 ## Caching
 
 The engine is cached in IndexedDB, so a returning visitor mounts with **no

@@ -70,7 +70,8 @@ async function handlePastedFile(editor, file) {
   if (uploadDeadEnd(config)) {
     imageError(editor,
       'Pasting an image needs image uploads or inline embedding to be enabled ' +
-      '(imageUploadUrl or imageAllowDataUri). Use Insert Image → From URL instead.',
+      '(imageUploadUrl, imageUploadHandler, or imageAllowDataUri). '
+      + 'Use Insert Image → From URL instead.',
       'plugin:image:paste:deadend');
     return;
   }

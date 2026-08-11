@@ -65,7 +65,8 @@ export function dataUriSizeError(file, config = {}) {
   const max = maxDataUriSize(config);
   if (file && file.size > max) {
     return `This image (${formatMB(file.size)}) is too large to embed inline. ` +
-      `Configure an upload server (imageUploadUrl) for images over ${formatMB(max)}, ` +
+      `Configure an upload server (imageUploadUrl, or imageUploadHandler for `
+      + `S3/Cloudinary-style flows) for images over ${formatMB(max)}, ` +
       'or use a smaller file.';
   }
   return null;

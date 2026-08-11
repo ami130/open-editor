@@ -131,7 +131,8 @@ export async function openImageDialog(editor) {
     clearError();
     if (tab === 'file' && fileUploadDeadEnd) {   // warn up front, not after a failed insert
       showError('Uploading local files is not configured. Use the “From URL” tab, ' +
-        'or ask your developer to enable image uploads (imageUploadUrl) or inline embedding (imageAllowDataUri).');
+        'or ask your developer to enable image uploads (imageUploadUrl or '
+        + 'imageUploadHandler) or inline embedding (imageAllowDataUri).');
     }
   }
   tabUrl.addEventListener('click',  () => switchTab('url'));

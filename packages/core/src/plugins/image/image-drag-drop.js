@@ -132,7 +132,7 @@ async function handleDroppedFile(editor, file) {
   if (uploadDeadEnd(config)) {
     imageError(editor,
       'Dropping an image needs image uploads or inline embedding to be enabled ' +
-      '(imageUploadUrl or imageAllowDataUri).', 'plugin:image:drop:deadend');
+      '(imageUploadUrl, imageUploadHandler, or imageAllowDataUri).', 'plugin:image:drop:deadend');
     return;
   }
 

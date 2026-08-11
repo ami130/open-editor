@@ -132,7 +132,9 @@ export function buildAndInsertFigure(editor, result, opts, config, doc, context)
   if (typeof editor.emit === 'function') {
     const isData = typeof result.src === 'string' && /^\s*data:/i.test(result.src);
     const hint = isData
-      ? ' Local image files become data: URIs, which are blocked by default — set imageUploadUrl to host them, or imageAllowDataUri: true to embed them inline.'
+      ? ' Local image files become data: URIs, which are blocked by default — set '
+        + 'imageUploadUrl (or imageUploadHandler for S3/Cloudinary-style flows) to '
+        + 'host them, or imageAllowDataUri: true to embed them inline.'
       : '';
     editor.emit('error', {
       error: new Error(`Image was blocked: its source is not allowed.${hint}`),
