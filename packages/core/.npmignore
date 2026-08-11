@@ -1,0 +1,15 @@
+# .npmignore — belt-and-braces only. The REAL exclusion is the "!dist/delivery"
+# negation in package.json's `files` array.
+#
+# WHY: npm ignores .npmignore entirely when `files` is declared — verified with
+# `npm pack --dry-run`, which still listed dist/delivery/*.js until the negation
+# was added to `files`. This file is kept so the intent is visible to anyone
+# reading the package root, and in case `files` is ever removed.
+#
+# WHAT IS AT STAKE: dist/delivery/premium.js has premium source COMPILED IN.
+# Publishing it would ship closed-source premium code to every free installer —
+# the exact leak this architecture exists to prevent.
+#
+# Verify after ANY packaging change:
+#   npm pack --dry-run --ignore-scripts | grep delivery    → must return nothing
+dist/delivery/

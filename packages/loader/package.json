@@ -1,0 +1,73 @@
+{
+  "name": "@openeditors/loader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open Editor runtime loader (execution plan \u00a71.5) \u2014 fetches, verifies and mounts the delivered engine. Deliberately minimal: everything that might change lives in the engine, not here.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./react": {
+      "types": "./react.d.ts",
+      "default": "./src/react.js"
+    },
+    "./vue": {
+      "types": "./vue.d.ts",
+      "default": "./src/vue.js"
+    },
+    "./angular": {
+      "types": "./src/angular.ts",
+      "default": "./src/angular.ts"
+    }
+  },
+  "files": [
+    "src",
+    "index.d.ts",
+    "react.d.ts",
+    "vue.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs"
+  },
+  "devDependencies": {
+    "vitest": "1.6.1",
+    "jsdom": "24.1.0",
+    "openeditor-text": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@testing-library/react": "^16.1.0",
+    "vue": "^3.5.13",
+    "@vue/test-utils": "^2.4.6"
+  },
+  "types": "./index.d.ts",
+  "peerDependencies": {
+    "openeditor-text": ">=1.2.0",
+    "react": ">=18",
+    "vue": ">=3.3",
+    "@angular/core": ">=17",
+    "@angular/forms": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    },
+    "@angular/forms": {
+      "optional": true
+    }
+  }
+}

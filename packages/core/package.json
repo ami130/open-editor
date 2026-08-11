@@ -43,12 +43,17 @@
   },
   "files": [
     "dist",
+    "!dist/delivery",
     "index.d.ts"
   ],
   "scripts": {
     "build": "rollup -c rollup.config.js && node scripts/extract-css.mjs",
     "build:watch": "rollup -c rollup.config.js --watch",
     "build:css": "node scripts/extract-css.mjs",
+    "build:delivery": "rollup -c rollup.delivery.config.js && node scripts/build-manifest.mjs && node scripts/verify-bundles.mjs",
+    "verify:bundles": "node scripts/verify-bundles.mjs",
+    "verify:reproducible": "node scripts/verify-reproducible.mjs",
+    "build:manifest": "node scripts/build-manifest.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "rollup -c rollup.config.js && node scripts/extract-css.mjs",

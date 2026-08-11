@@ -93,12 +93,18 @@ export default [
     },
   },
 
-  // ─── Config files (rollup, vite, vitest, eslint itself) ───────────────────
+  // ─── Config files (rollup, vite, vitest, eslint itself) + build scripts ────
+  // Build scripts (scripts/*.mjs) run under bare `node`, so they legitimately
+  // use console/process/etc. They were previously unlinted — not ignored, just
+  // never matched by a block that granted Node globals.
   {
     files: ['*.config.js', 'packages/*/rollup.config.js', 'packages/*/*.config.js',
-            'apps/*/*.config.js', 'apps/*/vite.config.js', 'premium/*/*.config.js'],
+            'apps/*/*.config.js', 'apps/*/vite.config.js', 'premium/*/*.config.js',
+            '**/scripts/*.mjs', 'scripts/*.mjs'],
     languageOptions: {
-      ecmaVersion: 2020,
+      // 2022+: build scripts use top-level await (extract-css.mjs) and numeric
+      // separators. 2020 was too old and produced parse errors, not real faults.
+      ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         ...globals.node,

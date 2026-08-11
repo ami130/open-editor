@@ -99,5 +99,46 @@ jobs:
           # minified-only distribution: no sourcemaps may ship (2026-07-14 posture)
           test -z "$(find packages/core/dist -name '*.map' -print -quit)"
 
+      # ── Runtime-delivery bundles (§1.1) ──────────────────────────────────
+      # These gates never ran in CI, so the free/premium split, the embedded
+      # licence keyring, and byte-reproducibility were only ever checked by
+      # hand. A premium leak into the free bundle is the single most expensive
+      # failure this project can have — it must be gated, not remembered.
+      - name: Build delivery bundles
+        env:
+          # A throwaway ES256 public key: the build REFUSES a malformed keyring
+          # and warns when none is set, so CI supplies a real-shaped one to
+          # exercise the embedding path itself.
+          DELIVERY_LICENSE_KEYS: >-
+            [{"kid":"ci","jwk":{"kty":"EC","crv":"P-256",
+            "x":"o06YXVjWUEWD40w8NXatvTI_UE3xWmQDJgvorWaQXNU",
+            "y":"YqEVQfCQIPcM2sHUN2lbqoOZGkBp2AMEn2Gf4qccD1Y"}}]
+        run: pnpm --filter openeditor-text build:delivery
+
+      - name: Verify delivery bundles are byte-reproducible
+        env:
+          DELIVERY_LICENSE_KEYS: >-
+            [{"kid":"ci","jwk":{"kty":"EC","crv":"P-256",
+            "x":"o06YXVjWUEWD40w8NXatvTI_UE3xWmQDJgvorWaQXNU",
+            "y":"YqEVQfCQIPcM2sHUN2lbqoOZGkBp2AMEn2Gf4qccD1Y"}}]
+        run: pnpm --filter openeditor-text verify:reproducible
+
+      - name: Verify delivery bundles never reach npm
+        run: |
+          # `files: ["dist","!dist/delivery"]` is the only thing keeping the
+          # PREMIUM bundle out of the published tarball. Assert it, because a
+          # silent regression here ships premium code to every free user.
+          cd packages/core
+          npm pack --dry-run --json 2>/dev/null | grep -v '^\[extract-css\]' > /tmp/pack.json
+          node -e "
+            const j = require('/tmp/pack.json')[0];
+            const leaked = j.files.map(f => f.path).filter(p => p.includes('dist/delivery'));
+            if (leaked.length) {
+              console.error('DELIVERY BUNDLES LEAKED INTO THE NPM TARBALL:', leaked);
+              process.exit(1);
+            }
+            console.log('npm tarball is clean:', j.files.length, 'files, 0 delivery');
+          "
+
       - name: Bundle size gate (17.7)
         run: node packages/core/scripts/check-size.mjs
