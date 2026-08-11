@@ -186,7 +186,7 @@ export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
     const editor = editorRef.current;
     if (!editor) return;                       // still downloading — nothing to update
     const key = licenceKey ?? licenseKey ?? null;
-    applyLicence(editor, key, { endpoint, version, installId })
+    applyLicence(editor, key, { endpoint, version, installId, container: hostRef.current })
       .then((result) => {
         const fn = handlersRef.current.onLicenceApplied;
         if (fn) fn(result);

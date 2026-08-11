@@ -141,9 +141,25 @@ props. One difference matters — **mounting is asynchronous**, so `editor` is
 ### Upgrading a live editor
 
 Changing `licenceKey` re-verifies in place. But the **plan** decides which
-bundle was downloaded, and a free bundle contains no premium code — so when the
-plan changes, a reload is required. You are told, rather than having the editor
-swapped underneath a document with unsaved work in it:
+bundle was downloaded, and a free bundle contains **no premium code at all** —
+so a free editor handed a premium licence unlocks nothing. There is nothing to
+install. A reload is required.
+
+The editor is **never swapped underneath a live document**. Someone has just
+paid and is mid-sentence; re-mounting to fetch a different bundle risks the
+worst possible outcome on their first paid transaction. Instead, the loader
+shows a small, dismissible prompt and lets them choose the moment:
+
+> **Premium unlocked — reload to activate it.**  [ Reload ]  ×
+
+It never steals focus, announces politely to screen readers, and is opt-out
+(`prompt: false`) for hosts with their own design system. **Downgrades never
+prompt** — losing a feature is survivable, and interrupting someone's work to
+offer them *fewer* features is pure harm; the premium bundle keeps running
+until their next natural page load.
+
+A same-plan entitlement change needs no reload at all, and is measured safe:
+content, cursor, undo history and typing all survive it untouched.
 
 ```jsx
 <OpenEditor

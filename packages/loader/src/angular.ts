@@ -171,6 +171,7 @@ implements AfterViewInit, OnDestroy, OnChanges, ControlValueAccessor {
     if (keyChanged || aliasChanged) {
       applyLicence(this.editor, this.licenceKey ?? this.licenseKey ?? null, {
         endpoint: this.endpoint, version: this.version, installId: this.installId,
+        container: this.host?.nativeElement,
       })
         .then((result) => this.licenceApplied.emit(result))
         .catch((err: Error) => this.loadError.emit(err));

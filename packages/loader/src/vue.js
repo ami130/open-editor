@@ -182,6 +182,7 @@ export const OpenEditor = defineComponent({
       if (!editor) return;                    // still downloading
       applyLicence(editor, props.licenceKey ?? props.licenseKey ?? null, {
         endpoint: props.endpoint, version: props.version, installId: props.installId,
+        container: host.value,
       })
         .then((result) => emit('licence-applied', result))
         .catch((err) => emit('load-error', err));

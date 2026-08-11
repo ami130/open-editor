@@ -162,8 +162,44 @@ export function createEditor(
 export function applyLicence(
   editor: OpenEditor,
   licenceKey: string | null,
-  options: { endpoint: string; version?: string | null; installId?: string | null },
-): Promise<{ applied: boolean; plan: string; reloadRequired: boolean }>;
+  options: {
+    endpoint: string;
+    version?: string | null;
+    installId?: string | null;
+    /** Where to render the activation prompt. Defaults to the editor's container. */
+    container?: Element | null;
+    /**
+     * Show the built-in "Premium unlocked — reload to activate" prompt on an
+     * upgrade. `false` opts out; an object overrides its copy and action.
+     */
+    prompt?: boolean | ActivatePromptOptions;
+  },
+): Promise<{
+  applied: boolean;
+  plan: string;
+  reloadRequired: boolean;
+  /** True only for free → premium — the case worth interrupting someone for. */
+  isUpgrade: boolean;
+}>;
+
+export interface ActivatePromptOptions {
+  message?: string;
+  actionLabel?: string;
+  /** Defaults to reloading the page. */
+  onActivate?: () => void;
+}
+
+/** Render the activation prompt into a container. */
+export function showActivatePrompt(
+  el: Element,
+  options?: ActivatePromptOptions,
+): Element | null;
+
+/** Remove the activation prompt, if one is showing. */
+export function dismissActivatePrompt(el: Element): void;
+
+/** Is an activation prompt currently showing? */
+export function hasActivatePrompt(el: Element): boolean;
 
 /** Open a delivery session without mounting anything. */
 export function openSession(options: OpenSessionOptions): Promise<DeliverySession>;

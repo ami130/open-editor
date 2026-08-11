@@ -28,6 +28,7 @@ import {
 } from './cache.js';
 import { getInstallId } from './install-id.js';
 import { renderFallback, removeFallback } from './fallback.js';
+import { showActivatePrompt } from './activate.js';
 
 /**
  * How long BEFORE expiry to refresh the session token (D1).
@@ -41,6 +42,13 @@ const REFRESH_LEAD_SECONDS = 180;
 
 /** Backoff when a refresh returns no new token. Well inside the lead above. */
 const REFRESH_RETRY_SECONDS = 60;
+
+/**
+ * The free plan's id, as the backend reports it (delivery/session.service.ts).
+ * Used to tell an UPGRADE (free → premium, worth prompting about) from a
+ * DOWNGRADE (premium → free, which must never interrupt anyone).
+ */
+const FREE_PLAN = 'free';
 
 /**
  * Options the LOADER consumes. Everything else is forwarded to the engine
@@ -349,7 +357,18 @@ async function loadSource(session, engineUrl, cache, speculative = null, endpoin
  * @returns {Promise<{applied: boolean, plan: string, reloadRequired: boolean}>}
  */
 export async function applyLicence(editor, licenceKey, options = {}) {
-  const { endpoint, version = null, installId = null } = options;
+  const {
+    endpoint, version = null, installId = null,
+    // Show the built-in "Premium unlocked — reload to activate" prompt on an
+    // upgrade. `false` opts out for hosts with their own design system; the
+    // result is still returned either way.
+    //
+    // Default TRUE deliberately: `reloadRequired` was returned and surfaced
+    // through all three wrappers, and nothing rendered it — so a customer paid,
+    // their editor kept running free, and nothing explained why. An opt-in
+    // prompt would have left most integrations in exactly that state.
+    prompt = true,
+  } = options;
   if (!editor || editor.isDestroyed?.()) {
     throw new Error('[open-editor] applyLicence called on a destroyed editor');
   }
@@ -365,14 +384,53 @@ export async function applyLicence(editor, licenceKey, options = {}) {
   // What the RUNNING engine can actually serve — not what the new session says
   // it is entitled to. A free bundle cannot become premium by re-verifying.
   const runningPlan = editor._deliveryPlan ?? null;
-  const reloadRequired = runningPlan !== null && runningPlan !== session.plan;
+  const planChanged = runningPlan !== null && runningPlan !== session.plan;
 
-  if (!reloadRequired) {
+  // ─── DOWNGRADES NEVER PROMPT (§1.7) ───────────────────────────────────────
+  //
+  // "Never remove capability from under someone mid-edit." An upgrade is good
+  // news the customer is waiting for; a DOWNGRADE is not, and interrupting
+  // someone's work to offer them fewer features is pure harm. It also cannot
+  // lose them anything by waiting: they keep the premium bundle they already
+  // have until their next natural page load, at which point the session
+  // resolves to free on its own.
+  //
+  // Entitlements are still re-applied in place, so a revoked feature stops
+  // being usable immediately — the engine tears those down without touching
+  // the document (_disableRevokedFeatures).
+  const isUpgrade = planChanged && runningPlan === FREE_PLAN;
+  const reloadRequired = planChanged;
+
+  if (!planChanged) {
     // Same bundle, new entitlements: verified offline, applied in place.
+    // Measured safe — content, cursor, undo history and typing all survive.
+    await editor.setLicenseKey(session.sessionToken);
+  } else if (!isUpgrade) {
+    // Downgrade: apply what the licence now allows, but keep running the
+    // premium bundle until a natural boundary. Losing a feature is survivable;
+    // losing a document is not.
     await editor.setLicenseKey(session.sessionToken);
   }
 
-  return { applied: !reloadRequired, plan: session.plan, reloadRequired };
+  // Render the prompt ourselves on an upgrade. The alternative — returning
+  // `reloadRequired` and hoping every integrator builds a banner — is what left
+  // this invisible in the first place.
+  // `_container` is the element the editor mounted into (editor.js:84). Named
+  // with an underscore, so it is checked rather than assumed — a wrong property
+  // here would make the prompt a silent no-op, which is the exact failure this
+  // whole step exists to fix.
+  const host = options.container || editor._container || null;
+  if (isUpgrade && prompt !== false && host) {
+    showActivatePrompt(host, typeof prompt === 'object' ? prompt : {});
+  }
+
+  return {
+    applied: !planChanged,
+    plan: session.plan,
+    reloadRequired,
+    /** True only for free → premium: the case worth interrupting someone for. */
+    isUpgrade,
+  };
 }
 
 /** Strip loader-only keys; forward the rest untouched. */
@@ -414,3 +472,4 @@ export { evaluateModule, CSP_HELP } from './evaluate.js';
 export { clearCache, clearBundle, readLastPlan, keyFor, MAX_ENTRIES } from './cache.js';
 export { getInstallId, mintInstallId, isValidInstallId } from './install-id.js';
 export { renderFallback, removeFallback, hasFallback } from './fallback.js';
+export { showActivatePrompt, dismissActivatePrompt, hasActivatePrompt } from './activate.js';
