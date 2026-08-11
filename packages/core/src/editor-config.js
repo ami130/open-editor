@@ -80,6 +80,13 @@ export const DEFAULTS = {
   // "unknown config option — ignored" warning. Response contract: JSON
   // { url } (or { src }); optionally { sources: [{srcset, media?, type?, sizes?}] }
   // to emit a responsive <picture> (16.7.8) — every srcset is scheme-checked.
+  // imageUploadHandler (T12): `(file, { signal, onProgress }) => url | {url,width?,height?,sources?}`
+  //   Take over the upload entirely — for S3/R2 pre-signed URLs, Cloudinary, or
+  //   any flow needing two round-trips, a different verb, or a non-multipart
+  //   body, none of which imageUploadUrl can express. WINS over imageUploadUrl
+  //   when both are set. Resolve null/undefined to signal a cancelled upload.
+  //   The returned URL is scheme-checked exactly like a server-returned one.
+  imageUploadHandler: null,
   imageUploadUrl: null,
   // Upload request customization (for connecting to YOUR authenticated API/DB):
   imageUploadHeaders: null,        // {name:value} or (file)=>({...}) — e.g. { Authorization: 'Bearer …' }. NEVER set Content-Type (breaks the multipart boundary).

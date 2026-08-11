@@ -14,7 +14,10 @@ import { promptForAlt } from './image-alt-prompt.js';
 import { imageError, imageProgress } from './image-feedback.js';
 
 // A screenshot/clipboard image needs an upload server OR data-URI embedding.
-const uploadDeadEnd = (config) => !config.imageUploadUrl && !config.imageAllowDataUri;
+// A custom handler (T12) counts as a configured upload path.
+const uploadDeadEnd = (config) => !config.imageUploadUrl
+  && typeof config.imageUploadHandler !== 'function'
+  && !config.imageAllowDataUri;
 
 /**
  * Register the paste handler on the editor.
@@ -74,7 +77,7 @@ async function handlePastedFile(editor, file) {
 
   // IMG8: drop/paste have no dialog progress bar — show a sticky progress toast.
   // #9: an AbortController lets the toast's × cancel an in-flight upload.
-  const uploading = !!config.imageUploadUrl;
+  const uploading = !!config.imageUploadUrl || typeof config.imageUploadHandler === 'function';
   const ctrl = uploading && typeof AbortController !== 'undefined' ? new AbortController() : null;
   const prog = uploading
     ? imageProgress(editor, 'Uploading pasted image…', ctrl ? () => ctrl.abort() : null)

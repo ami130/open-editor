@@ -17,7 +17,10 @@ import { ImageDropIndicator } from './image-drop-indicator.js';
 const DRAGOVER_CLASS = 'oe-editor--dragover';
 
 const isReadonly = (editor) => !!(editor && editor._state && editor._state.isReadOnly);
-const uploadDeadEnd = (config) => !config.imageUploadUrl && !config.imageAllowDataUri;
+// A custom handler (T12) counts as a configured upload path.
+const uploadDeadEnd = (config) => !config.imageUploadUrl
+  && typeof config.imageUploadHandler !== 'function'
+  && !config.imageAllowDataUri;
 
 /**
  * Returns true if the dataTransfer contains at least one image file.
@@ -135,7 +138,7 @@ async function handleDroppedFile(editor, file) {
 
   // IMG8: show a sticky progress toast while an upload is in flight (no dialog here).
   // #9: an AbortController lets the toast's × cancel an in-flight upload.
-  const uploading = !!config.imageUploadUrl;
+  const uploading = !!config.imageUploadUrl || typeof config.imageUploadHandler === 'function';
   const ctrl = uploading && typeof AbortController !== 'undefined' ? new AbortController() : null;
   const prog = uploading
     ? imageProgress(editor, 'Uploading image…', ctrl ? () => ctrl.abort() : null)

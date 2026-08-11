@@ -94,3 +94,17 @@ saveLater.cancel();
 
 void VERSION; void words; void empty; void theme; void ro; void ok; void can; void active; void clean;
 editor.destroy();
+
+// T12 (§1.6) — a customer-owned upload flow must typecheck end to end.
+const s3Config: OpenEditorConfig = {
+  imageUploadHandler: async (file, { signal, onProgress }) => {
+    const { uploadUrl, publicUrl } = await fetch('/api/sign', {
+      method: 'POST', body: JSON.stringify({ name: file.name }), signal: signal ?? undefined,
+    }).then((r) => r.json());
+    onProgress(50);
+    await fetch(uploadUrl, { method: 'PUT', body: file, signal: signal ?? undefined });
+    onProgress(100);
+    return { url: publicUrl, width: 1200, height: 800 };
+  },
+};
+void s3Config;

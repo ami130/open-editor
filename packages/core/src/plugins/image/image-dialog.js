@@ -114,7 +114,11 @@ export async function openImageDialog(editor) {
     errEl.classList.add('oe-img-dialog__panel--hidden');
   }
   // #4: a local file needs an upload server or data-URI embedding; neither = dead-end.
-  const fileUploadDeadEnd = !config.imageUploadUrl && !config.imageAllowDataUri;
+  // A custom handler (T12) is a valid upload path too — omitting it here would
+  // tell a correctly-configured customer that uploads are disabled.
+  const fileUploadDeadEnd = !config.imageUploadUrl
+    && typeof config.imageUploadHandler !== 'function'
+    && !config.imageAllowDataUri;
 
   function switchTab(tab) {
     activeTab = tab;

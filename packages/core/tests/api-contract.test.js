@@ -81,6 +81,8 @@ const FROZEN_CONFIG_KEYS = [
   'placeholder', 'poweredBy', 'sanitize', 'allowTags', 'allowAttributes', 'imageAllowDataUri',
   'imageRequireAlt',
   'imageDefaultWidth', 'imageAvailableClasses', 'imageOpenOnDblClick', 'imageUploadUrl',
+  // T12 (§1.6): customer-owned upload flow (S3 pre-signed, Cloudinary, …).
+  'imageUploadHandler',
   'imageUploadHeaders', 'imageUploadWithCredentials', 'imageUploadFieldName', 'imageUploadData',
   'imageMaxFileSize', 'imageUploadResponse', 'tableAvailableClasses',
   'tableDefaultClass', 'tableDefaultHeaderRow', 'denyTags', 'askBeforePasteHTML',

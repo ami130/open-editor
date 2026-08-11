@@ -103,6 +103,24 @@ export interface OpenEditorConfig {
    * `{ url }` (or `{ src }`), optionally `{ sources: [{ srcset, media?, type?,
    * sizes? }] }` to emit a responsive `<picture>` (every srcset scheme-checked).
    */
+  /**
+   * Take over the upload entirely (T12) — for S3/R2 pre-signed URLs,
+   * Cloudinary, or any flow needing two round-trips, a different verb, or a
+   * non-multipart body, none of which `imageUploadUrl` can express.
+   *
+   * WINS over `imageUploadUrl` when both are set. Resolve `null` to signal a
+   * cancelled upload. The returned URL is scheme-checked exactly like a
+   * server-returned one.
+   */
+  imageUploadHandler?:
+  | ((
+    file: File,
+    ctx: { signal: AbortSignal | null; onProgress: (percent: number) => void },
+  ) => Promise<
+  string | { url?: string; src?: string; width?: number; height?: number;
+    sources?: Array<{ srcset: string; media?: string; type?: string; sizes?: string }> } | null
+  >)
+  | null;
   imageUploadUrl?: string | null;
   /**
    * Custom request headers for the image upload (authenticated backends):
