@@ -1,8 +1,8 @@
 {
-  "name": "openeditor-text",
+  "name": "openeditor-text-engine",
   "version": "1.2.0",
-  "private": false,
-  "description": "Open Editor core engine — pure JavaScript, zero dependencies",
+  "private": true,
+  "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
@@ -57,7 +57,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "rollup -c rollup.config.js && node scripts/extract-css.mjs",
-    "prepublishOnly": "rollup -c rollup.config.js && node scripts/extract-css.mjs"
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs && rollup -c rollup.config.js && node scripts/extract-css.mjs"
   },
   "devDependencies": {
     "@rollup/plugin-terser": "^1.0.0",

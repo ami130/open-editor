@@ -1,8 +1,8 @@
 {
   "name": "openeditor-text-react",
   "version": "1.2.0",
-  "private": false,
-  "description": "Official React wrapper for Open Editor — idiomatic <OpenEditor /> component",
+  "private": true,
+  "description": "LEGACY (v1.x) \u2014 wraps the npm-installed engine. Superseded by openeditor-text-react@2, which wraps the runtime loader. Kept private: v1.2.0 stays on npm for existing installs.",
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
@@ -45,20 +45,20 @@
     "build": "rollup -c rollup.config.js",
     "test": "vitest run",
     "prepack": "rollup -c rollup.config.js",
-    "prepublishOnly": "rollup -c rollup.config.js"
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs && rollup -c rollup.config.js"
   },
   "peerDependencies": {
-    "openeditor-text": ">=1.1.0",
-    "react": ">=18"
+    "react": ">=18",
+    "openeditor-text-engine": ">=1.1.0"
   },
   "devDependencies": {
-    "openeditor-text": "workspace:*",
     "@rollup/plugin-terser": "^1.0.0",
     "@testing-library/react": "^16.1.0",
     "jsdom": "29.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup": "4.62.0",
-    "vitest": "1.6.1"
+    "vitest": "1.6.1",
+    "openeditor-text-engine": "workspace:*"
   }
 }

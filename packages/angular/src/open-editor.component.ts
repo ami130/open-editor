@@ -16,8 +16,8 @@ import {
   Output, ViewChild, forwardRef, OnChanges, SimpleChanges,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { OpenEditor } from 'openeditor-text';
-import type { OpenEditorConfig, EditorPlugin } from 'openeditor-text';
+import { OpenEditor } from 'openeditor-text-engine';
+import type { OpenEditorConfig, EditorPlugin } from 'openeditor-text-engine';
 
 @Component({
   selector: 'open-editor',

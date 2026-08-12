@@ -25,7 +25,7 @@ const fakeEditor = {
   on: (evt: string, fn: (p: unknown) => void) => { handlers[evt] = fn; },
   plugins: { install: vi.fn() },
 };
-vi.mock('openeditor-text', () => ({
+vi.mock('openeditor-text-engine', () => ({
   OpenEditor: vi.fn().mockImplementation(() => fakeEditor),
 }));
 

@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, ref, nextTick } from 'vue';
-import { createTodoListPlugin } from 'openeditor-text';
+import { createTodoListPlugin } from 'openeditor-text-engine';
 import { OpenEditor, useOpenEditor } from '../src/index.js';
 
 let wrapper;

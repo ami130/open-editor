@@ -11,7 +11,7 @@ import type {
   OpenEditorTheme,
   OpenEditorDirection,
   EditorPlugin,
-} from 'openeditor-text';
+} from 'openeditor-text-engine';
 
 /** Reactive props. `config`/`plugins` are construct-time (remount via `:key`). */
 export interface OpenEditorProps {

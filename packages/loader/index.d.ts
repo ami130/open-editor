@@ -13,7 +13,7 @@
  * options are additive; everything else is the editor's own surface, typed once
  * at its source. This mirrors what the React/Vue/Angular wrappers already do.
  */
-import type { OpenEditor, OpenEditorConfig, EditorPlugin } from 'openeditor-text';
+import type { OpenEditor, OpenEditorConfig, EditorPlugin } from 'openeditor-text-engine';
 
 // ─── Loader-only options ─────────────────────────────────────────────────────
 

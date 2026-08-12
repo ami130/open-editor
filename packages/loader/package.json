@@ -1,11 +1,12 @@
 {
-  "name": "@openeditors/loader",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Open Editor runtime loader (execution plan \u00a71.5) \u2014 fetches, verifies and mounts the delivered engine. Deliberately minimal: everything that might change lives in the engine, not here.",
+  "name": "openeditor-text",
+  "version": "2.0.0",
+  "private": false,
+  "description": "Open Editor \u2014 the rich text editor, delivered at runtime. Installing this puts only a small loader in node_modules; the editor engine is fetched, integrity-verified and mounted at page load.",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.js",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -29,6 +30,7 @@
     "index.d.ts",
     "react.d.ts",
     "vue.d.ts",
+    "openeditor-text-engine.d.ts",
     "README.md"
   ],
   "engines": {
@@ -36,21 +38,10 @@
   },
   "scripts": {
     "test": "vitest run",
-    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs"
+    "sync:engine-types": "node scripts/sync-engine-types.mjs",
+    "prepublishOnly": "npm run sync:engine-types"
   },
-  "devDependencies": {
-    "vitest": "1.6.1",
-    "jsdom": "24.1.0",
-    "openeditor-text": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@testing-library/react": "^16.1.0",
-    "vue": "^3.5.13",
-    "@vue/test-utils": "^2.4.6"
-  },
-  "types": "./index.d.ts",
   "peerDependencies": {
-    "openeditor-text": ">=1.2.0",
     "react": ">=18",
     "vue": ">=3.3",
     "@angular/core": ">=17",
@@ -69,5 +60,15 @@
     "@angular/forms": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "vitest": "1.6.1",
+    "jsdom": "24.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@testing-library/react": "^16.1.0",
+    "vue": "^3.5.13",
+    "@vue/test-utils": "^2.4.6",
+    "openeditor-text-engine": "workspace:*"
   }
 }

@@ -19,7 +19,7 @@
 import {
   createElement, forwardRef, useEffect, useImperativeHandle, useRef,
 } from 'react';
-import { OpenEditor as OpenEditorCore } from 'openeditor-text';
+import { OpenEditor as OpenEditorCore } from 'openeditor-text-engine';
 
 export const OpenEditor = forwardRef(function OpenEditor(props, ref) {
   const {

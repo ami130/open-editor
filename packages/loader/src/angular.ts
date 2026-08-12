@@ -28,7 +28,7 @@ import {
   Output, ViewChild, forwardRef, OnChanges, SimpleChanges,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import type { OpenEditor, OpenEditorConfig, EditorPlugin } from 'openeditor-text';
+import type { OpenEditor, OpenEditorConfig, EditorPlugin } from 'openeditor-text-engine';
 // `./index.js` is plain JavaScript; `src/index.d.ts` sits beside it so
 // TypeScript resolves real types here rather than making every callback below
 // implicitly `any` under --strict.

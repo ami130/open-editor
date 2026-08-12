@@ -34,7 +34,7 @@ importers:
     dependencies:
       openeditor-text:
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../packages/loader
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.10.2
@@ -73,7 +73,7 @@ importers:
       ng-packagr:
         specifier: ^19.0.0
         version: 19.2.2(@angular/compiler-cli@19.2.25(@angular/compiler@19.2.25)(typescript@5.6.3))(tslib@2.8.1)(typescript@5.6.3)
-      openeditor-text:
+      openeditor-text-engine:
         specifier: workspace:*
         version: link:../core
       terser:
@@ -143,7 +143,7 @@ importers:
       jsdom:
         specifier: 24.1.0
         version: 24.1.0
-      openeditor-text:
+      openeditor-text-engine:
         specifier: workspace:*
         version: link:../core
       react:
@@ -170,7 +170,7 @@ importers:
       jsdom:
         specifier: 29.1.1
         version: 29.1.1
-      openeditor-text:
+      openeditor-text-engine:
         specifier: workspace:*
         version: link:../core
       react:
@@ -190,7 +190,7 @@ importers:
     dependencies:
       openeditor-text:
         specifier: workspace:*
-        version: link:../core
+        version: link:../loader
     devDependencies:
       vitest:
         specifier: 1.6.1
@@ -198,7 +198,7 @@ importers:
 
   packages/ui:
     dependencies:
-      openeditor-text:
+      openeditor-text-engine:
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -217,7 +217,7 @@ importers:
       jsdom:
         specifier: 29.1.1
         version: 29.1.1
-      openeditor-text:
+      openeditor-text-engine:
         specifier: workspace:*
         version: link:../core
       rollup:

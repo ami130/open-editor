@@ -1,8 +1,8 @@
 {
   "name": "openeditor-text-angular",
   "version": "1.2.0",
-  "private": false,
-  "description": "Official Angular wrapper for Open Editor — standalone component with ControlValueAccessor forms integration",
+  "private": true,
+  "description": "LEGACY (v1.x) \u2014 wraps the npm-installed engine. Superseded by openeditor-text-angular@2, which wraps the runtime loader. Kept private: v1.2.0 stays on npm for existing installs.",
   "license": "MIT",
   "author": "Open Editor contributors",
   "repository": {
@@ -27,12 +27,12 @@
     "build": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs",
     "test": "vitest run",
     "prepack": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs",
-    "prepublishOnly": "ng-packagr -p ng-package.json && node scripts/minify-dist.mjs"
+    "prepublishOnly": "node ../../scripts/guard-no-publish.mjs && ng-packagr -p ng-package.json && node scripts/minify-dist.mjs"
   },
   "peerDependencies": {
     "@angular/core": ">=17",
     "@angular/forms": ">=17",
-    "openeditor-text": ">=1.1.0"
+    "openeditor-text-engine": ">=1.1.0"
   },
   "devDependencies": {
     "@angular/common": "^19.0.0",
@@ -42,11 +42,11 @@
     "@angular/forms": "^19.0.0",
     "jsdom": "29.1.1",
     "ng-packagr": "^19.0.0",
-    "openeditor-text": "workspace:*",
     "terser": "^5.36.0",
     "typescript": "~5.6.3",
     "vitest": "1.6.1",
-    "zone.js": "^0.15.0"
+    "zone.js": "^0.15.0",
+    "openeditor-text-engine": "workspace:*"
   },
   "dependencies": {
     "tslib": "^2.8.0"

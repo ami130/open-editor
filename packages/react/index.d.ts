@@ -9,7 +9,7 @@ import type {
   OpenEditorTheme,
   OpenEditorDirection,
   EditorPlugin,
-} from 'openeditor-text';
+} from 'openeditor-text-engine';
 
 export interface OpenEditorHandle {
   /** The live core editor instance (null before mount / after unmount). */

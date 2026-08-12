@@ -12,7 +12,7 @@
 import {
   defineComponent, h, ref, watch, onMounted, onBeforeUnmount, shallowRef,
 } from 'vue';
-import { OpenEditor as OpenEditorCore } from 'openeditor-text';
+import { OpenEditor as OpenEditorCore } from 'openeditor-text-engine';
 
 /**
  * 18.4 — Composition-API idiom: bring-your-own element.

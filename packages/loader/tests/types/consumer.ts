@@ -25,7 +25,9 @@ import {
   type DeliverySession,
   type LoaderPlugins,
 } from '@openeditors/loader';
-import type { OpenEditor } from 'openeditor-text';
+// The ENGINE's types, vendored into the published loader (the engine package
+// itself is private and never published, so a consumer could not install it).
+import type { OpenEditor } from 'openeditor-text-engine';
 
 // ── The minimum a consumer must supply ───────────────────────────────────────
 async function minimal(): Promise<OpenEditor> {

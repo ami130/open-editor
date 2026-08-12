@@ -5,11 +5,18 @@
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2020", "DOM"],
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
     "paths": {
-      "@openeditors/loader": ["../../index.d.ts"],
-      "openeditor-text": ["../../../core/index.d.ts"]
+      "@openeditors/loader": [
+        "../../index.d.ts"
+      ]
     }
   },
-  "include": ["consumer.ts"]
+  "include": [
+    "consumer.ts",
+    "../../openeditor-text-engine.d.ts"
+  ]
 }
