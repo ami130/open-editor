@@ -21,6 +21,19 @@
  *
  * Clearing site data resets it, and that is the intended behaviour rather than
  * something to defend against.
+ *
+ * ─── §2.4 UPDATE: IT NOW BOUNDS A SEAT COUNT ────────────────────────────────
+ * The backend counts DISTINCT install ids per licence to cap how many machines
+ * one key serves (closing the unbounded `localhost` exemption in domain
+ * binding). That makes this value load-bearing in a way it was not before, so
+ * two properties above are now guarantees rather than conveniences:
+ *
+ *   • It is still NOT a credential. Presenting one grants nothing on its own —
+ *     the licence key remains the only thing that authorises premium. This only
+ *     ever bounds how many installs ONE valid key may serve.
+ *   • Resetting it is still safe for the user. A cleared id simply looks like a
+ *     new machine; the backend never refuses a KNOWN install, and an admin can
+ *     release a stale seat. A customer cannot lose premium by clearing storage.
  */
 
 const STORAGE_KEY = 'open-editor.install-id';
