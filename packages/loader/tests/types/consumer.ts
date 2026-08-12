@@ -125,3 +125,27 @@ async function lowLevel(): Promise<void> {
 }
 
 void minimal; void withEngineConfig; void withCallbacks; void loaderOptions; void lowLevel;
+
+
+// ─── §2.4 activation surface ────────────────────────────────────────────────
+// The server hands a purchased key back on the session that redeems an
+// activation claim. If DeliverySession does not DECLARE it, a TypeScript host
+// cannot read it without an error — the field would exist at runtime and be
+// unreachable in typed code, which is how it shipped originally.
+import {
+  showInstallId, hideInstallId, hasInstallId,
+  readActivatedKey, writeActivatedKey, clearActivatedKey,
+} from 'openeditor-text';
+
+export async function activationSurface(el: Element): Promise<string | null> {
+  const session = await openSession({ endpoint: 'https://cdn.example.com', installId: 'oe_x' });
+  const handed: string | undefined = session.licenceKey;
+
+  showInstallId(el, { label: 'Editor ID', hint: 'Paste at checkout' });
+  hasInstallId(el);
+  hideInstallId(el);
+
+  if (handed) writeActivatedKey('https://cdn.example.com', handed);
+  clearActivatedKey('https://cdn.example.com');
+  return readActivatedKey('https://cdn.example.com');
+}

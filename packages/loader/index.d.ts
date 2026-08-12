@@ -125,6 +125,18 @@ export interface DeliverySession {
   /** The engine version that was resolved. */
   version: string;
   engine: EngineDescriptor;
+  /**
+   * §2.4 — the buyer's licence key, handed over EXACTLY ONCE.
+   *
+   * Present only when this caller sent no key of their own and a pending
+   * activation matched their install id (they just bought premium from inside
+   * this editor). `createEditor` stores it automatically; a host calling
+   * `openSession` directly must persist it themselves, because the claim is
+   * single-use and the upgrade would otherwise be lost on reload.
+   *
+   * Absent on every other response.
+   */
+  licenceKey?: string;
 }
 
 export interface OpenSessionOptions {
