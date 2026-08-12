@@ -27,6 +27,7 @@ import {
   readBundle, writeBundle, writeLastPlan, readLastPlan, clearBundle, keyFor,
 } from './cache.js';
 import { getInstallId } from './install-id.js';
+import { readActivatedKey, writeActivatedKey } from './activated-key.js';
 import { renderFallback, removeFallback } from './fallback.js';
 import { showActivatePrompt } from './activate.js';
 
@@ -115,8 +116,12 @@ export async function createEditor(target, options = {}) {
     // be rate limited per install and usage attributed (S1) instead of being an
     // undifferentiated per-IP flood. Falls back to null wherever storage is
     // unavailable; a missing id must never block a load.
+    // §2.4 — a key handed to this browser by a previous activation claim. Used
+    // only when the caller supplied none of their own, so an explicitly
+    // configured key always wins over a remembered one.
+    const effectiveKey = licenceKey ?? readActivatedKey(endpoint);
     const sessionPromise = openSession({
-      endpoint, licenceKey, version, installId: installId ?? getInstallId(),
+      endpoint, licenceKey: effectiveKey, version, installId: installId ?? getInstallId(),
     });
     const speculative = guess.then((last) => (
       last?.plan && last?.version
@@ -163,6 +168,14 @@ export async function createEditor(target, options = {}) {
     // The session token is what unlocks premium. The engine verifies it OFFLINE
     // against the public key compiled into the bundle (§1.1) — no second
     // round-trip, and the key cannot be swapped by the host page.
+    /**
+     * §2.4 — the backend hands over a purchased licence key EXACTLY ONCE, on the
+     * session that redeems the activation claim. Persist it immediately: the
+     * claim is already spent, so if this value is lost the upgrade would vanish
+     * on the next reload with no way to recover it automatically.
+     */
+    if (session.licenceKey) writeActivatedKey(endpoint, session.licenceKey);
+
     engineConfig.licenseKey = session.sessionToken;
 
     // ─── D1: keep the session alive while the editor is open ────────────────
