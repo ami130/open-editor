@@ -172,9 +172,37 @@ content, cursor, undo history and typing all survive it untouched.
 
 Vue emits `licence-applied`; Angular emits `licenceApplied`.
 
+### Buying premium from inside the editor
+
+A customer can upgrade without ever pasting a key. Show them their editor ID:
+
+```js
+import { showInstallId } from 'openeditor-text';
+
+// Put this behind your own "Upgrade" button — it is NOT rendered automatically,
+// because most people loading an editor are not buying anything.
+showInstallId(document.querySelector('#upgrade-panel'));
+```
+
+They paste that ID at checkout. After payment, the **next load of that same
+browser** comes back premium — the key is delivered to it automatically and
+remembered, so it survives reloads.
+
+Prefer your own markup? `getInstallId()` returns the raw value.
+
+The handover happens **exactly once** and then expires. That is deliberate: an
+install ID appears in server logs, so a claim that could be replayed would let
+anyone who reads a log line take the licence. Showing the ID on screen is safe —
+on its own it authorises nothing.
+
+If the browser blocks site storage (private mode, sandboxed iframe), there is no
+ID and `showInstallId()` says so plainly instead of rendering an empty box —
+those customers buy normally and paste the emailed key.
+
 ## Privacy
 
 An anonymous install id is stored per browser profile so anonymous traffic can
-be rate-limited and usage counted. It is **random** — never derived from your
+be rate-limited, usage counted, and — if you choose to use it — a purchase
+delivered to the browser that made it. It is **random** — never derived from your
 device, IP, or user agent — and clearing site data resets it. It identifies an
 install, not a person.

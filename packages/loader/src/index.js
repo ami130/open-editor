@@ -486,3 +486,7 @@ export { clearCache, clearBundle, readLastPlan, keyFor, MAX_ENTRIES } from './ca
 export { getInstallId, mintInstallId, isValidInstallId } from './install-id.js';
 export { renderFallback, removeFallback, hasFallback } from './fallback.js';
 export { showActivatePrompt, dismissActivatePrompt, hasActivatePrompt } from './activate.js';
+// §2.4 — surface the install id so a buyer can paste it at checkout. Opt-in:
+// most people loading an editor are not buying anything.
+export { showInstallId, hideInstallId, hasInstallId } from './install-id-badge.js';
+export { readActivatedKey, writeActivatedKey, clearActivatedKey } from './activated-key.js';

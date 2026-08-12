@@ -201,6 +201,48 @@ export function dismissActivatePrompt(el: Element): void;
 /** Is an activation prompt currently showing? */
 export function hasActivatePrompt(el: Element): boolean;
 
+/** Options for the install-id badge (§2.4). */
+export interface InstallIdOptions {
+  /** Text above the id. Defaults to "Editor ID". */
+  label?: string;
+  /** Explanatory line under the id. */
+  hint?: string;
+  /** Shown instead of the id when site storage is blocked. */
+  unavailableMessage?: string;
+}
+
+/**
+ * Render this editor's install id with a copy button (§2.4 activation).
+ *
+ * The buyer pastes it at checkout and THIS editor unlocks itself after
+ * payment. Opt-in rather than automatic: most people loading an editor are not
+ * buying anything.
+ *
+ * Safe to display — an install id authorises nothing on its own, and an
+ * activation claim is single-use and expiring.
+ */
+export function showInstallId(el: Element, options?: InstallIdOptions): Element | null;
+
+/** Remove the install-id badge, if showing. */
+export function hideInstallId(el: Element): void;
+
+/** Is the install-id badge currently showing? */
+export function hasInstallId(el: Element): boolean;
+
+/**
+ * The licence key previously handed to this browser by an activation claim.
+ *
+ * The loader reads this automatically when no key is configured; hosts rarely
+ * need it directly.
+ */
+export function readActivatedKey(endpoint: string): string | null;
+
+/** Remember a licence key for this endpoint. Returns false if storage refused. */
+export function writeActivatedKey(endpoint: string, licenceKey: string): boolean;
+
+/** Forget the stored licence key for this endpoint. */
+export function clearActivatedKey(endpoint: string): void;
+
 /** Open a delivery session without mounting anything. */
 export function openSession(options: OpenSessionOptions): Promise<DeliverySession>;
 
