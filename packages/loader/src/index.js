@@ -28,6 +28,7 @@ import {
 } from './cache.js';
 import { getInstallId } from './install-id.js';
 import { readActivatedKey, writeActivatedKey } from './activated-key.js';
+import { subscribeEntitlements } from './entitlement-stream.js';
 import { renderFallback, removeFallback } from './fallback.js';
 import { showActivatePrompt } from './activate.js';
 
@@ -227,6 +228,44 @@ export async function createEditor(target, options = {}) {
     // unlock nothing — the premium code is simply not in the downloaded file.
     editor._deliveryPlan = session.plan;
     editor._deliveryVersion = session.version;
+
+    /**
+     * §2.3 — hold a push channel open so an entitlement change lands in ~2s
+     * instead of waiting for the engine's refresh timer (up to 15 min).
+     *
+     * Subscribed by INSTALL ID rather than licence id: the licId lives inside
+     * the signed session token, and decoding a JWT client-side just to name a
+     * channel would add a parser (and a failure mode) for no benefit. The
+     * backend publishes a purchase on the installId channel precisely so a
+     * not-yet-licensed browser can be reached — which is the case that matters
+     * most, since that editor has no key to refresh with yet.
+     *
+     * Everything here is best-effort: on any failure the timer still runs,
+     * exactly as it did before push existed.
+     */
+    const streamId = installId ?? getInstallId();
+    if (streamId) {
+      const stopStream = subscribeEntitlements({
+        endpoint,
+        installId: streamId,
+        onChange: () => {
+          // Re-run the SAME refresh the engine performs on its timer. It
+          // re-verifies offline, re-applies entitlements in place, re-arms the
+          // timer and tears down revoked features — all without touching the
+          // document. Reimplementing any of that here would create a second
+          // path that has to agree with the first forever.
+          try { editor._doLicenseRefresh?.(); } catch { /* timer still covers it */ }
+        },
+      });
+      // Close the socket with the editor, or every destroyed editor leaks a
+      // connection and its heartbeat for as long as the page lives.
+      const originalDestroy = typeof editor.destroy === 'function'
+        ? editor.destroy.bind(editor) : null;
+      editor.destroy = function destroyWithStream(...args) {
+        try { stopStream(); } catch { /* already closed */ }
+        return originalDestroy ? originalDestroy(...args) : undefined;
+      };
+    }
 
     return editor;
   } catch (err) {
@@ -490,3 +529,5 @@ export { showActivatePrompt, dismissActivatePrompt, hasActivatePrompt } from './
 // most people loading an editor are not buying anything.
 export { showInstallId, hideInstallId, hasInstallId } from './install-id-badge.js';
 export { readActivatedKey, writeActivatedKey, clearActivatedKey } from './activated-key.js';
+// §2.3 — push channel, for hosts driving their own refresh.
+export { subscribeEntitlements } from './entitlement-stream.js';
