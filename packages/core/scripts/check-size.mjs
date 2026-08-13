@@ -60,8 +60,36 @@ const BUDGETS = {
   //     the heavy premium BODIES (seo-analyze, docx ooxml, ai) are tree-shaken
   //     OUT of a keyless bundler consumer via dynamic import() — only the ~4K
   //     licensing runtime is added, NOT premium plugin code. That is the 1b win.
-  full: 172_000,  // bytes, gz
-  core: 75_000,   // bytes, gz
+  // 2026-08-13 — core 75→86K (CONSCIOUS, measured 82,936 gz).
+  //
+  //   ⚠️ READ THIS BEFORE RAISING AGAIN. This gate had NOT RUN IN CI FOR THE
+  //   ENTIRE PERIOD THIS GROWTH HAPPENED. The root `pnpm build` script still
+  //   filtered for `openeditor-text`, which the v2 restructure renamed to the
+  //   LOADER — so `pnpm --filter` matched nothing, exited 0, and the Build job
+  //   reported success while producing no core bundle at all. With nothing to
+  //   measure, the gate could not fail. Fixed in 279caf9.
+  //
+  //   So this is NOT a single feature's cost. It is ~10K gz accumulated across
+  //   ten commits that shipped unmeasured (56981ac..HEAD):
+  //     a013b60 image-upload API + a11y polish
+  //     82ec452 Enter-after-formatting fix
+  //     102dfdc clear-format / sup-sub exclusivity
+  //     b2a0108 blockquote + colour-picker edge cases
+  //     b6a22c3 image + link deep-audit round (the largest)
+  //     02021e3 readonly enforcement sweep + undo integration
+  //     c990b54 T12 custom upload handler
+  //     f3b9046 strictEntitlements (≈0 — one condition plus comments)
+  //
+  //   Raised to 86K rather than to 83K: a budget set 64 bytes above the
+  //   measurement fails on the next one-line change, and a gate that fails for
+  //   noise gets ignored — which is how it ended up unenforced in the first
+  //   place. 86K leaves ~3.1KB (3.7%) of deliberate headroom.
+  //
+  //   NOT raised to hide the growth: the growth is real and now visible. If
+  //   core approaches 86K again, the correct response is to MEASURE what is
+  //   heaviest and trim, not to bump this number again.
+  full: 172_000,  // bytes, gz  (measured 164,587 — 7.2KB headroom)
+  core: 86_000,   // bytes, gz  (measured  82,936 — 3.1KB headroom)
 };
 
 const gz = (buf) => gzipSync(buf, { level: 9 }).length;
