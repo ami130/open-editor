@@ -31,6 +31,18 @@ jobs:
       - name: Run core unit tests
         run: pnpm test
 
+      # packages/angular imports `openeditor-text-engine`, whose package.json
+      # entry points all resolve into dist/ (main/module/exports). Without a
+      # build the wrapper suites fail with "Failed to resolve entry for package
+      # openeditor-text-engine" — which reads like a broken package.json rather
+      # than a missing build step.
+      #
+      # This job previously got away with it because the stale `test:packages`
+      # filter excluded the wrong package; fixing that filter exposed the real
+      # dependency.
+      - name: Build core (wrapper tests import it via dist/)
+        run: pnpm build
+
       - name: Run wrapper / CLI / entitlements tests
         run: pnpm test:packages
 
