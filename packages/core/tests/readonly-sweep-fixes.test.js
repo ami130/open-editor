@@ -47,7 +47,9 @@ describe('T1 — table context menu respects readonly', () => {
   });
 
   it('Delete row does NOT remove a row while readonly', () => {
-    const { table, cell } = setup();
+    // `cell` is deliberately not destructured: setHTML below replaces the DOM
+    // this test operates on, so the handle from setup() is stale immediately.
+    const { table } = setup();
     editor.setHTML('<table class="oe-table"><tbody><tr><td>a</td></tr><tr><td>b</td></tr></tbody></table>');
     const t2 = editor.getEditorElement().querySelector('table');
     editor.setReadOnly(true);

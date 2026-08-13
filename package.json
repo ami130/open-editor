@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter playground dev",
-    "build": "pnpm --filter openeditor-text build",
+    "build": "pnpm --filter openeditor-text-engine build",
     "test": "pnpm --filter openeditor-text test",
     "test:e2e": "pnpm --filter playground test:e2e",
     "test:all": "pnpm test && pnpm test:packages && pnpm test:e2e",
