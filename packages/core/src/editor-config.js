@@ -147,6 +147,22 @@ export const DEFAULTS = {
   //   must NOT unlock the bundled premium. Set to false only to opt back into
   //   the legacy grant-all behavior (e.g. an embed with no premium at all).
   enforceFreeTier: true,
+  // strictEntitlements (Stage 3): when TRUE, the ONLY source of truth for what
+  //   is granted is the entitlements object (i.e. the licence token). The
+  //   hardcoded FREE_SET blanket below is not applied, so a package that
+  //   deliberately EXCLUDES a feature can actually restrict it — which is the
+  //   whole point of admin-defined packages.
+  //
+  //   DEFAULT FALSE, deliberately. This is a BREAKING change for any token
+  //   issued before the backend started including the free baseline: such a
+  //   token lists only what the package added (a real production token listed
+  //   ['export.pdf'] and nothing else), so tightening the gate against it would
+  //   strip every free feature from a paying customer.
+  //
+  //   Safe to enable only once every token in the wild carries its full grant —
+  //   i.e. after one token-refresh cycle (<=30 days) following the backend
+  //   change. Roll it out behind the canary rather than flipping it globally.
+  strictEntitlements: false,
   // licenseKey (Phase 1a): the compact JWS license token the customer pastes to
   //   unlock premium. Absent → free tier. Verified OFFLINE, inside this package,
   //   against licenseKeys below — no separate premium host, no second install.

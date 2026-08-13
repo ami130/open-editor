@@ -103,6 +103,10 @@ const FROZEN_CONFIG_KEYS = [
   'grantedFeatures', 'entitlements',
   // Additive — Phase 0c fail-closed opt-in. false (default) keeps grant-all.
   'enforceFreeTier',
+  // Stage 3 — opt-in strict gating (token is the only source of truth).
+  // Added deliberately: this list is a PUBLIC API contract, so a new config key
+  // is a real API change and should be registered here, not silently allowed.
+  'strictEntitlements',
   // Additive — Phase 1a paste-one-key licensing (verified offline inside core).
   'licenseKey', 'licenseKeys', 'allowDevHost', 'premiumPlugins',
   // Additive — DX: console warning when a license fails to unlock (default true).

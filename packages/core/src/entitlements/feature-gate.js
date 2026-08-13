@@ -58,6 +58,8 @@ export function createFeatureGate(cfg = {}) {
   const entitlements = cfg.entitlements || null;
   const list = cfg.grantedFeatures;
   const enforceFreeTier = cfg.enforceFreeTier === true;
+  // Stage 3 — opt-in, and only meaningful alongside enforceFreeTier.
+  const strictEntitlements = cfg.strictEntitlements === true;
 
   // An entitlements object with isGranted() takes precedence.
   const hasEntitlements = entitlements && typeof entitlements.isGranted === 'function';
@@ -90,7 +92,30 @@ export function createFeatureGate(cfg = {}) {
       // a real license lists only PREMIUM, so without this layer a paying
       // customer would lose free features.
       if (hasEntitlements) {
-        if (FREE_SET.has(featureId)) return true;         // free, always
+        /**
+         * STAGE 3 — strictEntitlements: the TOKEN is the only source of truth.
+         *
+         * The FREE_SET blanket below exists because a licence historically
+         * listed ONLY the premium features its package added; without the
+         * blanket a paying customer would lose every free feature. That made
+         * the free tier a property of the ENGINE BUILD rather than of the
+         * package an admin composed — so a package that deliberately EXCLUDES
+         * a feature could never actually restrict it.
+         *
+         * With strict mode on, the token must carry its full effective grant
+         * (the backend now sends `free tier ∪ package`). Then an admin's
+         * package means exactly what it says.
+         *
+         * DEFAULT OFF. A token issued before that backend change lists only
+         * the package — a real production token was ['export.pdf'] alone — and
+         * tightening against it would strip ~53 features from a payer. Enable
+         * only after a full token-refresh cycle, via the canary.
+         *
+         * ALWAYS_ON is checked ABOVE this branch and is unaffected either way:
+         * those are structural (typing, undo, clipboard, selection). Gating
+         * them would break the editor, not restrict a tier.
+         */
+        if (!strictEntitlements && FREE_SET.has(featureId)) return true;  // free, always
         try { return !!entitlements.isGranted(featureId); } catch { return false; }
       }
       // No entitlements object: an explicit grantedFeatures ARRAY is a deliberate
