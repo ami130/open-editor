@@ -1,8 +1,8 @@
 {
   "name": "openeditor-text",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": false,
-  "description": "Open Editor \u2014 the rich text editor, delivered at runtime. Installing this puts only a small loader in node_modules; the editor engine is fetched, integrity-verified and mounted at page load.",
+  "description": "Open Editor — the rich text editor, delivered at runtime. Installing this puts only a small loader in node_modules; the editor engine is fetched, integrity-verified and mounted at page load.",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.js",
