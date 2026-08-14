@@ -12,7 +12,23 @@
  * So `LoaderOptions` EXTENDS `OpenEditorConfig` from the core package. Loader
  * options are additive; everything else is the editor's own surface, typed once
  * at its source. This mirrors what the React/Vue/Angular wrappers already do.
+ *
+ * ─── WHY THE TRIPLE-SLASH REFERENCE BELOW IS LOAD-BEARING ───────────────────
+ * `openeditor-text-engine` is not an installable package — it is private and
+ * never published. Its types are VENDORED into the sibling
+ * `openeditor-text-engine.d.ts` as an ambient `declare module`.
+ *
+ * An ambient declaration only exists if some file pulls it in, and nothing did.
+ * Inside this monorepo the bare import below resolved anyway, via the
+ * `openeditor-text-engine: workspace:*` devDependency — so the type-contract
+ * test passed for a reason that DISAPPEARS on publish. Installed from npm,
+ * `import ... from 'openeditor-text-engine'` was TS2307, `OpenEditorConfig`
+ * became `any`, and `LoaderOptions` silently collapsed to `LoaderOnlyOptions`:
+ * every real editor option (minHeight, placeholder, theme, toolbar…) rejected
+ * as an unknown property. Caught by compiling a clean install from the
+ * registry, which is the only place the difference is visible.
  */
+/// <reference path="./openeditor-text-engine.d.ts" />
 import type { OpenEditor, OpenEditorConfig, EditorPlugin } from 'openeditor-text-engine';
 
 // ─── Loader-only options ─────────────────────────────────────────────────────
@@ -334,3 +350,25 @@ export function removeFallback(el: Element): void;
 
 /** Is this container currently showing a fallback? */
 export function hasFallback(el: Element): boolean;
+
+// ─── Engine types, re-exported ───────────────────────────────────────────────
+
+/**
+ * The engine's entire public type surface, surfaced from `openeditor-text`.
+ *
+ * Two reasons this is not optional:
+ *
+ * 1. `react.d.ts` and `vue.d.ts` do `import type { OpenEditorConfig, ... } from
+ *    'openeditor-text'`. Nothing here exported those names, so every wrapper's
+ *    types were broken on a published install for the same reason the engine
+ *    import was — and equally invisible from inside the monorepo.
+ *
+ * 2. A consumer typing `let e: OpenEditor` or handling an `OpenEditorEventMap`
+ *    event has nowhere else to import from: the engine package is private and
+ *    unpublishable, so `openeditor-text` is the only name they can write.
+ *
+ * `export *` rather than a hand-listed set, deliberately — a list here would be
+ * exactly the type fork this file's header forbids, and would need editing
+ * every time the engine gains a type.
+ */
+export type * from 'openeditor-text-engine';

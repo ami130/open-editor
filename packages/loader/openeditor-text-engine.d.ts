@@ -235,6 +235,30 @@ export interface OpenEditorConfig {
    *  entitlement/key. Set false for legacy grant-all (no gating) — e.g. an embed
    *  that manages entitlements entirely itself. */
   enforceFreeTier?: boolean;
+
+  /**
+   * Stage 3 — grant ONLY what the licence token lists.
+   *
+   * By default the engine also grants its own built-in free set on top of the
+   * token, because a licence historically listed only the premium features its
+   * package added. That makes the free tier a property of the ENGINE BUILD, so
+   * a package that deliberately excludes a feature cannot restrict it.
+   *
+   * With this on, the token is the single source of truth — which requires the
+   * token to carry its full effective grant (the delivery backend now sends
+   * `free tier ∪ package`).
+   *
+   * ⚠️ BREAKING for tokens issued before that change: those list only the
+   * package, so enabling this against one strips every free feature from a
+   * paying customer. Enable only after a full token-refresh cycle, and prefer
+   * rolling it out behind a canary.
+   *
+   * Structural capabilities (typing, undo, clipboard, selection) are never
+   * gated either way.
+   *
+   * @default false
+   */
+  strictEntitlements?: boolean;
   /** Phase 1a: the compact JWS license token the customer pastes to unlock
    *  premium. Absent → free tier. Verified offline inside the package. */
   licenseKey?: string | null;
