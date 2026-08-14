@@ -179,6 +179,46 @@ export async function createEditor(target, options = {}) {
 
     engineConfig.licenseKey = session.sessionToken;
 
+    /**
+     * ─── THE PACKAGE IS THE TRUTH (Stage 3) ─────────────────────────────────
+     *
+     * Without this, the engine grants its OWN built-in free set on top of
+     * whatever the token says:
+     *
+     *   feature-gate.js:  if (!strictEntitlements && FREE_SET.has(id)) return true;
+     *
+     * FREE_SET is "every feature compiled into this bundle". So an admin could
+     * compose a package of two features, the backend would grant exactly two,
+     * the signed token would carry exactly two — and the editor would still
+     * enable all ~53, because the BUILD contains them. Measured on a real
+     * domain: a 2-feature package granted insert.table, insert.image and
+     * colour anyway.
+     *
+     * That made the free tier a property of the ENGINE BUILD rather than of the
+     * package an admin composed, which is the opposite of what runtime delivery
+     * is for. Premium was gated correctly (export.pdf denied), so it LOOKED
+     * like two fixed tiers rather than N admin-composed packages.
+     *
+     * ⚠️ WHY IT WAS SAFE TO DEFAULT THIS ON, when the engine still defaults it
+     * off: strict mode makes the TOKEN the only source of truth, so it is only
+     * safe once every token carries its full effective grant. Under runtime
+     * delivery that is guaranteed — /delivery/session mints a fresh token on
+     * every page load and already sends `free tier ∪ package`. The historical
+     * hazard was a long-lived pasted licence listing ONLY premium ids (a real
+     * production token was `['export.pdf']` alone); tightening against one of
+     * those would strip ~53 features from a payer. The loader never sees those:
+     * it always passes a session token it just fetched.
+     *
+     * ALWAYS_ON (typing, undo, clipboard, selection) is checked ABOVE the
+     * strict branch, so a minimal package cannot brick the editor.
+     *
+     * A host that wants the old blanket behaviour can still pass
+     * `strictEntitlements: false` — this is a default, not an override.
+     */
+    if (engineConfig.strictEntitlements === undefined) {
+      engineConfig.strictEntitlements = true;
+    }
+
     // ─── D1: keep the session alive while the editor is open ────────────────
     //
     // A session token lives 15 MINUTES. Anyone writing a real document outlives
