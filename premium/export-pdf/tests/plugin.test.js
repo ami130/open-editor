@@ -39,13 +39,16 @@ function stubWindowOpen(returnNull = false) {
   const writes = [];
   const state = { printed: 0, focused: 0, closed: false };
   const fakeWin = {
+    // Non-null on purpose: a real popup HAS an opener, so the plugin must sever
+    // it. Starting at null would pass whether or not that ever happened.
+    opener: {},
     document: { write: (s) => writes.push(s), close: () => { state.closed = true; } },
     focus: () => { state.focused++; },
     print: () => { state.printed++; },
     requestAnimationFrame: (cb) => cb(),
   };
   const spy = vi.spyOn(window, 'open').mockImplementation(() => (returnNull ? null : fakeWin));
-  return { spy, writes, state };
+  return { spy, writes, state, win: fakeWin };
 }
 
 let opened;
@@ -135,7 +138,7 @@ describe('export-pdf — granted', () => {
   });
 });
 
-describe('export-pdf audit fixes — always sanitize + noopener', () => {
+describe('export-pdf audit fixes — always sanitize + no opener back-reference', () => {
   // AUDIT FIX: exportPdf() trusted getHTML() unconditionally; if a host set
   // `sanitize: false`, unsanitized HTML was written straight into the popup
   // via document.write(). This is a real script-execution path since a
@@ -164,12 +167,26 @@ describe('export-pdf audit fixes — always sanitize + noopener', () => {
     expect(opened.writes[0]).toContain('<h1>Title</h1>');
   });
 
-  it('opens the popup with noopener', () => {
+  /**
+   * ⚠️ THIS TEST USED TO REQUIRE `noopener`, AND THAT REQUIREMENT WAS THE BUG.
+   *
+   * `window.open(..., 'noopener')` returns NULL by spec — withholding the handle
+   * is what noopener means — but exportPdf() must WRITE the print document into
+   * the window. So `win` was always null, every export took the popup-blocked
+   * branch, and the customer was told to "allow pop-ups" for a problem pop-ups
+   * never caused. The paid feature failed 100% of the time.
+   *
+   * The mock hid it: stubWindowOpen() always returns a fake window, so the test
+   * could not see the null a real browser returns. Assert the GOAL (no opener),
+   * which is only reachable if the handle survived.
+   */
+  it('severs opener on the popup, and does NOT pass noopener', () => {
     const editor = makeEditor();
     opened = stubWindowOpen();
     createExportPdfPlugin(ALLOW).install(editor);
     editor.exportPdf();
-    expect(opened.spy.mock.calls[0][2]).toContain('noopener');
+    expect(opened.spy.mock.calls[0][2]).not.toContain('noopener');
+    expect(opened.win.opener).toBeNull();
   });
 });
 

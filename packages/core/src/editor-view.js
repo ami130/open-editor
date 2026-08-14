@@ -80,12 +80,24 @@ export const editorViewMixin = {
     // document.write(), so it must be safe regardless of that unrelated choice.
     let html = this.getHTML();
     if (this._sanitizeHTML) html = this._sanitizeHTML(html);
-    // noopener: the popup only ever holds content this method writes itself, so
-    // there's no legitimate reason for it to hold a `window.opener` back-reference
-    // — dropping it removes a script-execution blast-radius path in the (already
-    // narrow, config-only) case a host disables output sanitization.
-    const win = window.open('', '_blank', 'width=800,height=600,noopener');
-    if (!win) return; // popup blocked — fail gracefully
+    // ⚠️ DO NOT PUT `noopener` BACK IN THE FEATURE STRING.
+    //
+    // Per spec, `window.open(..., 'noopener')` returns NULL — the whole point of
+    // noopener is to hand back no handle. But this method must WRITE into the
+    // window it just opened, so a null handle means printing silently does
+    // nothing. It read as "popup blocked" and was indistinguishable from the
+    // real thing, in every browser, for every user. Verified directly:
+    //   window.open('', '_blank', 'w,h,noopener') -> null
+    //   window.open('', '_blank', 'w,h')          -> Window
+    //
+    // The original security goal still holds — it is just achieved AFTER the
+    // open, by severing `opener` on the child ourselves.
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (!win) return; // genuinely popup blocked — fail gracefully
+    // Same blast-radius reduction noopener was reaching for: the popup only ever
+    // holds content written below, so it has no legitimate use for a back
+    // reference to this window.
+    try { win.opener = null; } catch { /* cross-origin guard; not fatal */ }
     try {
       // H2: ship the editor's full stylesheet (theme tokens + BASE_CSS, content
       // wrapped in .oe-editor) so the printout matches the editor — previously

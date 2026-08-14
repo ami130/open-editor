@@ -44,9 +44,17 @@ export function rawExportPdfSpec(config = {}) {
     // Same mechanism as the free print(): a blank popup we fully own, so no
     // editor CSS leaks in and the print stylesheet is authoritative. Fail
     // gracefully on popup-block / CSP-blocked write (mirrors editor-view.js).
-    // noopener: this popup only ever holds content we write ourselves — no
-    // legitimate reason to keep a `window.opener` back-reference.
-    const win = window.open('', '_blank', 'width=820,height=640,noopener');
+    //
+    // ⚠️ DO NOT PUT `noopener` BACK IN THE FEATURE STRING. Per spec it makes
+    // `window.open` return NULL — that is what noopener means — but we must
+    // WRITE the print document into this window. With it, `win` was always
+    // null, so EVERY PDF export took the popup-blocked branch and told the
+    // customer to "allow pop-ups", a fix that could not possibly work. This
+    // was the paid feature failing 100% of the time, for everyone.
+    //
+    // `opener` is severed immediately after opening instead — same protection,
+    // without throwing away the handle we need.
+    const win = window.open('', '_blank', 'width=820,height=640');
     if (!win) {
       editor.emit('exportPdfBlocked', { reason: 'popup-blocked' });
       // The single most common silent failure — now visible + actionable.
@@ -54,6 +62,9 @@ export function rawExportPdfSpec(config = {}) {
       if (t) t.error('Couldn’t open the print window — allow pop-ups for this site, then try again.');
       return false;
     }
+    // The blast-radius reduction `noopener` was reaching for, applied where it
+    // does not cost us the window handle.
+    try { win.opener = null; } catch { /* cross-origin guard; not fatal */ }
     try {
       win.document.write(doc);
       win.document.close();
