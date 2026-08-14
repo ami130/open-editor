@@ -193,10 +193,35 @@ export const editorLicenseMixin = {
     // the in-flight install promise on the editor so the awaitable callers
     // (_verifyAndApplyLicense → setLicenseKey/_initLicense) can await the bundled
     // install actually finishing. Still .catch so a failure never rejects unheard.
+    //
+    // ⚠️ ORDERING: 2b above already rebuilt the toolbar and re-contributed
+    // buttons — but BUNDLED premium installs ASYNCHRONOUSLY, so at that moment
+    // export-pdf/export-docx were not installed yet and had no buttons to
+    // contribute. Nothing re-ran afterwards, so a paying customer got a working
+    // `editor.exportPdf()` and NO TOOLBAR BUTTON, for the one feature they paid
+    // for. Every other signal looked healthy: the plugin reported installed,
+    // the feature reported granted, the spec offered the button.
+    //
+    // So re-contribute once the async install has actually settled. Idempotent
+    // (addButton dedupes by name), so the common case where premium is already
+    // installed costs one no-op pass.
     try {
-      this._premiumInstallPromise = Promise.resolve(registerAndInstallPremiumPlugins(this)).catch((e) => {
-        this.logger && this.logger.warn('applyEntitlements: premium plugin install failed:', e && e.message);
-      });
+      this._premiumInstallPromise = Promise.resolve(registerAndInstallPremiumPlugins(this))
+        .then(() => {
+          if (this._destroyed) return;
+          try {
+            if (this.plugins && typeof this.plugins.contributeAllToolbarButtons === 'function') {
+              this.plugins.contributeAllToolbarButtons();
+            }
+          } catch (e) {
+            this.logger && this.logger.warn(
+              'applyEntitlements: premium toolbar contribution failed:', e && e.message,
+            );
+          }
+        })
+        .catch((e) => {
+          this.logger && this.logger.warn('applyEntitlements: premium plugin install failed:', e && e.message);
+        });
     } catch (e) {
       this.logger && this.logger.warn('applyEntitlements: premium plugin register failed:', e && e.message);
       this._premiumInstallPromise = Promise.resolve();
