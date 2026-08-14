@@ -109,12 +109,24 @@ for (const [name, src] of [['free', free], ['premium', premium]]) {
 //
 // A keyless build is LEGITIMATE for local development, so this is only fatal
 // when a keyring was requested — otherwise it warns, loudly.
+//
+// ⚠️ THAT WARNING WAS NOT ENOUGH, AND A REAL RELEASE SHIPPED WITHOUT A KEYRING.
+// The trap is that "was a keyring requested?" was inferred from the very
+// variable you forget: no DELIVERY_LICENSE_KEYS meant no check, so the build
+// went green, uploaded, and served `keyring:n=[]` to every customer. A licence
+// then failed to verify in the browser and the editor silently fell back to
+// free — the paying customer saw no PDF/DOCX button and no error anywhere.
+//
+// So intent is now declared INDEPENDENTLY of the key material: set
+// DELIVERY_RELEASE=1 for anything customers will download, and a missing
+// keyring is fatal. Local builds are unaffected and still just warn.
 {
   const wanted = (process.env.DELIVERY_LICENSE_KEYS || '').trim();
+  const isRelease = /^(1|true|yes)$/i.test((process.env.DELIVERY_RELEASE || '').trim());
   for (const [name, src] of [['free', free], ['premium', premium]]) {
     // Terser strips quotes from object keys, so match the compiled shape.
     const hasKeyring = /licenseKeys:\[\{kid:/.test(src);
-    if (wanted) {
+    if (wanted || isRelease) {
       check(hasKeyring, `${name}.js has the licence keyring embedded`);
     } else if (!hasKeyring) {
       warn(
