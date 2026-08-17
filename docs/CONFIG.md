@@ -30,6 +30,7 @@ editor's actual `DEFAULTS` — if it's documented here, it works.
 - [Callbacks & persistence](#callbacks--persistence)
 - [Internationalization](#internationalization-locale)
 - [Events](#events)
+- [What changed in 2.0](#what-changed-in-20)
 - [Migrating from Jodit](#migrating-from-jodit)
 
 ---
@@ -587,6 +588,59 @@ In the wrappers, the common ones are props/outputs: React
 `change/ready/focus/blur/error`; Angular outputs
 `changed/ready/focused/blurred/errored`. For anything else, grab the instance
 (ref / template ref / `@ViewChild`) and call `editor.on(…)`.
+
+---
+
+## What changed in 2.0
+
+The editor is no longer installed — it is delivered. `npm install` puts a small
+loader in `node_modules`, and the engine is downloaded, integrity-checked and
+mounted when your page loads. The payoff is that entitlements become live: buy a
+licence and the features appear on the next page load, with no reinstall, no
+redeploy and no version bump.
+
+Four things changed for you:
+
+| 1.x | 2.x |
+|---|---|
+| `new OpenEditor('#app', {…})` | `await createEditor('#app', {…})` |
+| — | `endpoint` is required |
+| `npm i openeditor-text openeditor-text-react` | `npm i openeditor-text`, import `openeditor-text/react` |
+| `import { localeAr } from 'openeditor-text'` | pass a translation map to `locale` |
+
+**Construction is asynchronous.** The engine arrives over the network, so
+`createEditor` returns a promise:
+
+```js
+// 1.x
+const editor = new OpenEditor('#app', { theme: 'dark' });
+
+// 2.x
+const editor = await createEditor('#app', {
+  endpoint: 'https://your-delivery-host.com',
+  theme: 'dark',
+});
+```
+
+**The wrapper packages are retired.** `openeditor-text-react`,
+`openeditor-text-vue` and `openeditor-text-angular` stopped at 1.2.0 and do not
+work against a 2.x core — they call the old constructor, which no longer exists
+as a value. Uninstall them and switch to the subpath imports:
+
+```bash
+npm uninstall openeditor-text-react   # or -vue / -angular
+```
+
+```jsx
+import { OpenEditor } from 'openeditor-text/react';
+```
+
+**Locale packs are not importable.** See
+[Internationalization](#internationalization-locale) above — pass a translation
+map instead.
+
+Everything else — every option, event, command and plugin on this page — is
+unchanged. Once the editor is constructed, 2.x behaves exactly like 1.x.
 
 ---
 
