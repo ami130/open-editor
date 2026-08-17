@@ -140,10 +140,10 @@ export function createWordGoalPlugin({ goal = 100 } = {}) {
 Use it:
 
 ```js
-import { OpenEditor } from 'openeditor-text';
+import { createEditor } from 'openeditor-text';
 import { createWordGoalPlugin } from './word-goal-plugin.js';
 
-const editor = new OpenEditor('#app');
+const editor = await createEditor('#app', { endpoint });
 editor.plugins.install(createWordGoalPlugin({ goal: 50 }));
 ```
 

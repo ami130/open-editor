@@ -13,11 +13,11 @@ This is the **user-facing guide**. For the internal design of the token system
 ## Quick start
 
 ```js
-import { OpenEditor } from 'omi-open-editor';
+import { createEditor } from 'openeditor-text';
 
 // Pick a theme at construction time (no flash — the theme is applied before
 // the first paint).
-const editor = new OpenEditor('#app', { theme: 'dark' });
+const editor = await createEditor('#app', { endpoint, theme: 'dark' });
 
 // …or switch at runtime.
 editor.setTheme('minimal');
@@ -160,7 +160,7 @@ only on those older engines.
 
 ```js
 // Construction
-new OpenEditor(el, { theme: 'dark' })   // 'light' | 'dark' | 'minimal' | 'auto'
+await createEditor(el, { endpoint, theme: 'dark' })   // 'light' | 'dark' | 'minimal' | 'auto'
 
 // Runtime
 editor.setTheme('minimal')              // switch theme; emits 'themeChange'

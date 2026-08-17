@@ -4,11 +4,9 @@ Everything you can pass to the editor, how to pass it from every framework, and
 what each option does. All options on this page are verified against the
 editor's actual `DEFAULTS` — if it's documented here, it works.
 
-> **Package naming:** the editor ships on npm as the `openeditor` family —
-> engine **`openeditor-text`**, wrappers **`openeditor-text-react`** /
-> **`openeditor-text-vue`** / **`openeditor-text-angular`**, and the
-> **`openeditors`** CLI. The legacy `@open-editor-hq/core` package is
-> deprecated in favor of `openeditor-text`.
+> **One package:** everything ships as **`openeditor-text`** — the loader, the
+> React/Vue/Angular wrappers, and the types. Earlier releases split the wrappers
+> into separate packages; from 2.0 they are subpath imports of this one.
 
 ## Contents
 
@@ -38,23 +36,29 @@ editor's actual `DEFAULTS` — if it's documented here, it works.
 
 ## Installation
 
-The fastest door — one command, auto-detects your framework and package manager:
+One package, whatever your framework:
 
 ```bash
-npx openeditors add text
+npm i openeditor-text
 ```
 
-Or install directly:
+The React, Vue and Angular wrappers ship **inside** that package as subpath
+imports — there is nothing extra to install:
 
-| Your stack | Install |
+| Your stack | Import from |
 |---|---|
-| Plain JavaScript / any framework via the core | `npm i openeditor-text` |
-| **React** (and Next.js) | `npm i openeditor-text openeditor-text-react` |
-| **Vue 3** | `npm i openeditor-text openeditor-text-vue` |
-| **Angular** (≥ 17) | `npm i openeditor-text openeditor-text-angular` |
+| Plain JavaScript / any framework | `openeditor-text` |
+| **React** (and Next.js) | `openeditor-text/react` |
+| **Vue 3** | `openeditor-text/vue` |
+| **Angular** (≥ 17) | `openeditor-text/angular` |
 
-The engine has **zero dependencies**; each wrapper's only peers are its
-framework and the engine.
+React, Vue and Angular are **optional** peer dependencies, so you only pull in
+the one you already use.
+
+> **Upgrading from 1.x?** The separate `openeditor-text-react`,
+> `openeditor-text-vue` and `openeditor-text-angular` packages are no longer
+> used — uninstall them and switch to the subpath imports above. See
+> [what changed in 2.0](#what-changed-in-20) below.
 
 ---
 
@@ -62,12 +66,13 @@ framework and the engine.
 
 ### Plain JavaScript
 
-Options are the second argument to the constructor:
+Options are the second argument to `createEditor`:
 
 ```js
-import { OpenEditor } from 'openeditor-text';
+import { createEditor } from 'openeditor-text';
 
-const editor = new OpenEditor('#app', {
+const editor = await createEditor('#app', {
+  endpoint: 'https://your-delivery-host.com',
   theme: 'dark',
   placeholder: 'Write something…',
   maxLength: 5000,
@@ -78,12 +83,23 @@ const editor = new OpenEditor('#app', {
 The first argument is a selector string or an `HTMLElement`. The toolbar,
 status bar, and all styling are injected by the editor itself.
 
+Two things are new in 2.x:
+
+- **`createEditor` is asynchronous.** Installing this package puts only a small
+  loader on disk; the editor itself is downloaded when your page runs, so
+  creating one returns a promise.
+- **`endpoint` is required** — it is where the editor is downloaded from. You
+  get the URL when you sign up, or it is your own server if you self-host.
+
+Everything else on this page is an ordinary editor option and behaves exactly as
+it always has.
+
 ### React
 
 The wrapper takes the same object via the `config` prop:
 
 ```jsx
-import { OpenEditor } from 'openeditor-text-react';
+import { OpenEditor } from 'openeditor-text/react';
 
 <OpenEditor
   value={html}
@@ -116,7 +132,7 @@ render it client-side:
 import dynamic from 'next/dynamic';
 
 const OpenEditor = dynamic(
-  () => import('openeditor-text-react').then((m) => m.OpenEditor),
+  () => import('openeditor-text/react').then((m) => m.OpenEditor),
   { ssr: false },
 );
 ```
@@ -129,7 +145,7 @@ whole integration.
 ```vue
 <script setup>
 import { ref } from 'vue';
-import { OpenEditor } from 'openeditor-text-vue';
+import { OpenEditor } from 'openeditor-text/vue';
 
 const html = ref('<p>Hello</p>');
 const config = { placeholder: 'Write something…', maxLength: 5000 };
@@ -141,7 +157,7 @@ const config = { placeholder: 'Write something…', maxLength: 5000 };
 ```
 
 A `useOpenEditor()` composable is also available for bring-your-own-element
-setups — see the `openeditor-text-vue` README.
+setups — see the Vue wrapper's types.
 
 ### Angular
 
@@ -151,7 +167,7 @@ reactive forms:
 ```ts
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { OpenEditorComponent } from 'openeditor-text-angular';
+import { OpenEditorComponent } from 'openeditor-text/angular';
 
 @Component({
   standalone: true,
@@ -207,10 +223,10 @@ export class AppComponent {
 
 ```js
 // A fixed 500px editor that scrolls internally (Jodit-style fixed height):
-new OpenEditor('#app', { height: 500 });
+await createEditor('#app', { endpoint, height: 500 });
 
 // Grows from 300px, scrolls after 600px:
-new OpenEditor('#app', { minHeight: 300, maxHeight: 600 });
+await createEditor('#app', { endpoint, minHeight: 300, maxHeight: 600 });
 ```
 
 ---
@@ -228,7 +244,8 @@ new OpenEditor('#app', { minHeight: 300, maxHeight: 600 });
 | `maxLength` | number \| null | `null` | Max character count; blocks further input and emits `maxLengthExceeded`. |
 
 ```js
-new OpenEditor('#app', {
+await createEditor('#app', {
+  endpoint,
   defaultContent: '<p>Draft loaded from the server…</p>',
   maxLength: 10000,
   allowTags: ['my-note'],
@@ -268,7 +285,8 @@ An item descriptor is one of:
 A minimal writing toolbar:
 
 ```js
-new OpenEditor('#app', {
+await createEditor('#app', {
+  endpoint,
   toolbar: {
     items: [
       [
@@ -341,7 +359,8 @@ toolbar: {
 
 ```js
 // Never prompt; always clean pasted HTML down to canonical tags:
-new OpenEditor('#app', {
+await createEditor('#app', {
+  endpoint,
   askBeforePasteHTML: false,
   askBeforePasteFromWord: false,
   defaultActionOnPaste: 'keep',
@@ -354,9 +373,21 @@ Ctrl/Cmd+Shift+V always pastes as plain text.
 
 ## Images & uploads
 
+> **Connecting uploads to your own API + database?** This table is the reference;
+> the step-by-step setup guide (with server examples for Node/Express, Next.js,
+> and NestJS, plus auth) lives in **[Image uploads](/docs/IMAGE-UPLOAD)**.
+
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `imageUploadUrl` | string \| null | `null` | POST endpoint for image uploads. See the contract below. |
+| `imageUploadHandler` | `(file,{signal,onProgress})=>url \| {url,width?,height?,sources?}` \| null | `null` | Take over the upload yourself — S3/R2 pre-signed URLs, Cloudinary, or any two-step flow `imageUploadUrl` cannot express. **Wins over `imageUploadUrl`.** See [Image uploads](/docs/IMAGE-UPLOAD#step-7--take-over-the-upload-entirely-s3-cloudinary-pre-signed-urls). |
+| `imageUploadHeaders` | object \| `(file) => object` \| null | `null` | Extra request headers — e.g. `{ Authorization: 'Bearer …' }`, an API key, `X-CSRF-Token`. **Never set `Content-Type`** (it would break the multipart boundary; it is ignored). |
+| `imageUploadWithCredentials` | boolean | `false` | Send cookies on a cross-origin upload (same-site session auth). |
+| `imageUploadFieldName` | string \| null | `null` | Override the multipart field name (default `file`) — e.g. `image`, `upload`. |
+| `imageUploadData` | object \| `(file) => object` \| null | `null` | Extra form fields sent with the file (folder id, CSRF token, post id to link the upload in your DB). |
+| `imageUploadResponse` | `(json) => url \| {url,sources?}` \| null | `null` | Map a custom server response shape to a URL (Jodit's `process()` equivalent). |
+| `imageMaxFileSize` | number | `10485760` | Max upload size in bytes (default 10 MB) — enforced on dialog, drop, and paste. |
+| `imageRequireAlt` | boolean | `false` | Require non-empty alt text before an image can be inserted (accessibility). |
 | `imageAllowDataUri` | boolean | `false` | Permit `data:` image URIs (security-relevant — off by default). |
 | `imageDefaultWidth` | number \| null | `null` | Width applied to inserted images that carry no size. |
 | `imageAvailableClasses` | `[{value,label}]` \| null | `null` | Class dropdown in the Image Properties dialog. |
@@ -389,17 +420,20 @@ a responsive `<picture>` (the `<img>` stays as fallback):
 ```
 
 Every returned URL (including each `srcset`) is scheme-checked with the same
-URL policy as any `src` — an unsafe URL rejects the whole upload. There is no
-client-side response transformer: if your API wraps the payload (e.g.
-`{ data: { url } }`), return the flat shape from the endpoint you point the
-editor at (a thin proxy route works).
+URL policy as any `src` — an unsafe URL rejects the whole upload. The common
+nested shape `{ "data": { "url": … } }` (NestJS/Laravel-style) is understood out
+of the box. For any other shape, map it with **`imageUploadResponse`** — a
+function that receives the parsed JSON and returns the URL string (or
+`{ url, sources }`); this is the equivalent of Jodit's `process()` hook. Full
+examples are in the [Image uploads guide](/docs/IMAGE-UPLOAD).
 
 **Without `imageUploadUrl`:** local files become `data:` URIs, which are
 blocked unless you opt in with `imageAllowDataUri: true`. Inserting by URL
 always works.
 
 ```js
-new OpenEditor('#app', {
+await createEditor('#app', {
+  endpoint,
   imageUploadUrl: 'https://api.example.com/uploads/editor-image',
   imageDefaultWidth: 480,
   imageAvailableClasses: [
@@ -487,20 +521,12 @@ packs** — Spanish, French, German, and Arabic — and a bring-your-own-locale
 mechanism. Whatever you pass is merged over the English defaults, so partial
 maps are fine (anything you omit falls back to English).
 
-```js
-// Shipped pack (tree-shaken away unless imported):
-import { OpenEditor, localeAr } from 'openeditor-text';
-// or per-language subpath: import { ar } from 'openeditor-text/locales/ar';
-
-const editor = new OpenEditor('#app', {
-  locale: localeAr,
-  direction: 'rtl',      // pair Arabic (or Hebrew maps) with RTL
-});
-```
+**`locale` takes a translation map** — an object whose keys are label names.
+Whatever you pass is merged over English, so partial maps are fine:
 
 ```js
-// Your own (full or partial) translation map:
-const editor = new OpenEditor('#app', {
+const editor = await createEditor('#app', {
+  endpoint,
   locale: {
     bold: 'Gras',
     italic: 'Italique',
@@ -510,12 +536,26 @@ const editor = new OpenEditor('#app', {
 });
 ```
 
-Available packs: `localeEs`, `localeFr`, `localeDe`, `localeAr` (or subpaths
-`openeditor-text/locales/es|fr|de|ar`). Passing a string (`locale: 'en'`)
-selects the built-in set. Label keys are stable and documented by the
-built-in `EN_LOCALE` export; every pack covers the full key set (CI-enforced,
-so a new UI string can never ship untranslated). The status bar uses CJK-aware
-word counting.
+For a right-to-left language, pair the map with `direction`:
+
+```js
+const editor = await createEditor('#app', {
+  endpoint,
+  locale: myArabicLabels,
+  direction: 'rtl',
+});
+```
+
+> **Changed in 2.0.** In 1.x you imported a pack — `import { localeAr } from
+> 'openeditor-text'`. That is not possible now: the engine is downloaded at
+> runtime, so there is nothing on disk to import from, and
+> `openeditor-text/locales/*` no longer resolves.
+>
+> A **string** locale code (`locale: 'es'`) is accepted but currently falls back
+> to English — only an object map changes the labels. If you were relying on a
+> shipped pack, supply the map yourself for now.
+
+The status bar uses CJK-aware word counting.
 
 ---
 

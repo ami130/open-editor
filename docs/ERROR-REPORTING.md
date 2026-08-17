@@ -43,8 +43,9 @@ optionally attach editor state for reproduction:
 
 ```js
 import * as Sentry from '@sentry/browser';
+import { createEditor } from 'openeditor-text';
 
-const editor = new OpenEditor('#app');
+const editor = await createEditor('#app', { endpoint });
 
 editor.on('error', ({ error, context }) => {
   Sentry.withScope((scope) => {
