@@ -1,6 +1,6 @@
 {
   "name": "openeditor-text",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": false,
   "description": "Open Editor — the rich text editor, delivered at runtime. Installing this puts only a small loader in node_modules; the editor engine is fetched, integrity-verified and mounted at page load.",
   "license": "MIT",
