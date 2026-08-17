@@ -547,14 +547,24 @@ const editor = await createEditor('#app', {
 });
 ```
 
+**Or pass a language code** to use one of the four shipped packs — Spanish,
+French, German and Arabic:
+
+```js
+const editor = await createEditor('#app', { endpoint, locale: 'es' });
+
+// A region suffix works too, matched by its base language:
+await createEditor('#app', { endpoint, locale: navigator.language }); // 'es-MX' → Spanish
+```
+
+Every pack covers the full label set (CI-enforced, so a new UI string can never
+ship untranslated). An unknown code falls back to English rather than throwing.
+
 > **Changed in 2.0.** In 1.x you imported a pack — `import { localeAr } from
-> 'openeditor-text'`. That is not possible now: the engine is downloaded at
-> runtime, so there is nothing on disk to import from, and
-> `openeditor-text/locales/*` no longer resolves.
->
-> A **string** locale code (`locale: 'es'`) is accepted but currently falls back
-> to English — only an object map changes the labels. If you were relying on a
-> shipped pack, supply the map yourself for now.
+> 'openeditor-text'`. That is no longer possible: the engine is downloaded at
+> runtime, so there is nothing on disk to import, and
+> `openeditor-text/locales/*` does not resolve. Pass the code (or a map)
+> instead — the packs travel with the engine, so no import is needed.
 
 The status bar uses CJK-aware word counting.
 
@@ -606,7 +616,7 @@ Four things changed for you:
 | `new OpenEditor('#app', {…})` | `await createEditor('#app', {…})` |
 | — | `endpoint` is required |
 | `npm i openeditor-text openeditor-text-react` | `npm i openeditor-text`, import `openeditor-text/react` |
-| `import { localeAr } from 'openeditor-text'` | pass a translation map to `locale` |
+| `import { localeAr } from 'openeditor-text'` | `locale: 'ar'` — no import needed |
 
 **Construction is asynchronous.** The engine arrives over the network, so
 `createEditor` returns a promise:
@@ -635,9 +645,9 @@ npm uninstall openeditor-text-react   # or -vue / -angular
 import { OpenEditor } from 'openeditor-text/react';
 ```
 
-**Locale packs are not importable.** See
-[Internationalization](#internationalization-locale) above — pass a translation
-map instead.
+**Locale packs are selected by code, not imported.** `locale: 'ar'` replaces
+`import { localeAr }` — the packs travel with the engine, so there is nothing to
+import. See [Internationalization](#internationalization-locale) above.
 
 Everything else — every option, event, command and plugin on this page — is
 unchanged. Once the editor is constructed, 2.x behaves exactly like 1.x.

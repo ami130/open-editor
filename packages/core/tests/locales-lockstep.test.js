@@ -44,3 +44,45 @@ describe('17.11 — locale packs stay in lockstep with EN_LOCALE', () => {
     }
   });
 });
+
+describe('locale: a STRING code selects a shipped pack', () => {
+  // THE GAP THIS CLOSES. Under runtime delivery there is no way to IMPORT a
+  // pack — `import { localeEs } from 'openeditor-text'` has nothing on disk to
+  // bind to, and `openeditor-text/locales/*` does not resolve. The packs were
+  // compiled into the bundle but nothing could select them: four complete
+  // translations, shipped and unreachable, with `locale: 'es'` silently
+  // falling through to English rather than saying so.
+  it('resolves a plain language code', () => {
+    expect(resolveLocale('es').bold).toBe(es.bold);
+    expect(resolveLocale('fr').bold).toBe(fr.bold);
+    expect(resolveLocale('de').bold).toBe(de.bold);
+    expect(resolveLocale('ar').bold).toBe(ar.bold);
+  });
+
+  it('honours a region suffix by its base language', () => {
+    // navigator.language hands integrators region-tagged values; matching only
+    // exact codes would silently give 'es-MX' users English.
+    expect(resolveLocale('es-MX').bold).toBe(es.bold);
+    expect(resolveLocale('fr_CA').bold).toBe(fr.bold);
+    expect(resolveLocale('AR').bold).toBe(ar.bold);
+  });
+
+  it('still covers the FULL key set, not just the keys the pack defines', () => {
+    // Merged over EN, so a pack missing a key cannot leave it undefined.
+    const resolved = resolveLocale('es');
+    for (const k of EN_KEYS) expect(typeof resolved[k]).toBe('string');
+  });
+
+  it('degrades to English for anything unknown — never throws', () => {
+    for (const bad of ['zz', 'klingon', '', '   ', null, undefined, 42, [], true]) {
+      expect(() => resolveLocale(bad)).not.toThrow();
+      expect(resolveLocale(bad).bold).toBe(EN_LOCALE.bold);
+    }
+  });
+
+  it('an object map still wins, and still merges over EN', () => {
+    const custom = resolveLocale({ bold: 'Gras' });
+    expect(custom.bold).toBe('Gras');
+    expect(custom.italic).toBe(EN_LOCALE.italic);
+  });
+});

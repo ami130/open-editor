@@ -1,208 +1,221 @@
-# @openeditors/loader
+# Open Editor
 
-The runtime loader for Open Editor. This package is the **only** code that lands
-in your `node_modules` — the editor engine itself is fetched at page load,
-verified, and mounted. Nothing of the editor ever touches your disk.
+A rich text editor for the web. `npm install` puts a small loader in your
+`node_modules` — the editor itself is downloaded and mounted when your page
+loads, so buying a licence upgrades your users on their next refresh with no
+reinstall and no redeploy.
+
+[Live demo](https://open-editor-text-web.vercel.app/demo) ·
+[Docs](https://open-editor-text-web.vercel.app/docs) ·
+[Pricing](https://open-editor-text-web.vercel.app/pricing)
+
+## Installation
+
+```bash
+npm install openeditor-text
+```
+
+## Usage
 
 ```js
-import { createEditor } from '@openeditors/loader';
+import { createEditor } from 'openeditor-text';
 
-const editor = await createEditor('#app', {
-  endpoint: 'https://delivery.yourdomain.com',
-  licenceKey: 'oe_live_…',        // omit for the free tier
-  placeholder: 'Start typing…',   // any editor option, forwarded untouched
+const editor = await createEditor('#editor', {
+  endpoint: 'https://your-delivery-host.com',
 });
 ```
 
-## ⚠️ Your CSP must allow `blob:`
+That is the whole setup. `endpoint` is the one required option — the address the
+editor is downloaded from, given to you when you sign up (or your own server if
+you self-host). Everything else is optional.
 
-```
-Content-Security-Policy: script-src 'self' blob:;
-```
-
-**This is required, not optional.** The engine is downloaded, hash-verified, and
-only then executed — which means it is evaluated from a blob URL rather than a
-`<script src>`. We measured every alternative in Chromium, Firefox and WebKit:
-
-| Your CSP | Works? |
-|---|---|
-| `script-src 'self'` | ❌ |
-| `script-src 'self' blob:` | ✅ |
-| `script-src 'self' 'unsafe-eval'` | ❌ (and it is the worse directive) |
-
-If your CSP cannot be changed, use the `openeditor-text` npm package instead.
-When a CSP does block loading, the error names the exact directive to add.
-
-## What happens when it cannot load
-
-Never a blank box. By default the container gets a **plain, usable textarea**
-carrying your `defaultContent` and form field `name`, so someone mid-sentence
-keeps writing and the form still submits.
-
-```js
-await createEditor('#app', {
-  endpoint: '…',
-  name: 'body',              // the textarea's form field name
-  fallback: 'Editor unavailable — plain text for now.',   // or false to disable
-  onError: (err) => report(err),
-});
-```
-
-## Options
-
-Everything not listed below is forwarded to the editor untouched — including
-functions like `onChange` and upload handlers, which are passed by reference and
-never serialised. A new editor option needs **no loader release** to be usable.
-
-| Option | Default | |
-|---|---|---|
-| `endpoint` | — | **Required.** Your delivery API origin |
-| `licenceKey` | `null` | Unlocks premium. Absent → free tier, no signup |
-| `version` | `null` | Pin a build (a licence-level pin still wins) |
-| `plugins` | `'all'` | `[]` for none, or an array of plugin factories |
-| `cache` | `true` | `false` for kiosks or strict privacy policies |
-| `fallback` | `true` | `false` to disable, or a string to change the message |
-| `name` | — | Form field name for the fallback textarea |
-| `onError` | — | Called with any load failure |
-
-## Storing images and content
-
-Everything below is your infrastructure — the editor never stores content.
-These are ordinary editor options, forwarded untouched through the loader
-(including functions, which are passed by reference, never serialised).
-
-```js
-await createEditor('#app', {
-  endpoint: '…',
-
-  // Images → your API, which decides folder vs database.
-  imageUploadUrl: 'https://api.you/upload',
-  imageUploadHeaders: { Authorization: `Bearer ${token}` },
-
-  // Content → wherever you like, on every edit.
-  onChange: ({ html }) => save(html),
-});
-```
-
-For **S3/R2 pre-signed uploads, Cloudinary, or any two-step flow** that a
-single POST URL cannot express, take the upload over entirely — the file can go
-straight to storage without passing through your server:
-
-```js
-imageUploadHandler: async (file, { signal, onProgress }) => {
-  const { uploadUrl, publicUrl } = await fetch('/api/sign', {
-    method: 'POST', body: JSON.stringify({ name: file.name }), signal,
-  }).then((r) => r.json());
-  await fetch(uploadUrl, { method: 'PUT', body: file, signal });
-  onProgress(100);
-  return publicUrl;
-},
-```
-
-`imageUploadHandler` wins over `imageUploadUrl` when both are set. Pass `signal`
-to your requests so cancel works, and call `onProgress` so the progress bar
-moves. Full reference: [Image uploads](https://openeditor.dev/docs/IMAGE-UPLOAD).
-
-## Caching
-
-The engine is cached in IndexedDB, so a returning visitor mounts with **no
-network request for the bundle at all**. Entries are keyed by
-`endpoint + version + plan` — never version alone, or an upgraded customer would
-keep loading the free bundle — and evicted by least-recent use.
-
-```js
-import { clearCache } from '@openeditors/loader';
-await clearCache();   // support answer: "try clearing your editor cache"
-```
-
-## Framework wrappers
-
-```js
-import { OpenEditor } from '@openeditors/loader/react';
-import { OpenEditor } from '@openeditors/loader/vue';
-import { OpenEditorComponent } from '@openeditors/loader/angular';
-```
-
-Each mirrors its `openeditor-text-*` counterpart: uncontrolled by default,
-echoes of your own `onChange` never re-enter the editor, and the same reactive
-props. One difference matters — **mounting is asynchronous**, so `editor` is
-`null` until the engine has downloaded.
+### React
 
 ```jsx
-<OpenEditor
-  endpoint="https://delivery.yourdomain.com"
-  licenceKey={key}
-  value={html}
-  onChange={setHtml}
-  onLoadError={(err) => report(err)}
-/>
+import { useState } from 'react';
+import { OpenEditor } from 'openeditor-text/react';
+
+function App() {
+  const [content, setContent] = useState('<p>Hello world</p>');
+
+  return (
+    <OpenEditor
+      endpoint="https://your-delivery-host.com"
+      value={content}
+      onChange={setContent}
+    />
+  );
+}
 ```
+
+### Vue
+
+```vue
+<script setup>
+import { ref } from 'vue';
+import { OpenEditor } from 'openeditor-text/vue';
+
+const content = ref('<p>Hello world</p>');
+</script>
+
+<template>
+  <OpenEditor endpoint="https://your-delivery-host.com" v-model="content" />
+</template>
+```
+
+### Angular
+
+```ts
+import { OpenEditorComponent } from 'openeditor-text/angular';
+
+@Component({
+  standalone: true,
+  imports: [OpenEditorComponent, FormsModule],
+  template: `
+    <open-editor
+      endpoint="https://your-delivery-host.com"
+      [(ngModel)]="content"
+    />
+  `,
+})
+export class AppComponent {
+  content = '<p>Hello world</p>';
+}
+```
+
+React, Vue and Angular are optional peer dependencies — you only need the one
+you use.
+
+## Licence keys
+
+**The free tier needs no key** — no signup, no account, no card.
+
+When you buy a plan, pass the key you were emailed:
+
+```js
+const editor = await createEditor('#editor', {
+  endpoint: 'https://your-delivery-host.com',
+  licenceKey: 'eyJhbGciOiJFUzI1NiIs…',
+});
+```
+
+The same `licenceKey` prop works in React, Vue and Angular. (`licenseKey` is
+accepted too, so either spelling is fine.)
+
+Keys are checked by the server on every page load and are tied to the domains
+you registered. If a key is expired, revoked, or used on a domain you did not
+register, the editor still loads on the free tier — your users get a working
+editor, never a blank page.
 
 ### Upgrading a live editor
 
-Changing `licenceKey` re-verifies in place. But the **plan** decides which
-bundle was downloaded, and a free bundle contains **no premium code at all** —
-so a free editor handed a premium licence unlocks nothing. There is nothing to
-install. A reload is required.
+`applyLicence` re-verifies a key in place:
 
-The editor is **never swapped underneath a live document**. Someone has just
-paid and is mid-sentence; re-mounting to fetch a different bundle risks the
-worst possible outcome on their first paid transaction. Instead, the loader
-shows a small, dismissible prompt and lets them choose the moment:
+```js
+import { applyLicence } from 'openeditor-text';
+
+await applyLicence(editor, newKey, { endpoint });
+```
+
+If the new key only changes *which* features are granted, it applies instantly —
+content, cursor and undo history all survive.
+
+If it changes the **plan**, a reload is needed: the free build contains no
+premium code, so there is nothing to switch on. Rather than re-mounting the
+editor under someone who is mid-sentence, the loader shows a small dismissible
+prompt and lets them pick the moment:
 
 > **Premium unlocked — reload to activate it.**  [ Reload ]  ×
 
-It never steals focus, announces politely to screen readers, and is opt-out
-(`prompt: false`) for hosts with their own design system. **Downgrades never
-prompt** — losing a feature is survivable, and interrupting someone's work to
-offer them *fewer* features is pure harm; the premium bundle keeps running
-until their next natural page load.
-
-A same-plan entitlement change needs no reload at all, and is measured safe:
-content, cursor, undo history and typing all survive it untouched.
-
-```jsx
-<OpenEditor
-  licenceKey={key}
-  onLicenceApplied={({ applied, reloadRequired }) => {
-    if (reloadRequired) showBanner('Premium unlocked — reload to activate');
-  }}
-/>
-```
-
-Vue emits `licence-applied`; Angular emits `licenceApplied`.
+Pass `prompt: false` to suppress it and handle the reload yourself. Downgrades
+never prompt — the premium bundle keeps running until the next natural page load.
 
 ### Buying premium from inside the editor
 
-A customer can upgrade without ever pasting a key. Show them their editor ID:
+Customers can upgrade without pasting anything. Show them their editor ID:
 
 ```js
 import { showInstallId } from 'openeditor-text';
 
-// Put this behind your own "Upgrade" button — it is NOT rendered automatically,
-// because most people loading an editor are not buying anything.
+// Put this behind your own "Upgrade" button — it is not rendered automatically.
 showInstallId(document.querySelector('#upgrade-panel'));
 ```
 
-They paste that ID at checkout. After payment, the **next load of that same
-browser** comes back premium — the key is delivered to it automatically and
-remembered, so it survives reloads.
+They give that ID at checkout, and the next load of that same browser comes back
+premium — the key is delivered automatically and remembered across reloads.
+`getInstallId()` returns the raw value if you prefer your own markup.
 
-Prefer your own markup? `getInstallId()` returns the raw value.
+The handover happens exactly once and then expires, so a leaked log line cannot
+be replayed to steal the licence. If the browser blocks site storage (private
+mode, sandboxed iframe) there is no ID, and `showInstallId()` says so plainly —
+those customers paste the emailed key instead.
 
-The handover happens **exactly once** and then expires. That is deliberate: an
-install ID appears in server logs, so a claim that could be replayed would let
-anyone who reads a log line take the licence. Showing the ID on screen is safe —
-on its own it authorises nothing.
+## Image uploads
 
-If the browser blocks site storage (private mode, sandboxed iframe), there is no
-ID and `showInstallId()` says so plainly instead of rendering an empty box —
-those customers buy normally and paste the emailed key.
+Give the editor somewhere to POST files and the toolbar button, drag-and-drop
+and paste-from-clipboard all start working:
 
-## Privacy
+```js
+const editor = await createEditor('#editor', {
+  endpoint: 'https://your-delivery-host.com',
+  imageUploadUrl: '/api/uploads',
+});
+```
 
-An anonymous install id is stored per browser profile so anonymous traffic can
-be rate-limited, usage counted, and — if you choose to use it — a purchase
-delivered to the browser that made it. It is **random** — never derived from your
-device, IP, or user agent — and clearing site data resets it. It identifies an
-install, not a person.
+Your endpoint receives the file as multipart field `file` and replies with JSON:
+
+```json
+{ "url": "https://cdn.example.com/img/abc.jpg" }
+```
+
+That is the whole contract. For authenticated backends add
+`imageUploadHeaders`, `imageUploadWithCredentials`, `imageUploadFieldName` or
+`imageUploadData`; for S3, R2 or Cloudinary pre-signed flows, `imageUploadHandler`
+lets you take over the upload entirely. Uploads are capped at 10 MB by default.
+
+Full reference: [image upload docs](https://open-editor-text-web.vercel.app/docs/IMAGE-UPLOAD).
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `endpoint` | `string` | — | **Required.** Where the editor is downloaded from. |
+| `licenceKey` | `string` | — | Unlocks paid features. Omit for the free tier. |
+| `imageUploadUrl` | `string` | — | Where uploaded images are POSTed. |
+| `plugins` | `'all' \| array` | `'all'` | Which plugins to install after mount. |
+| `version` | `string` | — | Pin a specific engine version. |
+| `cache` | `boolean` | `true` | Cache the engine in IndexedDB between visits. |
+
+Any other option is passed straight to the editor — `placeholder`, `minHeight`,
+`theme`, `toolbar`, and the rest. See the
+[configuration docs](https://open-editor-text-web.vercel.app/docs/CONFIG).
+
+## Content security policy
+
+The engine runs from a `blob:` URL, so your CSP must allow it:
+
+```
+script-src 'self' blob:;
+connect-src 'self' https://your-delivery-host.com;
+```
+
+Without `blob:` the editor will not start, and says so in the console.
+
+## Good to know
+
+**If the network fails**, the loader drops a plain `<textarea>` into your
+container with the same `name` and `id` a form expects — so your users keep
+writing and the form still submits.
+
+**Returning visitors download nothing.** The engine is cached in IndexedDB after
+the first visit; entitlements are still re-checked on every page load. Call
+`clearCache()` to clear it.
+
+**Privacy:** a random install id is stored per browser so anonymous traffic can
+be rate-limited. It is never derived from your device, IP or user agent, and
+identifies an install rather than a person. Your document content never leaves
+the browser.
+
+## Licence
+
+[MIT](https://github.com/ami130/open-editor/blob/main/LICENSE).

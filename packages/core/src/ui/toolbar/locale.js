@@ -1,8 +1,21 @@
 /**
  * i18n for the toolbar (7.23 / 7.24).
- * Default 'en' bundle ships here. Integrators pass `locale: 'en'` to use it,
- * or `locale: { bold: 'Gras', ... }` to override any subset of strings.
+ * Default 'en' bundle ships here. Integrators pass `locale: 'es'` to select a
+ * shipped pack, or `locale: { bold: 'Gras', ... }` to override any subset of
+ * strings.
  */
+import { es } from '../../locales/es.js';
+import { fr } from '../../locales/fr.js';
+import { de } from '../../locales/de.js';
+import { ar } from '../../locales/ar.js';
+
+/**
+ * Packs selectable by code. Deliberately a plain object rather than a lazy
+ * import: under runtime delivery the whole engine arrives as ONE file, so there
+ * is no separate chunk to defer — a dynamic import here would add asynchrony to
+ * a synchronous call for no payload saving whatsoever.
+ */
+const SHIPPED_LOCALES = { es, fr, de, ar };
 
 export const EN_LOCALE = {
   bold: 'Bold',
@@ -119,6 +132,33 @@ export function resolveLocale(localeConfig) {
   if (localeConfig && typeof localeConfig === 'object' && !Array.isArray(localeConfig)) {
     return Object.assign({}, EN_LOCALE, localeConfig);
   }
+  /**
+   * A STRING code selects a shipped pack — `locale: 'es'`.
+   *
+   * ─── WHY THIS EXISTS ──────────────────────────────────────────────────────
+   * Under runtime delivery there is no way to IMPORT a pack: the engine is
+   * downloaded at page load, so `import { localeEs } from 'openeditor-text'`
+   * has nothing on disk to bind to and `openeditor-text/locales/*` does not
+   * resolve. The four packs were still compiled into the bundle, but nothing
+   * could select them — Spanish, French, German and Arabic were shipped and
+   * unreachable, and `locale: 'es'` silently fell through to English rather
+   * than saying so.
+   *
+   * Matching by code closes that: the packs travel WITH the engine, so the
+   * mechanism that made them unimportable is the same one that makes a code
+   * sufficient.
+   *
+   * Case-insensitive, and a region suffix is honoured by its base language
+   * (`'es-MX'` → Spanish), because an integrator reading `navigator.language`
+   * gets region-tagged values and would otherwise silently get English.
+   */
+  if (typeof localeConfig === 'string') {
+    const base = localeConfig.trim().toLowerCase().split(/[-_]/)[0];
+    const pack = SHIPPED_LOCALES[base];
+    if (pack) return Object.assign({}, EN_LOCALE, pack);
+  }
+  // Unknown code, null, or anything else → English. Never throws: a typo'd
+  // locale must degrade to a working editor, not a broken one.
   return Object.assign({}, EN_LOCALE);
 }
 
