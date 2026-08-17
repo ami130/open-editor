@@ -1,8 +1,8 @@
 {
   "name": "openeditor-text-engine",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
-  "description": "Open Editor core engine \u2014 pure JavaScript, zero dependencies",
+  "description": "Open Editor core engine — pure JavaScript, zero dependencies",
   "type": "module",
   "license": "MIT",
   "author": "Open Editor contributors",
